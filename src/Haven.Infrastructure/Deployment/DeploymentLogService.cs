@@ -16,7 +16,7 @@ public class DeploymentLogService(
     IDeploymentLogNotifier notifier,
     IOptionsMonitor<InstanceOptions> instanceOptions) : IDeploymentLogService
 {
-    private readonly ConcurrentDictionary<Guid, StreamWriter> _writers = new();
+    private readonly ConcurrentDictionary<Guid, LogWriter> _writers = new();
 
     public async Task<Domain.Entities.Deployment> CreateDeploymentForServiceAsync(Guid serviceId, CancellationToken ct)
     {
@@ -31,11 +31,11 @@ public class DeploymentLogService(
         await unitOfWork.SaveChangesAsync(ct);
 
         Directory.CreateDirectory(baseLogFilePath);
-        var writer = new StreamWriter(
+        var writer = new LogWriter(new StreamWriter(
             new FileStream(logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
         {
             AutoFlush = true
-        };
+        });
         _writers[deployment.Id] = writer;
 
         return deployment;
@@ -93,11 +93,48 @@ public class DeploymentLogService(
         await unitOfWork.SaveChangesAsync(ct);
     }
 
-    private Task FlushAndClose(Guid deploymentId)
+    private async Task FlushAndClose(Guid deploymentId)
     {
         if (_writers.TryRemove(deploymentId, out var writer))
-            writer.Dispose();
+            await writer.DisposeAsync();
+    }
 
-        return Task.CompletedTask;
+    /// <summary>
+    /// Serializes writes to a <see cref="StreamWriter"/>, which does not allow concurrent async operations.
+    /// Callers (e.g. Docker build progress callbacks) may append from multiple threads at once.
+    /// </summary>
+    private sealed class LogWriter(StreamWriter inner)
+    {
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private bool _disposed;
+
+        public async Task WriteLineAsync(string line)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                if (_disposed) return;
+                await inner.WriteLineAsync(line);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        public async Task DisposeAsync()
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                if (_disposed) return;
+                _disposed = true;
+                await inner.DisposeAsync();
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
     }
 }
