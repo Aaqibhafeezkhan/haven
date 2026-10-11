@@ -40,23 +40,23 @@ public sealed class PermissionBehavior<TMessage, TResponse>(
         var required = PermissionCache.GetOrAdd(
             typeof(TMessage),
             static t => t.GetCustomAttributes<RequirePermissionAttribute>()
-                         .Select(a => a.Permission)
-                         .ToArray());
+                .Select(a => a.Permission)
+                .ToArray());
 
         if (required.Length == 0)
             return await next(message, ct);
 
+        var userId = currentUserService.UserId
+                     ?? throw new ForbiddenException();
+
+        // An API token acts on behalf of its owner, so both must grant the permission:
+        // the token's scopes (what it was issued for) and the owner (what they currently hold).
         if (currentUserService.IsApiToken)
         {
             var scopes = currentUserService.Scopes;
             if (required.Any(permission => !scopes.Contains(permission)))
                 throw new ForbiddenException();
-
-            return await next(message, ct);
         }
-
-        var userId = currentUserService.UserId
-            ?? throw new ForbiddenException();
 
         foreach (var permission in required)
         {
