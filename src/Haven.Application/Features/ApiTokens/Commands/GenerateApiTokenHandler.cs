@@ -5,7 +5,7 @@ using Haven.Application.Features.ApiTokens.Abstractions;
 
 namespace Haven.Application.Features.ApiTokens.Commands;
 
-public class GenerateApiTokenHandler(IApiTokenService service, ICurrentUserService currentUserService) : ICommandHandler<GenerateApiTokenCommand, GenerateApiTokenResult>
+public sealed class GenerateApiTokenHandler(IApiTokenService service, ICurrentUserService currentUserService) : ICommandHandler<GenerateApiTokenCommand, GenerateApiTokenResult>
 {
     public async ValueTask<Result<GenerateApiTokenResult>> Handle(GenerateApiTokenCommand command, CancellationToken cancellationToken)
     {
@@ -13,7 +13,7 @@ public class GenerateApiTokenHandler(IApiTokenService service, ICurrentUserServi
 
         if (userId is null)
             return Error.Unauthorized;
-        
+
         // Only a signed-in admin can delegate admin privilege (IsAdmin is never true for API tokens,
         // so a token can't mint another admin token).
         if (command.Scopes.Contains(Permissions.AdminScope) && !currentUserService.IsAdmin)

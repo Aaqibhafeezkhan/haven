@@ -5,7 +5,7 @@ using Haven.Application.Features.ApiTokens.Abstractions;
 
 namespace Haven.Application.Features.ApiTokens.Commands;
 
-public class RevokeApiTokenHandler(
+public sealed class RevokeApiTokenHandler(
     IApiTokenRepository repository,
     IApiTokenService service,
     ICurrentUserService currentUserService) : ICommandHandler<RevokeApiTokenCommand>

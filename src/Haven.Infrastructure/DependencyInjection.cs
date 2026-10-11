@@ -7,7 +7,6 @@ using Hangfire.PostgreSql;
 
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Auth;
-using Haven.Application.Features.ApiTokens.Abstractions;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Notifications;
 using Haven.Application.Common.Interfaces.Repositories;
@@ -17,6 +16,7 @@ using Haven.Application.Common.Interfaces.Shell;
 using Haven.Application.Common.Interfaces.SystemNotifications;
 using Haven.Application.Common.Templating;
 using Haven.Application.Configuration;
+using Haven.Application.Features.ApiTokens.Abstractions;
 using Haven.Application.Features.CustomActions.Abstractions;
 using Haven.Application.Features.CustomActions.Services;
 using Haven.Domain.Aggregates;

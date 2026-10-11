@@ -44,7 +44,7 @@ public class HavenDbContext : DbContext, IUnitOfWork
     public DbSet<SidecarNetwork> SidecarNetworks { get; set; }
     public DbSet<SecretVariable> Secrets { get; set; }
     public DbSet<CustomAction> CustomActions { get; set; }
-    
+
     public DbSet<ApiToken> ApiTokens { get; set; }
     public DbSet<ApiTokenScope> ApiTokenScopes { get; set; }
 

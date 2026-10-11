@@ -23,7 +23,7 @@ public class ApiTokenService(HavenDbContext db, IApiTokenRepository repository, 
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = expiration.HasValue ? DateTime.UtcNow.Add(expiration.Value) : null
         };
-        
+
         await repository.CreateAsync(token, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return (token, plain);
@@ -33,16 +33,16 @@ public class ApiTokenService(HavenDbContext db, IApiTokenRepository repository, 
     {
         var hash = TokenGenerator.Hash(plainText);
         var token = await repository.GetByHashAsync(hash, cancellationToken);
-        
+
         if (token is null || !token.IsActive(DateTime.UtcNow))
         {
             logger.LogWarning("Invalid or inactive API token used: {TokenPrefix}", token?.Prefix ?? "unknown");
             return null;
         }
-        
+
         token.MarkUsed(DateTime.UtcNow);
         await db.SaveChangesAsync(cancellationToken);
-        
+
         return token;
     }
 

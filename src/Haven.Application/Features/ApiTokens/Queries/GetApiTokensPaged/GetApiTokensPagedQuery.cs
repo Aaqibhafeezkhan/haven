@@ -4,5 +4,5 @@ namespace Haven.Application.Features.ApiTokens.Queries.GetApiTokensPaged;
 
 public class GetApiTokensPagedQuery : PagedQuery<ApiTokenResult>
 {
-    
+
 }

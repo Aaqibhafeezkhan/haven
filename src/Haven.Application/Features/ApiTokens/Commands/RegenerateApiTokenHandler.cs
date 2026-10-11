@@ -5,7 +5,7 @@ using Haven.Application.Features.ApiTokens.Abstractions;
 
 namespace Haven.Application.Features.ApiTokens.Commands;
 
-public class RegenerateApiTokenHandler(
+public sealed class RegenerateApiTokenHandler(
     IApiTokenRepository repository,
     IApiTokenService service,
     ICurrentUserService currentUserService) : ICommandHandler<RegenerateApiTokenCommand, GenerateApiTokenResult>

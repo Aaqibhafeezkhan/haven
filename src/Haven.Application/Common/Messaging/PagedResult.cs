@@ -15,7 +15,7 @@ public record PagedResult<T>(
         var projectedItems = Items.Select(projector).ToList();
         return new PagedResult<TOther>(projectedItems, TotalCount, PageNumber, PageSize);
     }
-    
+
     public static PagedResult<T> Empty()
     {
         return new PagedResult<T>([], 0, 0, 0);

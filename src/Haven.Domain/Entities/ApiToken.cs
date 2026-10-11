@@ -10,11 +10,11 @@ public class ApiToken : Entity
     public DateTime? ExpiresAt { get; set; }
     public DateTime? RevokedAt { get; set; }
     public DateTime? LastUsedAt { get; set; }
-    
+
     public ICollection<ApiTokenScope> Scopes { get; set; } = new List<ApiTokenScope>();
-    
+
     public bool IsActive(DateTime now) => RevokedAt == null && (ExpiresAt == null || ExpiresAt > now);
-    
+
     public static ApiToken Create(string displayName, Guid ownerId, string tokenHash, string prefix, DateTime createdAt, DateTime? expiresAt = null)
     {
         return new ApiToken
@@ -27,12 +27,12 @@ public class ApiToken : Entity
             ExpiresAt = expiresAt
         };
     }
-    
+
     public void Revoke(DateTime revokedAt)
     {
         RevokedAt = revokedAt;
     }
-    
+
     public void Regenerate(string tokenHash, string prefix, DateTime now)
     {
         if (ExpiresAt.HasValue)

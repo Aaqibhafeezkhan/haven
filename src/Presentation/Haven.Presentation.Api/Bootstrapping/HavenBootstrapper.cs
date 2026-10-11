@@ -11,6 +11,7 @@ using Haven.Domain;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Enums;
 using Haven.Infrastructure;
+using Haven.Infrastructure.Auth;
 using Haven.Infrastructure.Configuration;
 using Haven.Infrastructure.Deployment.Docker;
 using Haven.Infrastructure.Notifications;
@@ -18,8 +19,6 @@ using Haven.Infrastructure.Persistence;
 using Haven.Infrastructure.Utils;
 using Haven.Presentation.Api.Cors;
 using Haven.Presentation.Api.Serialization;
-
-using Haven.Infrastructure.Auth;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
