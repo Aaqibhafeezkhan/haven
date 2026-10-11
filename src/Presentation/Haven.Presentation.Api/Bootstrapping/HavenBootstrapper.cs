@@ -71,8 +71,6 @@ public static class HavenBootstrapper
         builder.Services.AddAuthentication(options =>
             {
                 options.DefaultScheme = "Smart";
-                options.DefaultAuthenticateScheme = "Smart";
-                options.DefaultChallengeScheme = "Smart";
             })
             .AddPolicyScheme("Smart", "JWT or API key", options =>
             {
