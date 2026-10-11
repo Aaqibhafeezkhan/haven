@@ -1,6 +1,7 @@
 using System.Security.Claims;
 
 using Haven.Application.Common.Interfaces;
+using Haven.Infrastructure.Auth;
 
 using Microsoft.AspNetCore.Http;
 
@@ -17,8 +18,16 @@ public class CurrentUserService(IHttpContextAccessor httpContextAccessor) : ICur
         }
     }
 
-    public string? ApiToken =>
-        httpContextAccessor.HttpContext?.Request.Headers["X-Api-Key"].FirstOrDefault();
+    public bool IsApiToken =>
+        httpContextAccessor.HttpContext?.User.HasClaim(
+            ApiKeyAuthenticationDefaults.AuthMethodClaimType,
+            ApiKeyAuthenticationDefaults.AuthMethodValue) ?? false;
+
+    public IReadOnlyCollection<string> Scopes =>
+        httpContextAccessor.HttpContext?.User
+            .FindAll(ApiKeyAuthenticationDefaults.ScopeClaimType)
+            .Select(c => c.Value)
+            .ToArray() ?? [];
 
     public bool IsAdmin
     {

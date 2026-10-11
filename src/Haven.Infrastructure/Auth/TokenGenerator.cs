@@ -6,7 +6,7 @@ namespace Haven.Infrastructure.Auth;
 public static class TokenGenerator
 {
     // Returns the plaintext token (show once) plus the values you persist.
-    public static (string PlainText, string Hash, string Prefix) Generate(string appPrefix = "myapp")
+    public static (string PlainText, string Hash, string Prefix) Generate(string appPrefix = "hvn")
     {
         var bytes = RandomNumberGenerator.GetBytes(32); // 256 bits of entropy
         var secret = Base64UrlEncode(bytes);

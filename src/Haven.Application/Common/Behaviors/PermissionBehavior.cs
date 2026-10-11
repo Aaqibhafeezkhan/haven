@@ -3,7 +3,6 @@ using System.Reflection;
 
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Repositories;
-using Haven.Application.Features.ApiTokens.Abstractions;
 using Haven.Domain.Exceptions;
 
 using Mediator;
@@ -12,8 +11,7 @@ namespace Haven.Application.Common.Behaviors;
 
 public sealed class PermissionBehavior<TMessage, TResponse>(
     ICurrentUserService currentUserService,
-    IPermissionRepository permissionRepository,
-    IApiTokenService apiTokenService)
+    IPermissionRepository permissionRepository)
     : IPipelineBehavior<TMessage, TResponse>
     where TMessage : IMessage
 {
@@ -48,16 +46,11 @@ public sealed class PermissionBehavior<TMessage, TResponse>(
         if (required.Length == 0)
             return await next(message, ct);
 
-        if (currentUserService.ApiToken is { Length: > 0 } plainToken)
+        if (currentUserService.IsApiToken)
         {
-            var token = await apiTokenService.ValidateAsync(plainToken, ct)
-                ?? throw new ForbiddenException();
-
-            foreach (var permission in required)
-            {
-                if (token.Scopes.All(s => s.Scope != permission))
-                    throw new ForbiddenException();
-            }
+            var scopes = currentUserService.Scopes;
+            if (required.Any(permission => !scopes.Contains(permission)))
+                throw new ForbiddenException();
 
             return await next(message, ct);
         }
