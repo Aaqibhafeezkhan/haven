@@ -11,6 +11,7 @@ using Haven.Domain;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Enums;
 using Haven.Infrastructure;
+using Haven.Infrastructure.Auth;
 using Haven.Infrastructure.Configuration;
 using Haven.Infrastructure.Deployment.Docker;
 using Haven.Infrastructure.Notifications;
@@ -19,6 +20,7 @@ using Haven.Infrastructure.Utils;
 using Haven.Presentation.Api.Cors;
 using Haven.Presentation.Api.Serialization;
 
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -65,7 +67,19 @@ public static class HavenBootstrapper
             }
         });
 
-        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = "Smart";
+            })
+            .AddPolicyScheme("Smart", "JWT or API key", options =>
+            {
+                options.ForwardDefaultSelector = context =>
+                    context.Request.Headers.ContainsKey(ApiKeyAuthenticationDefaults.HeaderName)
+                        ? ApiKeyAuthenticationDefaults.AuthenticationScheme
+                        : JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+                ApiKeyAuthenticationDefaults.AuthenticationScheme, null)
             .AddJwtBearer(options =>
             {
                 var jwtSection = builder.Configuration.GetSection("Jwt");

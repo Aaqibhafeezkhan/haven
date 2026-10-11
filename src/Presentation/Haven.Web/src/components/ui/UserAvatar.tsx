@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -50,6 +50,11 @@ export function UserAvatar({ user }: UserAvatarProps) {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
+  const handleOpenSettings = () => {
+    setOpen(false);
+    navigate('/account');
+  };
+
   const handleLogout = async () => {
     try {
       await authApi.logout();
@@ -89,6 +94,10 @@ export function UserAvatar({ user }: UserAvatarProps) {
               <div className={styles.dropdownName}>{user.name}</div>
               <div className={styles.dropdownEmail}>{user.email}</div>
             </div>
+            <button className={styles.dropdownItem} onClick={handleOpenSettings}>
+              <Settings size={14} />
+              Settings
+            </button>
             <button className={`${styles.dropdownItem} ${styles.danger}`} onClick={handleLogout}>
               <LogOut size={14} />
               Sign out

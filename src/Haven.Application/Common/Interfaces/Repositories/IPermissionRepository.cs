@@ -4,6 +4,7 @@ namespace Haven.Application.Common.Interfaces.Repositories;
 
 public interface IPermissionRepository : IRepository
 {
+    Task<bool> IsUserAdminAsync(Guid userId, CancellationToken cancellationToken);
     Task<bool> UserHasPermissionAsync(Guid userId, string permission, CancellationToken cancellationToken);
     Task<IEnumerable<UserPermission>> GetUserPermissionsAsync(Guid userId, CancellationToken cancellationToken);
 }

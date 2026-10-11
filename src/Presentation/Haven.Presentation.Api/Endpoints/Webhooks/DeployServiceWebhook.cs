@@ -13,7 +13,6 @@ public class DeployServiceWebhook(IMediator mediator) : EndpointWithoutRequest<R
     public override void Configure()
     {
         Post("/webhooks/deploy/{Token}");
-        AllowAnonymous();
         RoutePrefixOverride(string.Empty);
     }
 

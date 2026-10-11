@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { AppShell } from '@/components/layout/AppShell';
 import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
+import { AccountSettingsPage } from '@/pages/account/AccountSettingsPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { EnvironmentDetailsPage } from '@/pages/EnvironmentDetailsPage';
 import { EnvironmentRedirectPage } from '@/pages/EnvironmentRedirectPage';
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
       { path: 'sidecars', element: <SidecarsPage /> },
       { path: 'sidecars/:sidecarSlug/configure', element: <TraefikConfigPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'account', element: <AccountSettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

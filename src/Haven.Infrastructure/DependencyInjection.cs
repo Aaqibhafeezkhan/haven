@@ -16,6 +16,7 @@ using Haven.Application.Common.Interfaces.Shell;
 using Haven.Application.Common.Interfaces.SystemNotifications;
 using Haven.Application.Common.Templating;
 using Haven.Application.Configuration;
+using Haven.Application.Features.ApiTokens.Abstractions;
 using Haven.Application.Features.CustomActions.Abstractions;
 using Haven.Application.Features.CustomActions.Services;
 using Haven.Domain.Aggregates;
@@ -91,6 +92,8 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IApiTokenService, ApiTokenService>();
+        services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
 
         return services;
     }

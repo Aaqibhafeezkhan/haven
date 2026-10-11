@@ -32,28 +32,33 @@ public sealed class PermissionBehavior<TMessage, TResponse>(
 
         if (isAdminOnly)
         {
-            if (!currentUserService.IsAdmin)
+            if (currentUserService.IsApiToken)
+            {
+                // A token only carries admin privilege when it was issued with the admin scope
+                // and its owner is still an admin.
+                var ownerId = currentUserService.UserId ?? throw new ForbiddenException();
+                if (!currentUserService.Scopes.Contains(Permissions.AdminScope)
+                    || !await permissionRepository.IsUserAdminAsync(ownerId, ct))
+                    throw new ForbiddenException();
+            }
+            else if (!currentUserService.IsAdmin)
+            {
                 throw new ForbiddenException();
+            }
+
             return await next(message, ct);
         }
 
         var required = PermissionCache.GetOrAdd(
             typeof(TMessage),
             static t => t.GetCustomAttributes<RequirePermissionAttribute>()
-                         .Select(a => a.Permission)
-                         .ToArray());
+                .Select(a => a.Permission)
+                .ToArray());
 
         if (required.Length == 0)
             return await next(message, ct);
 
-        var userId = currentUserService.UserId
-            ?? throw new ForbiddenException();
-
-        foreach (var permission in required)
-        {
-            if (!await permissionRepository.UserHasPermissionAsync(userId, permission, ct))
-                throw new ForbiddenException();
-        }
+        await PermissionGuard.EnsureAsync(currentUserService, permissionRepository, required, ct);
 
         return await next(message, ct);
     }

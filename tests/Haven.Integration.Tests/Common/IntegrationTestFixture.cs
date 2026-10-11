@@ -151,6 +151,8 @@ public class IntegrationTestFixture : IDisposable
 internal sealed class TestCurrentUserService : ICurrentUserService
 {
     public Guid? UserId => null;
+    public bool IsApiToken => false;
+    public IReadOnlyCollection<string> Scopes => [];
     public bool IsAdmin => true;
     public bool IsBackgroundContext => true;
 }
