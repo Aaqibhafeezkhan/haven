@@ -1,7 +1,8 @@
-import { KeyRound } from 'lucide-react';
+import { KeyRound, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ApiTokenDto } from '@/api/auth';
 import { Row, Spacer, Stack } from '@/components/layout';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -17,7 +18,7 @@ import { PermissionSelect } from '@/components/ui/PermissionSelect';
 import { SelectInput } from '@/components/ui/SelectInput';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { useApiTokens, useGenerateApiToken } from '@/hooks/useApiTokens';
+import { useApiTokens, useGenerateApiToken, useRegenerateApiToken } from '@/hooks/useApiTokens';
 import { useFormatDate } from '@/hooks/useFormatDate';
 import { secondsToTimeSpan } from '@/lib/timespan';
 
@@ -35,6 +36,9 @@ export function ApiTokensPage() {
   const formatDate = useFormatDate();
   const [pageNumber, setPageNumber] = useState(1);
   const { data: tokens, isLoading } = useApiTokens({ pageNumber, pageSize: 10 });
+  const { mutateAsync: regenerate, isPending: isRegenerating } = useRegenerateApiToken();
+  const [tokenToRegenerate, setTokenToRegenerate] = useState<ApiTokenDto | null>(null);
+  const [regenerateError, setRegenerateError] = useState<string | undefined>();
   const { mutateAsync: generate, isPending } = useGenerateApiToken();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -70,6 +74,25 @@ export function ApiTokensPage() {
       reset();
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : t('apiTokens.errors.generateFailed'));
+    }
+  };
+
+  const closeRegenerate = () => {
+    setTokenToRegenerate(null);
+    setRegenerateError(undefined);
+  };
+
+  const handleRegenerate = async () => {
+    if (!tokenToRegenerate) return;
+    setRegenerateError(undefined);
+    try {
+      const result = await regenerate(tokenToRegenerate.id);
+      setGeneratedToken(result.plainText);
+      closeRegenerate();
+    } catch (err: unknown) {
+      setRegenerateError(
+        err instanceof Error ? err.message : t('apiTokens.errors.regenerateFailed')
+      );
     }
   };
 
@@ -127,6 +150,16 @@ export function ApiTokensPage() {
                         <Tooltip content={token.scopes.join(', ')} direction="left">
                           <Badge>{t('apiTokens.scopeCount', { count: token.scopes.length })}</Badge>
                         </Tooltip>
+                        {status !== 'revoked' && (
+                          <Tooltip content={t('apiTokens.regenerate')} direction="left">
+                            <Button
+                              size="md"
+                              variant="text"
+                              icon={<RefreshCw />}
+                              onClick={() => setTokenToRegenerate(token)}
+                            />
+                          </Tooltip>
+                        )}
                         <Badge
                           variant={
                             status === 'active'
@@ -196,6 +229,30 @@ export function ApiTokensPage() {
             onChange={setExpiration}
           />
         </Stack>
+      </Modal>
+
+      <Modal
+        isOpen={tokenToRegenerate !== null}
+        onClose={closeRegenerate}
+        title={t('apiTokens.regenerateModal.title')}
+        error={regenerateError}
+        footer={
+          <Row justify="flex-end">
+            <Button variant="secondary" onClick={closeRegenerate}>
+              {t('apiTokens.regenerateModal.cancel')}
+            </Button>
+            <Button onClick={handleRegenerate} disabled={isRegenerating}>
+              {isRegenerating ? <Spinner /> : t('apiTokens.regenerateModal.submit')}
+            </Button>
+          </Row>
+        }
+      >
+        <Banner
+          variant="warning"
+          description={t('apiTokens.regenerateModal.warning', {
+            name: tokenToRegenerate?.displayName ?? '',
+          })}
+        />
       </Modal>
 
       <Modal

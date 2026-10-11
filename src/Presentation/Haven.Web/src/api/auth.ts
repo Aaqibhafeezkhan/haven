@@ -68,6 +68,8 @@ export const authApi = {
     apiClient.post<AuthResponse>('/auth/accept-invite', input),
   getApiTokens: (params?: GetApiTokensParams) =>
     apiClient.get<PagedResult<ApiTokenDto>>('/auth/api-tokens', params),
+  regenerateApiToken: (id: string) =>
+    apiClient.post<GenerateApiTokenResult>(`/auth/api-tokens/${id}/regenerate`, {}),
   generateApiToken: (input: GenerateApiTokenInput) =>
     apiClient.post<GenerateApiTokenResult>('/auth/api-tokens', input),
 };

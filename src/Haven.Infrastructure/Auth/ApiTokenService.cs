@@ -46,6 +46,18 @@ public class ApiTokenService(HavenDbContext db, IApiTokenRepository repository, 
         return token;
     }
 
+    public async Task<string> RegenerateAsync(Guid tokenId, CancellationToken cancellationToken = default)
+    {
+        var token = await repository.GetByIdAsync(tokenId, cancellationToken)
+                    ?? throw new InvalidOperationException($"API token '{tokenId}' was not found.");
+
+        var (plain, hash, prefix) = TokenGenerator.Generate();
+        token.Regenerate(hash, prefix, DateTime.UtcNow);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return plain;
+    }
+
     public async Task RevokeAsync(Guid tokenId, CancellationToken cancellationToken = default)
     {
         var token = await repository.GetByIdAsync(tokenId, cancellationToken);

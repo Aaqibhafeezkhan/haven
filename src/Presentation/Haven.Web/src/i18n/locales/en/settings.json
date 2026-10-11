@@ -311,7 +311,8 @@
       "done": "Done"
     },
     "errors": {
-      "generateFailed": "Failed to generate API token"
+      "generateFailed": "Failed to generate API token",
+      "regenerateFailed": "Failed to regenerate API token"
     },
     "empty": "You haven't generated any API tokens yet.",
     "statuses": {
@@ -325,7 +326,14 @@
     "lastUsed": "Last used {{date}}",
     "neverUsed": "Never used",
     "scopeCount_one": "{{count}} permission",
-    "scopeCount_other": "{{count}} permissions"
+    "scopeCount_other": "{{count}} permissions",
+    "regenerate": "Regenerate",
+    "regenerateModal": {
+      "title": "Regenerate API Token",
+      "warning": "The current secret for \"{{name}}\" will stop working immediately. Anything using it must be updated with the new token.",
+      "cancel": "Cancel",
+      "submit": "Regenerate"
+    }
   },
   "account": {
     "title": "Account Settings",

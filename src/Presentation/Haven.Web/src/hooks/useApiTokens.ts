@@ -20,3 +20,13 @@ export function useGenerateApiToken() {
     },
   });
 }
+
+export function useRegenerateApiToken() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => authApi.regenerateApiToken(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [API_TOKENS_KEY] });
+    },
+  });
+}

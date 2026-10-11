@@ -33,6 +33,16 @@ public class ApiToken : Entity
         RevokedAt = revokedAt;
     }
     
+    public void Regenerate(string tokenHash, string prefix, DateTime now)
+    {
+        if (ExpiresAt.HasValue)
+            ExpiresAt = now + (ExpiresAt.Value - CreatedAt);
+
+        TokenHash = tokenHash;
+        Prefix = prefix;
+        LastUsedAt = null;
+    }
+
     public void MarkUsed(DateTime lastUsedAt)
     {
         LastUsedAt = lastUsedAt;
