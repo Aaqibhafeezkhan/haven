@@ -13,7 +13,6 @@ public class ExecuteActionWebhook(IMediator mediator) : EndpointWithoutRequest<A
     public override void Configure()
     {
         Post("/webhooks/action/{Token}");
-        AllowAnonymous();
         RoutePrefixOverride(string.Empty);
         Summary(s =>
         {

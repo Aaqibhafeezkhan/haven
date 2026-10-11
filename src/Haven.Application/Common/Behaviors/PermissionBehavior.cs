@@ -58,23 +58,7 @@ public sealed class PermissionBehavior<TMessage, TResponse>(
         if (required.Length == 0)
             return await next(message, ct);
 
-        var userId = currentUserService.UserId
-                     ?? throw new ForbiddenException();
-
-        // An API token acts on behalf of its owner, so both must grant the permission:
-        // the token's scopes (what it was issued for) and the owner (what they currently hold).
-        if (currentUserService.IsApiToken)
-        {
-            var scopes = currentUserService.Scopes;
-            if (required.Any(permission => !scopes.Contains(permission)))
-                throw new ForbiddenException();
-        }
-
-        foreach (var permission in required)
-        {
-            if (!await permissionRepository.UserHasPermissionAsync(userId, permission, ct))
-                throw new ForbiddenException();
-        }
+        await PermissionGuard.EnsureAsync(currentUserService, permissionRepository, required, ct);
 
         return await next(message, ct);
     }
