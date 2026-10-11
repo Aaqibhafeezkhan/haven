@@ -312,7 +312,8 @@
     },
     "errors": {
       "generateFailed": "Failed to generate API token",
-      "regenerateFailed": "Failed to regenerate API token"
+      "regenerateFailed": "Failed to regenerate API token",
+      "revokeFailed": "Failed to revoke API token"
     },
     "empty": "You haven't generated any API tokens yet.",
     "statuses": {
@@ -333,6 +334,13 @@
       "warning": "The current secret for \"{{name}}\" will stop working immediately. Anything using it must be updated with the new token.",
       "cancel": "Cancel",
       "submit": "Regenerate"
+    },
+    "revoke": "Revoke",
+    "revokeModal": {
+      "title": "Revoke API Token",
+      "warning": "\"{{name}}\" will stop working immediately. This can't be undone and a revoked token can't be regenerated.",
+      "cancel": "Cancel",
+      "submit": "Revoke"
     }
   },
   "account": {

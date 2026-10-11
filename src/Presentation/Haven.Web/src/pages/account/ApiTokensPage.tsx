@@ -1,4 +1,4 @@
-import { KeyRound, RefreshCw } from 'lucide-react';
+import { Ban, KeyRound, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,7 +18,12 @@ import { PermissionSelect } from '@/components/ui/PermissionSelect';
 import { SelectInput } from '@/components/ui/SelectInput';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { useApiTokens, useGenerateApiToken, useRegenerateApiToken } from '@/hooks/useApiTokens';
+import {
+  useApiTokens,
+  useGenerateApiToken,
+  useRegenerateApiToken,
+  useRevokeApiToken,
+} from '@/hooks/useApiTokens';
 import { useFormatDate } from '@/hooks/useFormatDate';
 import { secondsToTimeSpan } from '@/lib/timespan';
 
@@ -39,6 +44,9 @@ export function ApiTokensPage() {
   const { mutateAsync: regenerate, isPending: isRegenerating } = useRegenerateApiToken();
   const [tokenToRegenerate, setTokenToRegenerate] = useState<ApiTokenDto | null>(null);
   const [regenerateError, setRegenerateError] = useState<string | undefined>();
+  const { mutateAsync: revoke, isPending: isRevoking } = useRevokeApiToken();
+  const [tokenToRevoke, setTokenToRevoke] = useState<ApiTokenDto | null>(null);
+  const [revokeError, setRevokeError] = useState<string | undefined>();
   const { mutateAsync: generate, isPending } = useGenerateApiToken();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -93,6 +101,22 @@ export function ApiTokensPage() {
       setRegenerateError(
         err instanceof Error ? err.message : t('apiTokens.errors.regenerateFailed')
       );
+    }
+  };
+
+  const closeRevoke = () => {
+    setTokenToRevoke(null);
+    setRevokeError(undefined);
+  };
+
+  const handleRevoke = async () => {
+    if (!tokenToRevoke) return;
+    setRevokeError(undefined);
+    try {
+      await revoke(tokenToRevoke.id);
+      closeRevoke();
+    } catch (err: unknown) {
+      setRevokeError(err instanceof Error ? err.message : t('apiTokens.errors.revokeFailed'));
     }
   };
 
@@ -157,6 +181,16 @@ export function ApiTokensPage() {
                               variant="text"
                               icon={<RefreshCw />}
                               onClick={() => setTokenToRegenerate(token)}
+                            />
+                          </Tooltip>
+                        )}
+                        {status !== 'revoked' && (
+                          <Tooltip content={t('apiTokens.revoke')} direction="left">
+                            <Button
+                              size="md"
+                              variant="text"
+                              icon={<Ban color="var(--color-danger)" />}
+                              onClick={() => setTokenToRevoke(token)}
                             />
                           </Tooltip>
                         )}
@@ -251,6 +285,30 @@ export function ApiTokensPage() {
           variant="warning"
           description={t('apiTokens.regenerateModal.warning', {
             name: tokenToRegenerate?.displayName ?? '',
+          })}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={tokenToRevoke !== null}
+        onClose={closeRevoke}
+        title={t('apiTokens.revokeModal.title')}
+        error={revokeError}
+        footer={
+          <Row justify="flex-end">
+            <Button variant="secondary" onClick={closeRevoke}>
+              {t('apiTokens.revokeModal.cancel')}
+            </Button>
+            <Button variant="danger" onClick={handleRevoke} disabled={isRevoking}>
+              {isRevoking ? <Spinner /> : t('apiTokens.revokeModal.submit')}
+            </Button>
+          </Row>
+        }
+      >
+        <Banner
+          variant="warning"
+          description={t('apiTokens.revokeModal.warning', {
+            name: tokenToRevoke?.displayName ?? '',
           })}
         />
       </Modal>

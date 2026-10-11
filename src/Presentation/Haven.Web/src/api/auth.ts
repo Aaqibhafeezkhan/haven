@@ -70,6 +70,7 @@ export const authApi = {
     apiClient.get<PagedResult<ApiTokenDto>>('/auth/api-tokens', params),
   regenerateApiToken: (id: string) =>
     apiClient.post<GenerateApiTokenResult>(`/auth/api-tokens/${id}/regenerate`, {}),
+  revokeApiToken: (id: string) => apiClient.post<void>(`/auth/api-tokens/${id}/revoke`, {}),
   generateApiToken: (input: GenerateApiTokenInput) =>
     apiClient.post<GenerateApiTokenResult>('/auth/api-tokens', input),
 };

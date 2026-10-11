@@ -30,3 +30,13 @@ export function useRegenerateApiToken() {
     },
   });
 }
+
+export function useRevokeApiToken() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => authApi.revokeApiToken(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [API_TOKENS_KEY] });
+    },
+  });
+}
