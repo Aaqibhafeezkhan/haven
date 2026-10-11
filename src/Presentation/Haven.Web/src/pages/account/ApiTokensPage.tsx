@@ -147,7 +147,7 @@ export function ApiTokensPage() {
                           </Label>
                         </Stack>
                         <Spacer expand />
-                        <Tooltip content={token.scopes.join(', ')} direction="left">
+                        <Tooltip content={token.scopes.join(', ')} direction="left" wrap>
                           <Badge>{t('apiTokens.scopeCount', { count: token.scopes.length })}</Badge>
                         </Tooltip>
                         {status !== 'revoked' && (
