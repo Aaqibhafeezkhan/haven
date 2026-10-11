@@ -387,6 +387,80 @@ namespace Haven.Infrastructure.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("Haven.Domain.Entities.ApiToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("display_name");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("prefix");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("api_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Haven.Domain.Entities.ApiTokenScope", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ApiTokenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_token_id");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("scope");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApiTokenId");
+
+                    b.ToTable("api_token_scopes", (string)null);
+                });
+
             modelBuilder.Entity("Haven.Domain.Entities.CustomAction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1301,6 +1375,17 @@ namespace Haven.Infrastructure.Migrations
                     b.Navigation("Sidecar");
                 });
 
+            modelBuilder.Entity("Haven.Domain.Entities.ApiTokenScope", b =>
+                {
+                    b.HasOne("Haven.Domain.Entities.ApiToken", "ApiToken")
+                        .WithMany("Scopes")
+                        .HasForeignKey("ApiTokenId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApiToken");
+                });
+
             modelBuilder.Entity("Haven.Domain.Entities.CustomAction", b =>
                 {
                     b.HasOne("Haven.Domain.Aggregates.Service", "Service")
@@ -1501,6 +1586,11 @@ namespace Haven.Infrastructure.Migrations
             modelBuilder.Entity("Haven.Domain.Aggregates.User", b =>
                 {
                     b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("Haven.Domain.Entities.ApiToken", b =>
+                {
+                    b.Navigation("Scopes");
                 });
 
             modelBuilder.Entity("Haven.Domain.Entities.NotificationChannelConfig", b =>

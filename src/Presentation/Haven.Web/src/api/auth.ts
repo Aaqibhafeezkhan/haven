@@ -31,6 +31,17 @@ export interface AcceptInviteInput {
   confirmPassword: string;
 }
 
+export interface GenerateApiTokenInput {
+  name: string;
+  scopes: string[];
+  /** .NET TimeSpan string; omit for a token that never expires. */
+  expiration?: string;
+}
+
+export interface GenerateApiTokenResult {
+  plainText: string;
+}
+
 export const authApi = {
   login: (input: LoginInput) => apiClient.post<AuthResponse>('/auth/login', input),
   me: () => apiClient.get<MeResponse>('/auth/me'),
@@ -38,4 +49,6 @@ export const authApi = {
   setPassword: (input: SetPasswordInput) => apiClient.post<void>('/auth/set-password', input),
   acceptInvite: (input: AcceptInviteInput) =>
     apiClient.post<AuthResponse>('/auth/accept-invite', input),
+  generateApiToken: (input: GenerateApiTokenInput) =>
+    apiClient.post<GenerateApiTokenResult>('/auth/api-tokens', input),
 };

@@ -9,7 +9,8 @@
     "telemetry": "Telemetry",
     "githubApp": "GitHub App",
     "maintenance": "Maintenance",
-    "sslCertificates": "SSL Certificates"
+    "sslCertificates": "SSL Certificates",
+    "apiTokens": "API Tokens"
   },
   "instance": {
     "title": "Instance Configuration",
@@ -282,5 +283,39 @@
         }
       }
     }
+  },
+  "apiTokens": {
+    "title": "API Tokens",
+    "description": "Generate tokens to access the Haven API on your behalf. A token can only be granted permissions you currently hold.",
+    "generate": "Generate Token",
+    "generateModal": {
+      "title": "Generate API Token",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. CI pipeline",
+      "scopes": "Permissions",
+      "scopesPlaceholder": "Select permissions…",
+      "expiration": "Expiration",
+      "cancel": "Cancel",
+      "submit": "Generate"
+    },
+    "expirations": {
+      "never": "Never",
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      "365d": "1 year"
+    },
+    "createdModal": {
+      "title": "Token Generated",
+      "warning": "Copy this token now. For security reasons it will not be shown again.",
+      "done": "Done"
+    },
+    "errors": {
+      "generateFailed": "Failed to generate API token"
+    }
+  },
+  "account": {
+    "title": "Account Settings",
+    "menuTitle": "My Account"
   }
 }
