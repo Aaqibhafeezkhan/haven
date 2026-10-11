@@ -191,6 +191,45 @@ public sealed class PermissionBehaviorTests
         await act.ShouldThrowAsync<ForbiddenException>();
     }
 
+    [Test]
+    public async Task Handle_ShouldProceedForAdminOnly_WhenApiTokenHasAdminScopeAndOwnerIsAdmin()
+    {
+        AsApiToken(Permissions.AdminScope);
+        _permissions.IsUserAdminAsync(_userId, Arg.Any<CancellationToken>()).Returns(true);
+
+        await Sut<AdminMessage>().Handle(new AdminMessage(), (_, _) =>
+        {
+            _nextCalled = true;
+            return ValueTask.FromResult(new object());
+        }, CancellationToken.None);
+
+        _nextCalled.ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task Handle_ShouldThrowForbiddenForAdminOnly_WhenApiTokenLacksAdminScope()
+    {
+        AsApiToken(Read, Write);
+        _permissions.IsUserAdminAsync(_userId, Arg.Any<CancellationToken>()).Returns(true);
+
+        var act = async () => await Sut<AdminMessage>().Handle(new AdminMessage(), (_, _) =>
+            ValueTask.FromResult(new object()), CancellationToken.None);
+
+        await act.ShouldThrowAsync<ForbiddenException>();
+    }
+
+    [Test]
+    public async Task Handle_ShouldThrowForbiddenForAdminOnly_WhenApiTokenHasAdminScopeButOwnerIsNoLongerAdmin()
+    {
+        AsApiToken(Permissions.AdminScope);
+        _permissions.IsUserAdminAsync(_userId, Arg.Any<CancellationToken>()).Returns(false);
+
+        var act = async () => await Sut<AdminMessage>().Handle(new AdminMessage(), (_, _) =>
+            ValueTask.FromResult(new object()), CancellationToken.None);
+
+        await act.ShouldThrowAsync<ForbiddenException>();
+    }
+
     [RequirePermission(Read)]
     [RequirePermission(Write)]
     public sealed record ProtectedMessage : IMessage;

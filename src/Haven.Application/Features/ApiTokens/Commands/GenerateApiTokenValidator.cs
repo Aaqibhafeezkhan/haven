@@ -16,7 +16,7 @@ public class GenerateApiTokenValidator : AbstractValidator<GenerateApiTokenComma
             .NotEmpty().WithMessage("At least one scope is required.")
             .Must(scopes => scopes.All(scope => !string.IsNullOrWhiteSpace(scope)))
             .WithMessage("Scopes must not contain empty or whitespace values.")
-            .Must(scopes => scopes.All(scope => Permissions.All.Contains(scope)))
+            .Must(scopes => scopes.All(scope => scope == Permissions.AdminScope || Permissions.All.Contains(scope)))
             .WithMessage("One or more scopes are invalid.");
         
         RuleFor(x => x.Expiration)

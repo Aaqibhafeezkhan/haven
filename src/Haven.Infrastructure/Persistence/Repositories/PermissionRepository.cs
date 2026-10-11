@@ -7,6 +7,9 @@ namespace Haven.Infrastructure.Persistence.Repositories;
 
 public class PermissionRepository(HavenDbContext context) : IPermissionRepository
 {
+    public Task<bool> IsUserAdminAsync(Guid userId, CancellationToken cancellationToken)
+        => context.Users.AnyAsync(u => u.Id == userId && u.IsAdmin, cancellationToken);
+
     public async Task<bool> UserHasPermissionAsync(Guid userId, string permission, CancellationToken cancellationToken)
     {
         var isAdmin = await context.Users

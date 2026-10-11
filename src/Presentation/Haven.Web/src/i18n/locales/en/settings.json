@@ -296,7 +296,9 @@
       "scopesPlaceholder": "Select permissions…",
       "expiration": "Expiration",
       "cancel": "Cancel",
-      "submit": "Generate"
+      "submit": "Generate",
+      "admin": "Include admin privileges",
+      "adminDescription": "Allows this token to run admin-only operations. It stops working as admin if you lose admin access."
     },
     "expirations": {
       "never": "Never",
@@ -341,7 +343,8 @@
       "warning": "\"{{name}}\" will stop working immediately. This can't be undone and a revoked token can't be regenerated.",
       "cancel": "Cancel",
       "submit": "Revoke"
-    }
+    },
+    "adminBadge": "Admin"
   },
   "account": {
     "title": "Account Settings",

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import { CodeSpan } from '@/components/ui/CodeSpan';
 import { Input } from '@/components/ui/Input';
@@ -24,9 +25,11 @@ import {
   useRegenerateApiToken,
   useRevokeApiToken,
 } from '@/hooks/useApiTokens';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFormatDate } from '@/hooks/useFormatDate';
 import { secondsToTimeSpan } from '@/lib/timespan';
 
+const ADMIN_SCOPE = 'admin';
 const DAY = 86400;
 const EXPIRATION_SECONDS: Record<string, number | undefined> = {
   never: undefined,
@@ -51,7 +54,9 @@ export function ApiTokensPage() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
+  const currentUser = useCurrentUser();
   const [scopes, setScopes] = useState<string[]>([]);
+  const [includeAdmin, setIncludeAdmin] = useState(false);
   const [expiration, setExpiration] = useState('30d');
   const [formError, setFormError] = useState<string | undefined>();
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
@@ -65,6 +70,7 @@ export function ApiTokensPage() {
     setIsOpen(false);
     setName('');
     setScopes([]);
+    setIncludeAdmin(false);
     setExpiration('30d');
     setFormError(undefined);
   };
@@ -75,7 +81,7 @@ export function ApiTokensPage() {
       const seconds = EXPIRATION_SECONDS[expiration];
       const result = await generate({
         name: name.trim(),
-        scopes,
+        scopes: includeAdmin ? [...scopes, ADMIN_SCOPE] : scopes,
         expiration: seconds === undefined ? undefined : secondsToTimeSpan(seconds),
       });
       setGeneratedToken(result.plainText);
@@ -148,6 +154,7 @@ export function ApiTokensPage() {
                     : token.expiresAt && new Date(token.expiresAt) <= new Date()
                       ? 'expired'
                       : 'active';
+                  const permissionScopes = token.scopes.filter(s => s !== ADMIN_SCOPE);
                   return (
                     <Card key={token.id} padding="var(--space-3)">
                       <Row>
@@ -171,8 +178,13 @@ export function ApiTokensPage() {
                           </Label>
                         </Stack>
                         <Spacer expand />
-                        <Tooltip content={token.scopes.join(', ')} direction="left" wrap>
-                          <Badge>{t('apiTokens.scopeCount', { count: token.scopes.length })}</Badge>
+                        {token.scopes.includes(ADMIN_SCOPE) && (
+                          <Badge variant="primary">{t('apiTokens.adminBadge')}</Badge>
+                        )}
+                        <Tooltip content={permissionScopes.join(', ')} direction="left" wrap>
+                          <Badge>
+                            {t('apiTokens.scopeCount', { count: permissionScopes.length })}
+                          </Badge>
                         </Tooltip>
                         {status !== 'revoked' && (
                           <Tooltip content={t('apiTokens.regenerate')} direction="left">
@@ -233,7 +245,10 @@ export function ApiTokensPage() {
             <Button variant="secondary" onClick={reset}>
               {t('apiTokens.generateModal.cancel')}
             </Button>
-            <Button onClick={handleGenerate} disabled={isPending || !name.trim() || !scopes.length}>
+            <Button
+              onClick={handleGenerate}
+              disabled={isPending || !name.trim() || (!scopes.length && !includeAdmin)}
+            >
               {isPending ? <Spinner /> : t('apiTokens.generateModal.submit')}
             </Button>
           </Row>
@@ -256,6 +271,14 @@ export function ApiTokensPage() {
             onlyAttributed
             required
           />
+          {currentUser?.isAdmin && (
+            <Checkbox
+              label={t('apiTokens.generateModal.admin')}
+              description={t('apiTokens.generateModal.adminDescription')}
+              checked={includeAdmin}
+              onChange={e => setIncludeAdmin(e.target.checked)}
+            />
+          )}
           <SelectInput
             label={t('apiTokens.generateModal.expiration')}
             options={expirationOptions}

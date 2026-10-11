@@ -14,6 +14,11 @@ public class GenerateApiTokenHandler(IApiTokenService service, ICurrentUserServi
         if (userId is null)
             return Error.Unauthorized;
         
+        // Only a signed-in admin can delegate admin privilege (IsAdmin is never true for API tokens,
+        // so a token can't mint another admin token).
+        if (command.Scopes.Contains(Permissions.AdminScope) && !currentUserService.IsAdmin)
+            return Error.Forbidden;
+
         var (token, plainText) = await service.CreateAsync(
             ownerId: userId.Value,
             name: command.Name,

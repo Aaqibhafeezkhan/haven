@@ -32,8 +32,20 @@ public sealed class PermissionBehavior<TMessage, TResponse>(
 
         if (isAdminOnly)
         {
-            if (!currentUserService.IsAdmin)
+            if (currentUserService.IsApiToken)
+            {
+                // A token only carries admin privilege when it was issued with the admin scope
+                // and its owner is still an admin.
+                var ownerId = currentUserService.UserId ?? throw new ForbiddenException();
+                if (!currentUserService.Scopes.Contains(Permissions.AdminScope)
+                    || !await permissionRepository.IsUserAdminAsync(ownerId, ct))
+                    throw new ForbiddenException();
+            }
+            else if (!currentUserService.IsAdmin)
+            {
                 throw new ForbiddenException();
+            }
+
             return await next(message, ct);
         }
 

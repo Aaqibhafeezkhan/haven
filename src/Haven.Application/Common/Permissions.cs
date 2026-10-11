@@ -4,6 +4,12 @@ namespace Haven.Application.Common;
 
 public static class Permissions
 {
+    /// <summary>
+    /// API token scope that carries the owner's admin privilege (admin-only operations).
+    /// Not part of <see cref="All"/>: it is not a grantable user permission, only a token scope.
+    /// </summary>
+    public const string AdminScope = "admin";
+
     private static IReadOnlyList<string>? _all;
 
     public static IReadOnlyList<string> All => _all ??= typeof(Permissions)
