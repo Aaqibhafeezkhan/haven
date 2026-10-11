@@ -1,15 +1,12 @@
-using Hangfire.Logging;
-
 using Haven.Application.Features.ApiTokens.Abstractions;
 using Haven.Domain.Entities;
 using Haven.Infrastructure.Persistence;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Haven.Infrastructure.Auth;
 
-public class ApiTokenService(HavenDbContext db, ILogger<ApiTokenService> logger) : IApiTokenService
+public class ApiTokenService(HavenDbContext db, IApiTokenRepository repository, ILogger<ApiTokenService> logger) : IApiTokenService
 {
     public async Task<(ApiToken Token, string PlainText)> CreateAsync(Guid ownerId, string name, IEnumerable<string> scopes, TimeSpan? expiration = null,
         CancellationToken cancellationToken = default)
@@ -27,7 +24,7 @@ public class ApiTokenService(HavenDbContext db, ILogger<ApiTokenService> logger)
             ExpiresAt = expiration.HasValue ? DateTime.UtcNow.Add(expiration.Value) : null
         };
         
-        db.ApiTokens.Add(token);
+        await repository.CreateAsync(token, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return (token, plain);
     }
@@ -35,9 +32,7 @@ public class ApiTokenService(HavenDbContext db, ILogger<ApiTokenService> logger)
     public async Task<ApiToken?> ValidateAsync(string plainText, CancellationToken cancellationToken = default)
     {
         var hash = TokenGenerator.Hash(plainText);
-        var token = await db.ApiTokens
-            .Include(t => t.Scopes)
-            .FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
+        var token = await repository.GetByHashAsync(hash, cancellationToken);
         
         if (token is null || !token.IsActive(DateTime.UtcNow))
         {
@@ -53,7 +48,7 @@ public class ApiTokenService(HavenDbContext db, ILogger<ApiTokenService> logger)
 
     public async Task RevokeAsync(Guid tokenId, CancellationToken cancellationToken = default)
     {
-        var token = db.ApiTokens.FirstOrDefault(t => t.Id == tokenId);
+        var token = await repository.GetByIdAsync(tokenId, cancellationToken);
         if (token is null)
         {
             logger.LogWarning("Attempted to revoke non-existent API token with ID: {TokenId}", tokenId);

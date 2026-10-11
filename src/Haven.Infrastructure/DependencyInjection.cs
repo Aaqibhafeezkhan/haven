@@ -93,6 +93,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IApiTokenService, ApiTokenService>();
+        services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
 
         return services;
     }

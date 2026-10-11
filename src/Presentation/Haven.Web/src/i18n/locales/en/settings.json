@@ -312,7 +312,20 @@
     },
     "errors": {
       "generateFailed": "Failed to generate API token"
-    }
+    },
+    "empty": "You haven't generated any API tokens yet.",
+    "statuses": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "createdOn": "Created {{date}}",
+    "expiresOn": "Expires {{date}}",
+    "neverExpires": "Never expires",
+    "lastUsed": "Last used {{date}}",
+    "neverUsed": "Never used",
+    "scopeCount_one": "{{count}} permission",
+    "scopeCount_other": "{{count}} permissions"
   },
   "account": {
     "title": "Account Settings",

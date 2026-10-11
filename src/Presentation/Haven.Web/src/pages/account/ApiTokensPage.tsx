@@ -2,18 +2,23 @@ import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Row, Stack } from '@/components/layout';
+import { Row, Spacer, Stack } from '@/components/layout';
+import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { CodeBlock } from '@/components/ui/CodeBlock';
+import { CodeSpan } from '@/components/ui/CodeSpan';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Modal } from '@/components/ui/Modal';
+import { Pagination } from '@/components/ui/Pagination';
 import { PermissionSelect } from '@/components/ui/PermissionSelect';
 import { SelectInput } from '@/components/ui/SelectInput';
 import { Spinner } from '@/components/ui/Spinner';
-import { useGenerateApiToken } from '@/hooks/useApiTokens';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { useApiTokens, useGenerateApiToken } from '@/hooks/useApiTokens';
+import { useFormatDate } from '@/hooks/useFormatDate';
 import { secondsToTimeSpan } from '@/lib/timespan';
 
 const DAY = 86400;
@@ -27,6 +32,9 @@ const EXPIRATION_SECONDS: Record<string, number | undefined> = {
 
 export function ApiTokensPage() {
   const { t } = useTranslation('settings');
+  const formatDate = useFormatDate();
+  const [pageNumber, setPageNumber] = useState(1);
+  const { data: tokens, isLoading } = useApiTokens({ pageNumber, pageSize: 10 });
   const { mutateAsync: generate, isPending } = useGenerateApiToken();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -77,7 +85,74 @@ export function ApiTokensPage() {
           </Row>
         </CardHeader>
         <CardContent>
-          <Label variant="muted">{t('apiTokens.description')}</Label>
+          <Stack gap="3">
+            <Label variant="muted">{t('apiTokens.description')}</Label>
+            {isLoading ? (
+              <Row justify="center">
+                <Spinner />
+              </Row>
+            ) : !tokens?.items.length ? (
+              <Label variant="muted">{t('apiTokens.empty')}</Label>
+            ) : (
+              <Stack gap="2">
+                {tokens.items.map(token => {
+                  const status = token.revokedAt
+                    ? 'revoked'
+                    : token.expiresAt && new Date(token.expiresAt) <= new Date()
+                      ? 'expired'
+                      : 'active';
+                  return (
+                    <Card key={token.id} padding="var(--space-3)">
+                      <Row>
+                        <Stack gap="1">
+                          <Row gap="1">
+                            <Label size="md" variant="primary" style={{ fontWeight: 'bold' }}>
+                              {token.displayName}
+                            </Label>
+                            <CodeSpan>{token.prefix}</CodeSpan>
+                          </Row>
+                          <Label size="sm" variant="secondary">
+                            {[
+                              t('apiTokens.createdOn', { date: formatDate(token.createdAt) }),
+                              token.expiresAt
+                                ? t('apiTokens.expiresOn', { date: formatDate(token.expiresAt) })
+                                : t('apiTokens.neverExpires'),
+                              token.lastUsedAt
+                                ? t('apiTokens.lastUsed', { date: formatDate(token.lastUsedAt) })
+                                : t('apiTokens.neverUsed'),
+                            ].join(' · ')}
+                          </Label>
+                        </Stack>
+                        <Spacer expand />
+                        <Tooltip content={token.scopes.join(', ')} direction="left">
+                          <Badge>{t('apiTokens.scopeCount', { count: token.scopes.length })}</Badge>
+                        </Tooltip>
+                        <Badge
+                          variant={
+                            status === 'active'
+                              ? 'success'
+                              : status === 'expired'
+                                ? 'warning'
+                                : 'danger'
+                          }
+                        >
+                          {t(`apiTokens.statuses.${status}`)}
+                        </Badge>
+                      </Row>
+                    </Card>
+                  );
+                })}
+                <Pagination
+                  pageNumber={tokens.pageNumber}
+                  totalPages={tokens.totalPages}
+                  hasPreviousPage={tokens.hasPreviousPage}
+                  hasNextPage={tokens.hasNextPage}
+                  onPreviousPage={() => setPageNumber(p => Math.max(1, p - 1))}
+                  onNextPage={() => setPageNumber(p => p + 1)}
+                />
+              </Stack>
+            )}
+          </Stack>
         </CardContent>
       </Card>
 

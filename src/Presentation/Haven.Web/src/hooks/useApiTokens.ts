@@ -1,9 +1,22 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { authApi, GenerateApiTokenInput } from '@/api/auth';
+import { authApi, GenerateApiTokenInput, GetApiTokensParams } from '@/api/auth';
+
+const API_TOKENS_KEY = 'apiTokens';
+
+export function useApiTokens(params?: GetApiTokensParams) {
+  return useQuery({
+    queryKey: [API_TOKENS_KEY, params],
+    queryFn: () => authApi.getApiTokens(params),
+  });
+}
 
 export function useGenerateApiToken() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: GenerateApiTokenInput) => authApi.generateApiToken(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [API_TOKENS_KEY] });
+    },
   });
 }
