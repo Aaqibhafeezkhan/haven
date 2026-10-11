@@ -7,6 +7,7 @@ using Hangfire.PostgreSql;
 
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Auth;
+using Haven.Application.Features.ApiTokens.Abstractions;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Notifications;
 using Haven.Application.Common.Interfaces.Repositories;
@@ -91,6 +92,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IApiTokenService, ApiTokenService>();
 
         return services;
     }

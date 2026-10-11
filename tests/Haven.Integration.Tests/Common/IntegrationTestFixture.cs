@@ -151,6 +151,7 @@ public class IntegrationTestFixture : IDisposable
 internal sealed class TestCurrentUserService : ICurrentUserService
 {
     public Guid? UserId => null;
+    public string? ApiToken => null;
     public bool IsAdmin => true;
     public bool IsBackgroundContext => true;
 }

@@ -17,6 +17,9 @@ public class CurrentUserService(IHttpContextAccessor httpContextAccessor) : ICur
         }
     }
 
+    public string? ApiToken =>
+        httpContextAccessor.HttpContext?.Request.Headers["X-Api-Key"].FirstOrDefault();
+
     public bool IsAdmin
     {
         get
