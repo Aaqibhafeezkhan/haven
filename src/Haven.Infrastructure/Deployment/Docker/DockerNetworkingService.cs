@@ -3,6 +3,7 @@ using Docker.DotNet.Models;
 
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Deployment;
+using Haven.Application.Configuration;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;
 using Haven.Domain.Enums;
@@ -11,6 +12,7 @@ using Haven.Infrastructure.Utils;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using Environment = System.Environment;
 using Network = Haven.Domain.Aggregates.Network;
@@ -24,13 +26,20 @@ public class DockerNetworkingService : INetworkingService
     private readonly HavenDbContext _dbContext;
     private readonly IDockerClient _dockerClient;
     private readonly ILogger<DockerNetworkingService> _logger;
+    private readonly IOptionsMonitor<NetworkOptions> _networkOptions;
+
+    // Subnet allocation is find-free-then-create; serialize it across scoped instances so two concurrent
+    // creates can't pick the same candidate.
+    private static readonly SemaphoreSlim SubnetAllocationLock = new(1, 1);
+    private const int MaxSubnetAllocationAttempts = 16;
 
     public DockerNetworkingService(HavenDbContext dbContext, ILogger<DockerNetworkingService> logger,
-        IDockerClient dockerClient)
+        IDockerClient dockerClient, IOptionsMonitor<NetworkOptions> networkOptions)
     {
         _dbContext = dbContext;
         _logger = logger;
         _dockerClient = dockerClient;
+        _networkOptions = networkOptions;
     }
 
     public async Task<Result> CreateProjectEnvironmentNetworkAsync(Guid projectId, Guid environmentId,
@@ -67,47 +76,29 @@ public class DockerNetworkingService : INetworkingService
 
         try
         {
-            var ipam = await TryBuildIpamAsync(projectId, environmentId, cancellationToken);
-
-            var createResponse = await _dockerClient.Networks.CreateNetworkAsync(
-                new NetworksCreateParameters
-                {
-                    Name = networkName,
-                    Driver = "bridge",
-                    Attachable = true,
-                    CheckDuplicate = true,
-                    IPAM = ipam is null
-                        ? null
-                        : new IPAM
-                        {
-                            Driver = "default",
-                            Config = [new IPAMConfig { Subnet = ipam.Value.Subnet, Gateway = ipam.Value.Gateway }]
-                        },
-                    Labels = new Dictionary<string, string>
-                    {
-                        { "haven.project-id", projectId.ToString() },
-                        { "haven.environment-id", environmentId.ToString() },
-                        { "haven.project-name", project.Name },
-                        { "haven.environment-name", environment.Name },
-                        { "haven.network-type", "environment" },
-                        { "haven.network-id", network.Id.ToString() },
-                        { "haven.created-at", DateTime.UtcNow.ToString("O") },
-                        { DockerUtils.HavenManagedLabel.Key, DockerUtils.HavenManagedLabel.Value }
-                    }
-                },
-                cancellationToken);
-
+            var created = await CreateEnvironmentDockerNetworkAsync(
+                network, networkName, project, environment, cancellationToken);
+            if (created.IsFailure)
+                return created.Error;
 
             _logger.LogInformation(
                 "Successfully created Docker network {NetworkId} for project {ProjectId} environment {EnvironmentId}",
-                createResponse, projectId, environmentId);
+                created.Value.DockerId, projectId, environmentId);
 
-            network.SetDockerNetworkId(createResponse.ID);
-            if (ipam is not null)
-                network.AssignNetworkInfo(ipam.Value.Subnet, ipam.Value.Gateway);
+            network.SetDockerNetworkId(created.Value.DockerId);
+            network.AssignNetworkInfo(created.Value.Subnet, created.Value.Gateway);
 
             _dbContext.Networks.Add(network);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch
+            {
+                // Don't leave an untracked Docker network (and its subnet) behind.
+                await TryDeleteDockerNetworkAsync(created.Value.DockerId);
+                throw;
+            }
 
             _logger.LogInformation(
                 "Network aggregate persisted for project {ProjectId} environment {EnvironmentId}",
@@ -501,45 +492,19 @@ public class DockerNetworkingService : INetworkingService
                         network.ProjectId ?? network.EnvironmentId ?? Guid.Empty);
                 }
 
-                var ipam = await TryBuildIpamAsync(network.ProjectId.Value, network.EnvironmentId.Value, cancellationToken);
+                var created = await CreateEnvironmentDockerNetworkAsync(
+                    network, networkName, project, environment, cancellationToken);
+                if (created.IsFailure)
+                    return created.Error;
 
-                var createResponse = await _dockerClient.Networks.CreateNetworkAsync(
-                    new NetworksCreateParameters
-                    {
-                        Name = networkName,
-                        Driver = "bridge",
-                        Attachable = true,
-                        CheckDuplicate = true,
-                        IPAM = ipam is null
-                            ? null
-                            : new IPAM
-                            {
-                                Driver = "default",
-                                Config = [new IPAMConfig { Subnet = ipam.Value.Subnet, Gateway = ipam.Value.Gateway }]
-                            },
-                        Labels = new Dictionary<string, string>
-                        {
-                            { "haven.project-id", network.ProjectId.ToString()! },
-                            { "haven.environment-id", network.EnvironmentId.ToString()! },
-                            { "haven.project-name", project.Name },
-                            { "haven.environment-name", environment.Name },
-                            { "haven.network-type", "environment" },
-                            { "haven.network-id", network.Id.ToString() },
-                            { "haven.created-at", DateTime.UtcNow.ToString("O") },
-                            { DockerUtils.HavenManagedLabel.Key, DockerUtils.HavenManagedLabel.Value }
-                        }
-                    },
-                    cancellationToken);
-
-                network.SetDockerNetworkId(createResponse.ID);
-                if (ipam is not null)
-                    network.AssignNetworkInfo(ipam.Value.Subnet, ipam.Value.Gateway);
+                network.SetDockerNetworkId(created.Value.DockerId);
+                network.AssignNetworkInfo(created.Value.Subnet, created.Value.Gateway);
                 _dbContext.Networks.Update(network);
                 await _dbContext.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation(
-                    "Successfully created Docker network {NetworkId} for network {NetworkId}",
-                    createResponse.ID, network.Id);
+                    "Successfully created Docker network {DockerNetworkId} for network {NetworkId}",
+                    created.Value.DockerId, network.Id);
 
                 return Result.Success();
             }
@@ -623,30 +588,113 @@ public class DockerNetworkingService : INetworkingService
         }
     }
 
-    private async Task<(string Subnet, string Gateway)?> TryBuildIpamAsync(Guid projectId, Guid environmentId,
-        CancellationToken cancellationToken)
+    private async Task TryDeleteDockerNetworkAsync(string dockerNetworkId)
     {
-        var subnet = DockerUtils.GenerateSubnetForEnvironment(projectId, environmentId);
-        var gateway = DockerUtils.DeriveGatewayFromSubnet(subnet);
-
         try
         {
-            var existingNetworks = await _dockerClient.Networks.ListNetworksAsync(new NetworksListParameters(), cancellationToken);
-            var collides = existingNetworks.Any(n => n.IPAM?.Config?.Any(c => c.Subnet == subnet) == true);
-            if (collides)
+            await _dockerClient.Networks.DeleteNetworkAsync(dockerNetworkId, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to clean up Docker network {DockerNetworkId} after a persistence failure.",
+                dockerNetworkId);
+        }
+    }
+
+    private readonly record struct CreatedEnvironmentNetwork(string DockerId, string Subnet, string Gateway);
+
+    /// <summary>
+    /// Creates the Docker network for a project environment on a free /24 out of the configured subnet
+    /// pool. Candidates are chosen by real CIDR overlap against every Docker network, every subnet Haven
+    /// has already recorded and the host's own interfaces; if Docker still reports an overlap (e.g. a
+    /// network appeared meanwhile) that candidate is excluded and the next one is tried.
+    /// </summary>
+    private async Task<Result<CreatedEnvironmentNetwork>> CreateEnvironmentDockerNetworkAsync(
+        Network network, string networkName, Project project, Haven.Domain.Aggregates.Environment environment,
+        CancellationToken cancellationToken)
+    {
+        var pool = _networkOptions.CurrentValue.SubnetPool;
+        if (!SubnetAllocator.TryParseCidr(pool, out _, out var poolPrefix) || poolPrefix > SubnetAllocator.SubnetPrefixLength)
+        {
+            _logger.LogWarning("Configured network subnet pool '{Pool}' is invalid; using default {Default}.",
+                pool, SubnetAllocator.DefaultPool);
+            pool = SubnetAllocator.DefaultPool;
+        }
+
+        await SubnetAllocationLock.WaitAsync(cancellationToken);
+        try
+        {
+            var taken = new List<string>(SubnetAllocator.GetHostSubnets());
+
+            var dockerNetworks = await _dockerClient.Networks.ListNetworksAsync(new NetworksListParameters(), cancellationToken);
+            taken.AddRange(dockerNetworks
+                .SelectMany(n => n.IPAM?.Config ?? [])
+                .Select(c => c.Subnet)
+                .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+            taken.AddRange(await _dbContext.Networks
+                .Where(n => n.Subnet != null && n.Id != network.Id)
+                .Select(n => n.Subnet!)
+                .ToListAsync(cancellationToken));
+
+            for (var attempt = 0; attempt < MaxSubnetAllocationAttempts; attempt++)
             {
-                _logger.LogWarning(
-                    "Generated subnet {Subnet} collides with an existing Docker network; falling back to automatic IPAM allocation.",
-                    subnet);
-                return null;
+                var subnet = SubnetAllocator.FindFreeSubnet(pool, taken);
+                if (subnet is null)
+                {
+                    _logger.LogError("No free /{Prefix} subnet left in pool {Pool} for network {NetworkName}.",
+                        SubnetAllocator.SubnetPrefixLength, pool, networkName);
+                    return Error.Docker.NoFreeSubnet;
+                }
+
+                var gateway = SubnetAllocator.GatewayFor(subnet);
+
+                try
+                {
+                    var response = await _dockerClient.Networks.CreateNetworkAsync(
+                        new NetworksCreateParameters
+                        {
+                            Name = networkName,
+                            Driver = "bridge",
+                            Attachable = true,
+                            CheckDuplicate = true,
+                            IPAM = new IPAM
+                            {
+                                Driver = "default",
+                                Config = [new IPAMConfig { Subnet = subnet, Gateway = gateway }]
+                            },
+                            Labels = new Dictionary<string, string>
+                            {
+                                { "haven.project-id", project.Id.ToString() },
+                                { "haven.environment-id", environment.Id.ToString() },
+                                { "haven.project-name", project.Name },
+                                { "haven.environment-name", environment.Name },
+                                { "haven.network-type", "environment" },
+                                { "haven.network-id", network.Id.ToString() },
+                                { "haven.created-at", DateTime.UtcNow.ToString("O") },
+                                { DockerUtils.HavenManagedLabel.Key, DockerUtils.HavenManagedLabel.Value }
+                            }
+                        },
+                        cancellationToken);
+
+                    return new CreatedEnvironmentNetwork(response.ID, subnet, gateway);
+                }
+                catch (DockerApiException ex) when (ex.Message.Contains("overlap", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "Docker reported subnet {Subnet} overlaps an existing network; trying the next free subnet (attempt {Attempt}/{Max}).",
+                        subnet, attempt + 1, MaxSubnetAllocationAttempts);
+                    taken.Add(subnet);
+                }
             }
 
-            return (subnet, gateway);
+            _logger.LogError("Gave up allocating a subnet for network {NetworkName} after {Max} overlap rejections.",
+                networkName, MaxSubnetAllocationAttempts);
+            return Error.Docker.FailedToCreateNetwork;
         }
-        catch (DockerApiException ex)
+        finally
         {
-            _logger.LogWarning(ex, "Failed to check for subnet collisions; falling back to automatic IPAM allocation.");
-            return null;
+            SubnetAllocationLock.Release();
         }
     }
 

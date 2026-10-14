@@ -1,6 +1,8 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
 
+using Haven.Application.Common;
+using Haven.Application.Configuration;
 using Haven.Domain;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;
@@ -11,6 +13,7 @@ using Haven.Testing.Common;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
@@ -26,6 +29,7 @@ public sealed class DockerNetworkingServiceTests
     private IDockerClient _client = null!;
     private HavenDbContext _db = null!;
     private ILogger<DockerNetworkingService> _logger = null!;
+    private IOptionsMonitor<NetworkOptions> _networkOptions = null!;
     private DockerNetworkingService _sut = null!;
 
     [SetUp]
@@ -34,7 +38,9 @@ public sealed class DockerNetworkingServiceTests
         _client = Substitute.For<IDockerClient>();
         _db = TestDbContextFactory.CreateUnitDbContext();
         _logger = Substitute.For<ILogger<DockerNetworkingService>>();
-        _sut = new DockerNetworkingService(_db, _logger, _client);
+        _networkOptions = Substitute.For<IOptionsMonitor<NetworkOptions>>();
+        _networkOptions.CurrentValue.Returns(new NetworkOptions());
+        _sut = new DockerNetworkingService(_db, _logger, _client, _networkOptions);
 
         // No container exists for the service in any of these tests.
         _client.Containers.ListContainersAsync(Arg.Any<ContainersListParameters>(), Arg.Any<CancellationToken>())
@@ -156,5 +162,73 @@ public sealed class DockerNetworkingServiceTests
         remaining.ShouldNotContain(envNetwork.Id);
         remaining.ShouldContain(sharedNetwork.Id);
         remaining.ShouldContain(externalNetwork.Id);
+    }
+
+    [Test]
+    public async Task CreateProjectEnvironmentNetworkAsync_AvoidsSubnetsInsideExistingWiderNetworks()
+    {
+        var (project, _) = SeedServiceWithoutContainer();
+        var environmentId = (await _db.Environments.FirstAsync()).Id;
+
+        _client.Networks.ListNetworksAsync(Arg.Any<NetworksListParameters>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<NetworksListParameters>().Filters is null
+                ? [new NetworkResponse { Name = "other", IPAM = new IPAM { Config = [new IPAMConfig { Subnet = "10.240.0.0/16" }] } }]
+                : []);
+        NetworksCreateParameters? sent = null;
+        _client.Networks.CreateNetworkAsync(Arg.Do<NetworksCreateParameters>(p => sent = p), Arg.Any<CancellationToken>())
+            .Returns(new NetworksCreateResponse { ID = "docker-1" });
+
+        var result = await _sut.CreateProjectEnvironmentNetworkAsync(project.Id, environmentId, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        sent.ShouldNotBeNull();
+        sent.IPAM.Config.Single().Subnet.ShouldBe("10.241.0.0/24");
+        sent.IPAM.Config.Single().Gateway.ShouldBe("10.241.0.1");
+        var saved = await _db.Networks.SingleAsync();
+        saved.Subnet.ShouldBe("10.241.0.0/24");
+        saved.DockerNetworkId.ShouldBe("docker-1");
+    }
+
+    [Test]
+    public async Task CreateProjectEnvironmentNetworkAsync_WhenDockerReportsOverlap_RetriesWithNextSubnet()
+    {
+        var (project, _) = SeedServiceWithoutContainer();
+        var environmentId = (await _db.Environments.FirstAsync()).Id;
+
+        _client.Networks.ListNetworksAsync(Arg.Any<NetworksListParameters>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+        var subnets = new List<string>();
+        _client.Networks.CreateNetworkAsync(Arg.Any<NetworksCreateParameters>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                subnets.Add(call.Arg<NetworksCreateParameters>().IPAM.Config.Single().Subnet);
+                return subnets.Count == 1
+                    ? throw new DockerApiException(System.Net.HttpStatusCode.Forbidden,
+                        "Pool overlaps with other one on this address space")
+                    : Task.FromResult(new NetworksCreateResponse { ID = "docker-2" });
+            });
+
+        var result = await _sut.CreateProjectEnvironmentNetworkAsync(project.Id, environmentId, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        subnets.ShouldBe(["10.240.0.0/24", "10.240.1.0/24"]);
+    }
+
+    [Test]
+    public async Task CreateProjectEnvironmentNetworkAsync_WhenPoolExhausted_ReturnsNoFreeSubnet()
+    {
+        var (project, _) = SeedServiceWithoutContainer();
+        var environmentId = (await _db.Environments.FirstAsync()).Id;
+        _networkOptions.CurrentValue.Returns(new NetworkOptions { SubnetPool = "10.250.0.0/24" });
+
+        _client.Networks.ListNetworksAsync(Arg.Any<NetworksListParameters>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<NetworksListParameters>().Filters is null
+                ? [new NetworkResponse { Name = "other", IPAM = new IPAM { Config = [new IPAMConfig { Subnet = "10.250.0.0/24" }] } }]
+                : []);
+
+        var result = await _sut.CreateProjectEnvironmentNetworkAsync(project.Id, environmentId, CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(Error.Docker.NoFreeSubnet);
     }
 }

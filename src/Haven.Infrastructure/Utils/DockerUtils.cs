@@ -307,35 +307,6 @@ public static class DockerUtils
         return sanitized.Length > 64 ? sanitized[..64] : sanitized;
     }
 
-    public static string GenerateSubnetForEnvironment(Guid projectId, Guid environmentId)
-    {
-        // Use the first 2 bytes of the IDs to create a unique subnet
-        var projectBytes = projectId.ToByteArray();
-        var envBytes = environmentId.ToByteArray();
-
-        // Combine bytes to generate a number between 0-65535
-        var subnetSecond = BitConverter.ToUInt16(projectBytes, 0) % 4096; // 0-4095 (fits in /12 range)
-        var subnetThird = BitConverter.ToUInt16(envBytes, 0) % 256; // 0-255
-
-        // Subnet in 172.16.0.0/12 range: 172.16-31.x.0/24
-        var baseSecond = 16 + (subnetSecond / 256);
-        var baseThird = subnetSecond % 256;
-
-        return $"172.{baseSecond}.{baseThird}.0/24";
-    }
-
-    /// <summary>
-    /// Derives the first usable host address (the conventional gateway) for a /24 CIDR block,
-    /// e.g. "172.16.5.0/24" -> "172.16.5.1".
-    /// </summary>
-    public static string DeriveGatewayFromSubnet(string cidr)
-    {
-        var networkAddress = cidr.Split('/')[0];
-        var octets = networkAddress.Split('.');
-        octets[3] = "1";
-        return string.Join('.', octets);
-    }
-
     public static string SanitizeForDocker(string input)
     {
         return System.Text.RegularExpressions.Regex.Replace(
