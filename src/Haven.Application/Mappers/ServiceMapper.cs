@@ -115,8 +115,8 @@ public static partial class ServiceMapper
     {
         Type = "docker",
         Image = docker.Image,
-        Ports = docker.Ports,
-        CommandArgs = docker.CommandArgs,
+        Ports = [.. docker.Ports],
+        CommandArgs = [.. docker.CommandArgs],
         RestartPolicy = docker.RestartPolicy
     };
 
@@ -130,10 +130,10 @@ public static partial class ServiceMapper
         BuildContext = dockerfile.BuildContext,
         GitCredentialId = dockerfile.GitCredentialId,
         Content = dockerfile.Content,
-        Ports = dockerfile.Ports,
-        CommandArgs = dockerfile.CommandArgs,
+        Ports = [.. dockerfile.Ports],
+        CommandArgs = [.. dockerfile.CommandArgs],
         RestartPolicy = dockerfile.RestartPolicy,
-        BuildArgs = dockerfile.BuildArgs
+        BuildArgs = new Dictionary<string, string>(dockerfile.BuildArgs ?? [])
     };
 
     public static ServiceSourceConfig? ToDomain(this ServiceSourceConfigManifest? manifest, ServiceType serviceType)
@@ -156,8 +156,8 @@ public static partial class ServiceMapper
     public static DockerConfig ToDockerConfig(this ServiceSourceConfigManifest manifest) => new()
     {
         Image = manifest.Image ?? string.Empty,
-        Ports = manifest.Ports,
-        CommandArgs = manifest.CommandArgs,
+        Ports = [.. manifest.Ports ?? []],
+        CommandArgs = [.. manifest.CommandArgs ?? []],
         RestartPolicy = manifest.RestartPolicy
     };
 
@@ -170,9 +170,9 @@ public static partial class ServiceMapper
         BuildContext = manifest.BuildContext,
         GitCredentialId = manifest.GitCredentialId,
         Content = manifest.Content,
-        Ports = manifest.Ports,
-        CommandArgs = manifest.CommandArgs,
+        Ports = [.. manifest.Ports ?? []],
+        CommandArgs = [.. manifest.CommandArgs ?? []],
         RestartPolicy = manifest.RestartPolicy,
-        BuildArgs = manifest.BuildArgs
+        BuildArgs = new Dictionary<string, string>(manifest.BuildArgs ?? [])
     };
 }
