@@ -9,6 +9,7 @@ import { BranchInput } from '../ui/BranchInput';
 import { FormGroup, FormInput, FormLabel, FormTextarea } from '../ui/Form';
 import { RepositoryInput } from '../ui/RepositoryInput';
 import { SelectInput } from '../ui/SelectInput';
+import { BuildArgsEditor } from './BuildArgsEditor';
 
 const RESTART_POLICIES: RestartPolicy[] = ['No', 'Always', 'UnlessStopped', 'OnFailure'];
 
@@ -34,6 +35,8 @@ interface DockerfileConfigFieldsProps {
   onGitCredentialIdChange: (value: string | undefined) => void;
   credentials: Credential[];
   restartPolicy: RestartPolicy;
+  buildArgs: Record<string, string>;
+  onBuildArgsChange: (args: Record<string, string>) => void;
   onRestartPolicyChange: (policy: RestartPolicy) => void;
   disabled?: boolean;
 }
@@ -55,6 +58,8 @@ export function DockerfileConfigFields({
   onGitCredentialIdChange,
   credentials,
   restartPolicy,
+  buildArgs,
+  onBuildArgsChange,
   onRestartPolicyChange,
   disabled,
 }: DockerfileConfigFieldsProps) {
@@ -183,6 +188,7 @@ export function DockerfileConfigFields({
           />
         </FormGroup>
       )}
+      <BuildArgsEditor buildArgs={buildArgs} onChange={onBuildArgsChange} disabled={disabled} />
     </div>
   );
 }

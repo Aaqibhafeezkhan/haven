@@ -103,32 +103,37 @@ public static partial class ServiceMapper
             : volume.Source ?? string.Empty
     };
 
-    private static ServiceSourceConfigManifest? ToManifest(this ServiceSourceConfig? config) => config switch
+    public static ServiceSourceConfigManifest? ToManifest(this ServiceSourceConfig? config) => config switch
     {
-        DockerConfig docker => new ServiceSourceConfigManifest
-        {
-            Type = "docker",
-            Image = docker.Image,
-            Ports = docker.Ports,
-            CommandArgs = docker.CommandArgs,
-            RestartPolicy = docker.RestartPolicy
-        },
-        DockerfileConfig dockerfile => new ServiceSourceConfigManifest
-        {
-            Type = "dockerfile",
-            DockerfileSource = dockerfile.Source,
-            Repository = dockerfile.Repository,
-            Branch = dockerfile.Branch,
-            FilePath = dockerfile.FilePath,
-            BuildContext = dockerfile.BuildContext,
-            GitCredentialId = dockerfile.GitCredentialId,
-            Content = dockerfile.Content,
-            Ports = dockerfile.Ports,
-            CommandArgs = dockerfile.CommandArgs,
-            RestartPolicy = dockerfile.RestartPolicy
-        },
+        DockerConfig docker => docker.ToManifest(),
+        DockerfileConfig dockerfile => dockerfile.ToManifest(),
         null => null,
         _ => throw new InvalidOperationException($"Unknown source config type: {config.GetType().Name}")
+    };
+
+    public static ServiceSourceConfigManifest ToManifest(this DockerConfig docker) => new()
+    {
+        Type = "docker",
+        Image = docker.Image,
+        Ports = [.. docker.Ports],
+        CommandArgs = [.. docker.CommandArgs],
+        RestartPolicy = docker.RestartPolicy
+    };
+
+    public static ServiceSourceConfigManifest ToManifest(this DockerfileConfig dockerfile) => new()
+    {
+        Type = "dockerfile",
+        DockerfileSource = dockerfile.Source,
+        Repository = dockerfile.Repository,
+        Branch = dockerfile.Branch,
+        FilePath = dockerfile.FilePath,
+        BuildContext = dockerfile.BuildContext,
+        GitCredentialId = dockerfile.GitCredentialId,
+        Content = dockerfile.Content,
+        Ports = [.. dockerfile.Ports],
+        CommandArgs = [.. dockerfile.CommandArgs],
+        RestartPolicy = dockerfile.RestartPolicy,
+        BuildArgs = new Dictionary<string, string>(dockerfile.BuildArgs ?? [])
     };
 
     public static ServiceSourceConfig? ToDomain(this ServiceSourceConfigManifest? manifest, ServiceType serviceType)
@@ -142,27 +147,32 @@ public static partial class ServiceMapper
 
         return effectiveType switch
         {
-            "docker" when manifest is not null => new DockerConfig
-            {
-                Image = manifest.Image ?? string.Empty,
-                Ports = manifest.Ports,
-                CommandArgs = manifest.CommandArgs,
-                RestartPolicy = manifest.RestartPolicy
-            },
-            "dockerfile" when manifest is not null => new DockerfileConfig
-            {
-                Source = manifest.DockerfileSource ?? DockerfileSource.Raw,
-                Repository = manifest.Repository,
-                Branch = manifest.Branch,
-                FilePath = manifest.FilePath,
-                BuildContext = manifest.BuildContext,
-                GitCredentialId = manifest.GitCredentialId,
-                Content = manifest.Content,
-                Ports = manifest.Ports,
-                CommandArgs = manifest.CommandArgs,
-                RestartPolicy = manifest.RestartPolicy
-            },
+            "docker" when manifest is not null => manifest.ToDockerConfig(),
+            "dockerfile" when manifest is not null => manifest.ToDockerfileConfig(),
             _ => null
         };
     }
+
+    public static DockerConfig ToDockerConfig(this ServiceSourceConfigManifest manifest) => new()
+    {
+        Image = manifest.Image ?? string.Empty,
+        Ports = [.. manifest.Ports ?? []],
+        CommandArgs = [.. manifest.CommandArgs ?? []],
+        RestartPolicy = manifest.RestartPolicy
+    };
+
+    public static DockerfileConfig ToDockerfileConfig(this ServiceSourceConfigManifest manifest) => new()
+    {
+        Source = manifest.DockerfileSource ?? DockerfileSource.Raw,
+        Repository = manifest.Repository,
+        Branch = manifest.Branch,
+        FilePath = manifest.FilePath,
+        BuildContext = manifest.BuildContext,
+        GitCredentialId = manifest.GitCredentialId,
+        Content = manifest.Content,
+        Ports = [.. manifest.Ports ?? []],
+        CommandArgs = [.. manifest.CommandArgs ?? []],
+        RestartPolicy = manifest.RestartPolicy,
+        BuildArgs = new Dictionary<string, string>(manifest.BuildArgs ?? [])
+    };
 }

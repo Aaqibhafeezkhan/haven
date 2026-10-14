@@ -33,6 +33,7 @@
     <ItemGroup>
       <ProjectReference Include="..\..\src\Haven.Application\Haven.Application.csproj" />
       <ProjectReference Include="..\..\src\Haven.Infrastructure\Haven.Infrastructure.csproj" />
+      <ProjectReference Include="..\Haven.Testing.Common\Haven.Testing.Common.csproj" />
     </ItemGroup>
 
     <ItemGroup>

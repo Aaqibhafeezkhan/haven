@@ -46,54 +46,10 @@ public static partial class SidecarMapper
             sourceConfig: dto.SourceConfig.ToDomain());
     }
 
-    private static ServiceSourceConfigManifest? ToManifest(this ServiceSourceConfig? config) => config switch
-    {
-        DockerConfig docker => new ServiceSourceConfigManifest
-        {
-            Type = "docker",
-            Image = docker.Image,
-            Ports = docker.Ports,
-            CommandArgs = docker.CommandArgs,
-            RestartPolicy = docker.RestartPolicy
-        },
-        DockerfileConfig dockerfile => new ServiceSourceConfigManifest
-        {
-            Type = "dockerfile",
-            DockerfileSource = dockerfile.Source,
-            Repository = dockerfile.Repository,
-            Branch = dockerfile.Branch,
-            FilePath = dockerfile.FilePath,
-            GitCredentialId = dockerfile.GitCredentialId,
-            Content = dockerfile.Content,
-            Ports = dockerfile.Ports,
-            CommandArgs = dockerfile.CommandArgs,
-            RestartPolicy = dockerfile.RestartPolicy
-        },
-        null => null,
-        _ => throw new InvalidOperationException($"Unknown source config type: {config.GetType().Name}")
-    };
-
     public static ServiceSourceConfig? ToDomain(this ServiceSourceConfigManifest? manifest) => manifest?.Type switch
     {
-        "docker" => new DockerConfig
-        {
-            Image = manifest.Image ?? string.Empty,
-            Ports = manifest.Ports,
-            CommandArgs = manifest.CommandArgs,
-            RestartPolicy = manifest.RestartPolicy
-        },
-        "dockerfile" => new DockerfileConfig
-        {
-            Source = manifest.DockerfileSource ?? DockerfileSource.Raw,
-            Repository = manifest.Repository,
-            Branch = manifest.Branch,
-            FilePath = manifest.FilePath,
-            GitCredentialId = manifest.GitCredentialId,
-            Content = manifest.Content,
-            Ports = manifest.Ports,
-            CommandArgs = manifest.CommandArgs,
-            RestartPolicy = manifest.RestartPolicy
-        },
+        "docker" => manifest.ToDockerConfig(),
+        "dockerfile" => manifest.ToDockerfileConfig(),
         _ => null
     };
 }

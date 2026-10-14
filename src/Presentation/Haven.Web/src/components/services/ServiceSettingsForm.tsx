@@ -105,6 +105,7 @@ export function ServiceSettingsForm({
     filePath: string;
     buildContext: string;
     content: string;
+    buildArgs: Record<string, string>;
     gitCredentialId?: string;
     restartPolicy: RestartPolicy;
   }>(() => {
@@ -117,6 +118,7 @@ export function ServiceSettingsForm({
         filePath: cfg?.filePath ?? '',
         buildContext: cfg?.buildContext ?? '',
         content: cfg?.content ?? '',
+        buildArgs: cfg?.buildArgs ?? {},
         gitCredentialId: cfg?.gitCredentialId,
         restartPolicy: cfg?.restartPolicy ?? 'UnlessStopped',
       };
@@ -128,6 +130,7 @@ export function ServiceSettingsForm({
       filePath: '',
       buildContext: '',
       content: '',
+      buildArgs: {},
       restartPolicy: 'UnlessStopped',
     };
   });
@@ -155,6 +158,7 @@ export function ServiceSettingsForm({
         filePath: cfg?.filePath ?? '',
         buildContext: cfg?.buildContext ?? '',
         content: cfg?.content ?? '',
+        buildArgs: cfg?.buildArgs ?? {},
         gitCredentialId: cfg?.gitCredentialId,
         restartPolicy: cfg?.restartPolicy ?? 'UnlessStopped',
       });
@@ -212,6 +216,9 @@ export function ServiceSettingsForm({
   const handleSaveDockerfile = async () => {
     const ports = toPortStrings(portMappings);
     const filteredCommandArgs = commandArgs.filter(a => a.trim());
+    const buildArgs = Object.fromEntries(
+      Object.entries(dockerfileForm.buildArgs).filter(([k]) => k.trim())
+    );
     const config: DockerfileConfig =
       dockerfileForm.source === 'Git'
         ? {
@@ -221,6 +228,7 @@ export function ServiceSettingsForm({
             filePath: dockerfileForm.filePath.trim() || undefined,
             buildContext: dockerfileForm.buildContext.trim() || undefined,
             gitCredentialId: dockerfileForm.gitCredentialId || undefined,
+            buildArgs,
             ports,
             commandArgs: filteredCommandArgs,
             restartPolicy: dockerfileForm.restartPolicy,
@@ -228,6 +236,7 @@ export function ServiceSettingsForm({
         : {
             source: 'Raw',
             content: dockerfileForm.content.trim(),
+            buildArgs,
             ports,
             commandArgs: filteredCommandArgs,
             restartPolicy: dockerfileForm.restartPolicy,
@@ -379,6 +388,8 @@ export function ServiceSettingsForm({
                   }
                   credentials={gitCredentials}
                   restartPolicy={dockerfileForm.restartPolicy}
+                  buildArgs={dockerfileForm.buildArgs}
+                  onBuildArgsChange={v => setDockerfileForm(f => ({ ...f, buildArgs: v }))}
                   onRestartPolicyChange={v => setDockerfileForm(f => ({ ...f, restartPolicy: v }))}
                   disabled={isLoading}
                 />

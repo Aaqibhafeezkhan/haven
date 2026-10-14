@@ -5,6 +5,7 @@ using Haven.Application.Common;
 using Haven.Application.Common.Contracts;
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Deployment;
+using Haven.Application.Common.Templating;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Enums;
 using Haven.Domain.ValueObjects;
@@ -25,6 +26,7 @@ public class DockerfileDeployService : IDeployService
     private readonly INetworkingService _networkingService;
     private readonly IGitService _gitService;
     private readonly IDeploymentLogService _logService;
+    private readonly IServiceTemplateNamespaceProvider _templateNamespaceProvider;
 
     public DockerfileDeployService(
         ILogger<DockerfileDeployService> logger,
@@ -32,13 +34,14 @@ public class DockerfileDeployService : IDeployService
         IDockerContainerRuntime containerRuntime,
         INetworkingServiceFactory networkingServiceFactory,
         IGitService gitService,
-        IDeploymentLogService logService)
+        IDeploymentLogService logService, IServiceTemplateNamespaceProvider templateNamespaceProvider)
     {
         _logger = logger;
         _dockerClient = dockerClient;
         _containerRuntime = containerRuntime;
         _gitService = gitService;
         _logService = logService;
+        _templateNamespaceProvider = templateNamespaceProvider;
         _networkingService = networkingServiceFactory.Create(ServiceType.DockerImage) ?? throw new InvalidOperationException("No networking service found for Docker networking");
     }
 
@@ -150,11 +153,29 @@ public class DockerfileDeployService : IDeployService
 
         using (buildContext)
         {
+            var buildArgs = dockerfileConfig.BuildArgs ?? new Dictionary<string, string>();
+
+            if (buildArgs.Count > 0)
+            {
+                var namespaces = await _templateNamespaceProvider.BuildAsync(service.Id, cancellationToken);
+                if (namespaces == null)
+                    return Error.NotFoundFor(nameof(Service), service.Id);
+
+                var resolvedBuildArgs = new Dictionary<string, string>();
+                foreach (var (key, value) in buildArgs)
+                {
+                    var resolvedValue = TemplateExpressionResolver.Resolve(value, namespaces);
+                    resolvedBuildArgs[key] = resolvedValue;
+                }
+                buildArgs = resolvedBuildArgs;
+            }
+
             var buildParams = new ImageBuildParameters
             {
                 Tags = [imageTag],
                 Dockerfile = dockerfilePath,
-                Labels = DockerUtils.BuildContainerLabels(service)
+                Labels = DockerUtils.BuildContainerLabels(service),
+                BuildArgs = buildArgs
             };
 
             _logger.LogInformation("Starting docker build for image '{ImageTag}'", imageTag);

@@ -7,11 +7,13 @@ public sealed class ServiceSourceConfigManifest
 {
     public string Type { get; set; } = string.Empty;
 
-    // DockerConfig fields
-    public string? Image { get; set; }
+    // Common fields
     public List<string> Ports { get; set; } = [];
     public List<string> CommandArgs { get; set; } = [];
     public RestartPolicy RestartPolicy { get; set; } = RestartPolicy.UnlessStopped;
+
+    // DockerConfig fields
+    public string? Image { get; set; }
 
     // DockerfileConfig fields
     public DockerfileSource? DockerfileSource { get; set; }
@@ -21,4 +23,6 @@ public sealed class ServiceSourceConfigManifest
     public string? BuildContext { get; set; }
     public Guid? GitCredentialId { get; set; }
     public string? Content { get; set; }
+    public Dictionary<string, string> BuildArgs { get; set; } = [];
+
 }
