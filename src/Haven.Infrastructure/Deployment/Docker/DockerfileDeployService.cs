@@ -154,7 +154,8 @@ public class DockerfileDeployService : IDeployService
             {
                 Tags = [imageTag],
                 Dockerfile = dockerfilePath,
-                Labels = DockerUtils.BuildContainerLabels(service)
+                Labels = DockerUtils.BuildContainerLabels(service),
+                BuildArgs = dockerfileConfig.BuildArgs
             };
 
             _logger.LogInformation("Starting docker build for image '{ImageTag}'", imageTag);

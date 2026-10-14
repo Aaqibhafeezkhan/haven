@@ -94,6 +94,7 @@ export function CreateServicePage() {
   const [branch, setBranch] = useState('');
   const [filePath, setFilePath] = useState('');
   const [buildContext, setBuildContext] = useState('');
+  const [buildArgs, setBuildArgs] = useState<Record<string, string>>({});
   const [rawContent, setRawContent] = useState('');
   const [gitCredentialId, setGitCredentialId] = useState<string | undefined>(undefined);
 
@@ -431,6 +432,9 @@ export function CreateServicePage() {
 
     const ports = buildPorts();
     const filteredCommandArgs = commandArgs.filter(a => a.trim());
+    const filteredBuildArgs = Object.fromEntries(
+      Object.entries(buildArgs).filter(([k]) => k.trim())
+    );
 
     let dockerfileConfig: DockerfileConfig | undefined;
     if (selectedType === 'Dockerfile') {
@@ -442,6 +446,7 @@ export function CreateServicePage() {
           filePath: filePath.trim() || undefined,
           buildContext: buildContext.trim() || undefined,
           gitCredentialId: gitCredentialId || undefined,
+          buildArgs: filteredBuildArgs,
           ports,
           commandArgs: filteredCommandArgs,
           restartPolicy,
@@ -450,6 +455,7 @@ export function CreateServicePage() {
         dockerfileConfig = {
           source: 'Raw',
           content: rawContent.trim(),
+          buildArgs: filteredBuildArgs,
           ports,
           commandArgs: filteredCommandArgs,
           restartPolicy,
@@ -773,6 +779,8 @@ export function CreateServicePage() {
                           onGitCredentialIdChange={setGitCredentialId}
                           credentials={credentials}
                           restartPolicy={restartPolicy}
+                          buildArgs={buildArgs}
+                          onBuildArgsChange={setBuildArgs}
                           onRestartPolicyChange={setRestartPolicy}
                           disabled={isLoading}
                         />

@@ -74,6 +74,7 @@ export interface DockerfileConfig {
   buildContext?: string;
   gitCredentialId?: string;
   content?: string;
+  buildArgs?: Record<string, string>;
   ports?: string[];
   commandArgs?: string[];
   restartPolicy: RestartPolicy;

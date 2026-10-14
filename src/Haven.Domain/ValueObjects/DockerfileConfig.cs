@@ -13,7 +13,7 @@ public sealed class DockerfileConfig : ServiceSourceConfig
     public Guid? GitCredentialId { get; set; }
 
     public string? Content { get; set; }
-
+    public Dictionary<string, string> BuildArgs { get; set; } = [];
     public List<string> Ports { get; set; } = [];
     public List<string> CommandArgs { get; set; } = [];
     public RestartPolicy RestartPolicy { get; set; } = RestartPolicy.UnlessStopped;
