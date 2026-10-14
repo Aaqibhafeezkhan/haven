@@ -125,7 +125,8 @@ public static partial class ServiceMapper
             Content = dockerfile.Content,
             Ports = dockerfile.Ports,
             CommandArgs = dockerfile.CommandArgs,
-            RestartPolicy = dockerfile.RestartPolicy
+            RestartPolicy = dockerfile.RestartPolicy,
+            BuildArgs = dockerfile.BuildArgs
         },
         null => null,
         _ => throw new InvalidOperationException($"Unknown source config type: {config.GetType().Name}")
@@ -160,7 +161,8 @@ public static partial class ServiceMapper
                 Content = manifest.Content,
                 Ports = manifest.Ports,
                 CommandArgs = manifest.CommandArgs,
-                RestartPolicy = manifest.RestartPolicy
+                RestartPolicy = manifest.RestartPolicy,
+                BuildArgs = manifest.BuildArgs
             },
             _ => null
         };

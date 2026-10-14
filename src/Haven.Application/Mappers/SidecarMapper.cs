@@ -92,7 +92,9 @@ public static partial class SidecarMapper
             Content = manifest.Content,
             Ports = manifest.Ports,
             CommandArgs = manifest.CommandArgs,
-            RestartPolicy = manifest.RestartPolicy
+            RestartPolicy = manifest.RestartPolicy,
+            BuildArgs = manifest.BuildArgs,
+            BuildContext = manifest.BuildContext
         },
         _ => null
     };
