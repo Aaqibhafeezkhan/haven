@@ -24,29 +24,78 @@
   color: var(--color-text-muted);
 }
 
-.volumeCard {
+.volumeItem {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
-.volumeCardDirty {
-  border-color: var(--color-primary);
+.volumeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
 }
 
-.volumeRow {
+.volumeTitle {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
   flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
-.mono {
+.mapping {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mappingSource {
+  color: var(--color-text-muted);
+}
+
+.mappingArrow {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.iconBtn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.iconBtnDanger:hover {
+  color: var(--color-error);
 }
 
 .grow {
@@ -69,12 +118,6 @@
 .deleteBtn:hover:not(:disabled) {
   color: var(--color-error);
   background: var(--color-surface-hover);
-}
-
-.toggleWrap {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 /* Managed files modal */
