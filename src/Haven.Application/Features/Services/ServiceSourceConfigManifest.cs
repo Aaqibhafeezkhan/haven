@@ -11,7 +11,7 @@ public sealed class ServiceSourceConfigManifest
     public List<string> Ports { get; set; } = [];
     public List<string> CommandArgs { get; set; } = [];
     public RestartPolicy RestartPolicy { get; set; } = RestartPolicy.UnlessStopped;
-    
+
     // DockerConfig fields
     public string? Image { get; set; }
 
@@ -24,5 +24,5 @@ public sealed class ServiceSourceConfigManifest
     public Guid? GitCredentialId { get; set; }
     public string? Content { get; set; }
     public Dictionary<string, string> BuildArgs { get; set; } = [];
-    
+
 }

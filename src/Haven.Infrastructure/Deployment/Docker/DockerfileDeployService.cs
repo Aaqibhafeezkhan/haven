@@ -160,7 +160,7 @@ public class DockerfileDeployService : IDeployService
                 var namespaces = await _templateNamespaceProvider.BuildAsync(service.Id, cancellationToken);
                 if (namespaces == null)
                     return Error.NotFoundFor(nameof(Service), service.Id);
-                
+
                 var resolvedBuildArgs = new Dictionary<string, string>();
                 foreach (var (key, value) in buildArgs)
                 {
@@ -169,7 +169,7 @@ public class DockerfileDeployService : IDeployService
                 }
                 buildArgs = resolvedBuildArgs;
             }
-            
+
             var buildParams = new ImageBuildParameters
             {
                 Tags = [imageTag],
