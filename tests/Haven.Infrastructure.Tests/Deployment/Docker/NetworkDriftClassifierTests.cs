@@ -25,12 +25,12 @@ public sealed class NetworkDriftClassifierTests
 
     private static NetworkResponse DockerNet(string id, string name, string? subnet = null,
         Dictionary<string, string>? labels = null) => new()
-    {
-        ID = id,
-        Name = name,
-        Labels = labels,
-        IPAM = subnet is null ? null : new IPAM { Config = [new IPAMConfig { Subnet = subnet }] }
-    };
+        {
+            ID = id,
+            Name = name,
+            Labels = labels,
+            IPAM = subnet is null ? null : new IPAM { Config = [new IPAMConfig { Subnet = subnet }] }
+        };
 
     [Test]
     public void Classify_NoIdAndNoDockerNetwork_IsNotProvisioned() =>

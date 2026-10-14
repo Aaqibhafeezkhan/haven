@@ -37,7 +37,7 @@ public sealed record Error(string Code, string Message)
         public static readonly Error ContainerCrashedAfterStart = new("DOCKER_CONTAINER_CRASHED_AFTER_START", "The container crashed immediately after starting.");
         public static readonly Error NetworkInUse = new("DOCKER_NETWORK_IN_USE", "The Docker network still has containers attached.");
         public static readonly Error NoFreeSubnet = new("DOCKER_NO_FREE_SUBNET", "No free subnet is left in the configured network subnet pool.");
-        public static readonly Error FailedToCreateNetwork =new("DOCKER_FAILED_TO_CREATE_NETWORK", "Failed to create the Docker network.");
+        public static readonly Error FailedToCreateNetwork = new("DOCKER_FAILED_TO_CREATE_NETWORK", "Failed to create the Docker network.");
         public static readonly Error ContainerNotFound = new("DOCKER_CONTAINER_NOT_FOUND", "No Docker container exists for this service yet. Deploy it at least once before assigning or unassigning networks.");
         public static readonly Error NetworkNotFound = new("DOCKER_NETWORK_NOT_FOUND", "The Docker network was not found.");
         public static Error OperationFailed(string message) => new("DOCKER_OPERATION_FAILED", message);
