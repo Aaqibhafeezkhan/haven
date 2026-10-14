@@ -1,12 +1,19 @@
-import { ArrowRight, FolderOpen, HardDrive, Pencil, Plus, Trash2 } from 'lucide-react';
+import { FolderOpen, HardDrive, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSort } from '@/hooks/useSort';
 import styles from '@/styles/components/services/VolumesEditor.module.css';
 
-import { AddVolumeInput, ServiceVolumeDto, VolumeType } from '../../api/types/volume.types';
+import {
+  AddVolumeInput,
+  ServiceVolumeDto,
+  VolumeSortBy,
+  VolumeType,
+} from '../../api/types/volume.types';
 import { volumesApi } from '../../api/volumes';
-import { Row, Spacer, Stack } from '../layout';
+import { Row, Spacer } from '../layout';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../layout/Table';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { ErrorAlert } from '../ui/ErrorAlert';
@@ -32,6 +39,8 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { sortBy, sortDescending, onSort } = useSort<VolumeSortBy>('name');
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ServiceVolumeDto | null>(null);
 
@@ -42,15 +51,17 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
 
   const loadVolumes = useCallback(async () => {
     try {
-      setLoading(true);
-      const result = await volumesApi.list(projectId, environmentId, serviceId);
+      const result = await volumesApi.list(projectId, environmentId, serviceId, {
+        sortBy,
+        sortDescending,
+      });
       setVolumes(result ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('error'));
     } finally {
       setLoading(false);
     }
-  }, [projectId, environmentId, serviceId, t]);
+  }, [projectId, environmentId, serviceId, sortBy, sortDescending, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
@@ -134,63 +145,106 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
           </Button>
         </div>
       ) : (
-        <Stack gap="2">
-          {volumes.map(volume => {
-            const isManaged = volume.type === 'Managed';
-            return (
-              <div key={volume.id} className={styles.volumeItem}>
-                <div className={styles.volumeInfo}>
-                  <div className={styles.volumeTitle}>
-                    <Label variant="primary" size="sm" weight="semibold" truncate>
-                      {volume.name}
-                    </Label>
-                    <Badge variant={badgeVariant(volume.type)}>
-                      {t(`volumes.types.${volumeTypeKey[volume.type]}`)}
-                    </Badge>
-                    {volume.readOnly && <Badge>{t('volumes.readOnlyShort')}</Badge>}
-                    {isManaged && volume.backupEnabled && (
-                      <Badge variant="success">{t('volumes.backupShort')}</Badge>
-                    )}
-                  </div>
-                  <div className={styles.mapping} title={t('volumes.mappingHint')}>
-                    <span className={styles.mappingSource}>
+        <div className={styles.tableWrap}>
+          <Table compact padding="2">
+            <TableHead>
+              <TableRow isHeader hasActionsColumn>
+                <TableHeader
+                  sortKey="name"
+                  sortBy={sortBy}
+                  sortDescending={sortDescending}
+                  onSort={onSort}
+                >
+                  {t('volumes.columns.name')}
+                </TableHeader>
+                <TableHeader
+                  sortKey="type"
+                  sortBy={sortBy}
+                  sortDescending={sortDescending}
+                  onSort={onSort}
+                >
+                  {t('volumes.columns.type')}
+                </TableHeader>
+                <TableHeader>{t('volumes.columns.source')}</TableHeader>
+                <TableHeader
+                  sortKey="target"
+                  sortBy={sortBy}
+                  sortDescending={sortDescending}
+                  onSort={onSort}
+                >
+                  {t('volumes.columns.target')}
+                </TableHeader>
+                <TableHeader>{t('volumes.columns.options')}</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {volumes.map(volume => {
+                const isManaged = volume.type === 'Managed';
+                return (
+                  <TableRow
+                    key={volume.id}
+                    onRowClick={() => setEditTarget(volume)}
+                    actions={
+                      <>
+                        {isManaged && (
+                          <button
+                            className={styles.iconBtn}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setFilesVolume(volume);
+                            }}
+                            title={t('volumes.manageFiles')}
+                          >
+                            <FolderOpen size={14} />
+                          </button>
+                        )}
+                        <button
+                          className={styles.iconBtn}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setEditTarget(volume);
+                          }}
+                          title={t('volumes.edit')}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setDeleteTarget(volume);
+                          }}
+                          title={t('volumes.delete')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    }
+                  >
+                    <TableCell variant="highlight">{volume.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={badgeVariant(volume.type)}>
+                        {t(`volumes.types.${volumeTypeKey[volume.type]}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell variant={isManaged ? 'muted' : 'mono'}>
                       {isManaged ? t('volumes.managedSource') : volume.source}
-                    </span>
-                    <ArrowRight size={12} className={styles.mappingArrow} />
-                    <span>{volume.target}</span>
-                  </div>
-                </div>
-
-                <div className={styles.actions}>
-                  {isManaged && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<FolderOpen size={14} />}
-                      onClick={() => setFilesVolume(volume)}
-                    >
-                      {t('volumes.manageFiles')}
-                    </Button>
-                  )}
-                  <button
-                    className={styles.iconBtn}
-                    onClick={() => setEditTarget(volume)}
-                    title={t('volumes.edit')}
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                    onClick={() => setDeleteTarget(volume)}
-                    title={t('volumes.delete')}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </Stack>
+                    </TableCell>
+                    <TableCell variant="mono">{volume.target}</TableCell>
+                    <TableCell>
+                      <div className={styles.tags}>
+                        {volume.readOnly && <Badge>{t('volumes.readOnlyShort')}</Badge>}
+                        {isManaged && volume.backupEnabled && (
+                          <Badge variant="success">{t('volumes.backupShort')}</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {isAddOpen && <VolumeFormModal onClose={() => setIsAddOpen(false)} onSubmit={handleCreate} />}

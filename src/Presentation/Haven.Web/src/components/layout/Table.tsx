@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { ReactNode } from 'react';
 
 import styles from '@/styles/components/layout/Table.module.css';
@@ -34,6 +35,15 @@ interface TableRowProps {
   actions?: ReactNode;
   hideActions?: boolean;
   hasActionsColumn?: boolean;
+}
+
+interface TableHeaderProps extends TableCellProps {
+  /** Makes the header clickable. Identifies this column to `onSort`. */
+  sortKey?: string;
+  /** Currently active sort column; this header shows the direction arrow when it matches `sortKey`. */
+  sortBy?: string;
+  sortDescending?: boolean;
+  onSort?: (sortKey: string) => void;
 }
 
 interface TableCellProps {
@@ -148,12 +158,50 @@ export function TableHeader({
   align = 'left',
   nowrap = false,
   className = '',
-}: TableCellProps) {
+  sortKey,
+  sortBy,
+  sortDescending = false,
+  onSort,
+}: TableHeaderProps) {
+  const sortable = sortKey != null && onSort != null;
+  const isActive = sortable && sortBy === sortKey;
+
+  const headerClasses = [
+    styles.headerCell,
+    styles[`align-${align}`],
+    nowrap && styles.nowrap,
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <th
-      className={`${styles.headerCell} ${styles[`align-${align}`]} ${nowrap && styles.nowrap} ${className}`}
+      className={headerClasses}
+      aria-sort={isActive ? (sortDescending ? 'descending' : 'ascending') : undefined}
     >
-      {children}
+      {sortable ? (
+        <button
+          type="button"
+          className={`${styles.sortButton} ${isActive ? styles.sortActive : ''}`}
+          onClick={() => onSort(sortKey)}
+        >
+          {children}
+          <span className={styles.sortIcon}>
+            {isActive ? (
+              sortDescending ? (
+                <ChevronDown size={14} />
+              ) : (
+                <ChevronUp size={14} />
+              )
+            ) : (
+              <ChevronsUpDown size={14} />
+            )}
+          </span>
+        </button>
+      ) : (
+        children
+      )}
     </th>
   );
 }

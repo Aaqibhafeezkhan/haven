@@ -79,12 +79,18 @@
     "readOnly": "Read-only",
     "backup": "Back up",
     "backupHint": "Include in backups (managed volume files are backed up too)",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "source": "Source",
+      "target": "Container path",
+      "options": "Options"
+    },
     "editTitle": "Edit Volume",
     "edit": "Edit",
     "readOnlyShort": "Read-only",
     "backupShort": "Backed up",
     "managedSource": "Managed by Haven",
-    "mappingHint": "Where the data comes from → where it appears inside the container",
     "nameHint": "A display name to identify this volume in Haven. It does not affect where data is stored.",
     "namePlaceholder": "nginx-config",
     "typeDescriptions": {
