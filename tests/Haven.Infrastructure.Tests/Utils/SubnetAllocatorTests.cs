@@ -39,4 +39,12 @@ public sealed class SubnetAllocatorTests
     [Test]
     public void GatewayFor_ReturnsFirstHost() =>
         SubnetAllocator.GatewayFor("10.240.5.0/24").ShouldBe("10.240.5.1");
+
+    [TestCase("10.240.5.0/24", "10.240.0.0/12", true)]
+    [TestCase("10.240.0.0/12", "10.240.0.0/12", true)]
+    [TestCase("10.0.0.0/8", "10.240.0.0/12", false)]
+    [TestCase("172.21.0.0/16", "10.240.0.0/12", false)]
+    [TestCase("10.239.255.0/24", "10.240.0.0/12", false)]
+    public void IsWithin_RequiresFullContainmentInPool(string cidr, string pool, bool expected) =>
+        SubnetAllocator.IsWithin(cidr, pool).ShouldBe(expected);
 }

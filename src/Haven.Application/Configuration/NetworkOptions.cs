@@ -14,6 +14,21 @@ public class NetworkOptions
     /// </summary>
     public string SubnetPool { get; set; } = "10.240.0.0/12";
 
+    /// <summary>
+    /// Automatically recreate Haven networks whose Docker subnet lies outside <see cref="SubnetPool"/>
+    /// once nothing is attached to them. Networks in use are only reported, never touched.
+    /// </summary>
+    public bool AutoRepairIdleNetworks { get; set; } = true;
+
+    /// <summary>
+    /// Remove Docker networks carrying Haven's managed label that no Haven network record refers to
+    /// anymore, once older than <see cref="OrphanNetworkGracePeriodHours"/>. Off by default; the health
+    /// report still lists them.
+    /// </summary>
+    public bool RemoveOrphanedDockerNetworks { get; set; } = false;
+
+    public int OrphanNetworkGracePeriodHours { get; set; } = 24;
+
     public string? BuildHost()
     {
         if (Domains.Count == 0)

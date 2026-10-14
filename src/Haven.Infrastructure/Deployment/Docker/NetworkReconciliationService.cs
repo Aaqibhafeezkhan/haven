@@ -22,15 +22,36 @@ public sealed class NetworkReconciliationService(
     HavenDbContext dbContext,
     IDockerClient dockerClient,
     ITraefikRoutingHealer traefikRoutingHealer,
+    INetworkHealthService networkHealthService,
     ILogger<NetworkReconciliationService> logger)
     : INetworkReconciliationService
 {
     public async Task ReconcileAsync(CancellationToken cancellationToken)
     {
+        await RepairNetworkDriftAsync(cancellationToken);
         await ReconcileNetworkSubnetsAsync(cancellationToken);
         await ReconcileServiceIpAddressesAsync(cancellationToken);
         await ReconcileTraefikNetworksAsync(cancellationToken);
         await ReconcileTraefikRoutingAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Heals Docker/DB drift (stale ids, legacy subnets on idle networks, orphans) before the
+    /// backfill steps below, so they work from corrected state.
+    /// </summary>
+    private async Task RepairNetworkDriftAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var report = await networkHealthService.RepairAsync(dryRun: false, cancellationToken);
+            if (report.Entries.Count > 0)
+                logger.LogInformation("Network reconciliation: {Repaired} of {Total} drifted network(s) repaired",
+                    report.RepairedCount, report.Entries.Count);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Network drift repair failed; continuing with the rest of the reconciliation");
+        }
     }
 
     private async Task ReconcileNetworkSubnetsAsync(CancellationToken cancellationToken)

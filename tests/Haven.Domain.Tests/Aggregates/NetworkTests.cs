@@ -178,4 +178,33 @@ public sealed class NetworkTests
         domainEvent.Name.ShouldBe(network.Name);
         domainEvent.Type.ShouldBe(NetworkType.Shared);
     }
+
+    [Test]
+    public void ClearDockerNetwork_ForgetsDockerIdentity()
+    {
+        var network = Network.Create("shared", NetworkType.Shared);
+        network.SetDockerNetworkId("abc");
+        network.AssignNetworkInfo("172.21.0.0/16", "172.21.0.1");
+
+        network.ClearDockerNetwork();
+
+        network.DockerNetworkId.ShouldBeNull();
+        network.Subnet.ShouldBeNull();
+        network.Gateway.ShouldBeNull();
+    }
+
+    [Test]
+    public void RecordRecreated_RaisesEventWithPreviousAndNewSubnet()
+    {
+        var network = Network.Create("shared", NetworkType.Shared);
+        network.ClearDomainEvents();
+        network.AssignNetworkInfo("10.240.0.0/24", "10.240.0.1");
+
+        network.RecordRecreated("172.21.0.0/16", "legacy subnet");
+
+        var domainEvent = network.DomainEvents.ShouldHaveSingleItem().ShouldBeOfType<NetworkRecreatedEvent>();
+        domainEvent.PreviousSubnet.ShouldBe("172.21.0.0/16");
+        domainEvent.NewSubnet.ShouldBe("10.240.0.0/24");
+        domainEvent.Reason.ShouldBe("legacy subnet");
+    }
 }

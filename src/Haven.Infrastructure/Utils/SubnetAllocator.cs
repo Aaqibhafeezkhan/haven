@@ -43,6 +43,16 @@ public static class SubnetAllocator
         return Overlaps(netA, prefixA, netB, prefixB);
     }
 
+    /// <summary>True when <paramref name="cidr"/> lies entirely inside <paramref name="pool"/>.</summary>
+    public static bool IsWithin(string cidr, string pool)
+    {
+        if (!TryParseCidr(cidr, out var net, out var prefix)
+            || !TryParseCidr(pool, out var poolNet, out var poolPrefix))
+            return false;
+
+        return prefix >= poolPrefix && (net & MaskFor(poolPrefix)) == poolNet;
+    }
+
     /// <summary>
     /// Returns the first /24 inside <paramref name="pool"/> that overlaps none of <paramref name="taken"/>,
     /// or null when the pool is exhausted. Unparseable entries in <paramref name="taken"/> are ignored.

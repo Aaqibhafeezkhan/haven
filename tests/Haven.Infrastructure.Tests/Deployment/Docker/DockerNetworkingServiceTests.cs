@@ -40,7 +40,7 @@ public sealed class DockerNetworkingServiceTests
         _logger = Substitute.For<ILogger<DockerNetworkingService>>();
         _networkOptions = Substitute.For<IOptionsMonitor<NetworkOptions>>();
         _networkOptions.CurrentValue.Returns(new NetworkOptions());
-        _sut = new DockerNetworkingService(_db, _logger, _client, _networkOptions);
+        _sut = new DockerNetworkingService(_db, _logger, _client, _networkOptions, new NetworkLockProvider());
 
         // No container exists for the service in any of these tests.
         _client.Containers.ListContainersAsync(Arg.Any<ContainersListParameters>(), Arg.Any<CancellationToken>())
@@ -230,5 +230,170 @@ public sealed class DockerNetworkingServiceTests
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBe(Error.Docker.NoFreeSubnet);
+    }
+
+    private Network SeedSharedNetwork(string name, string? dockerId, string? subnet = null, NetworkType type = NetworkType.Shared)
+    {
+        var network = Network.Create(name, type);
+        if (dockerId is not null) network.SetDockerNetworkId(dockerId);
+        if (subnet is not null) network.AssignNetworkInfo(subnet, "172.21.0.1");
+        _db.Networks.Add(network);
+        _db.SaveChanges();
+        _db.ChangeTracker.Clear();
+        return network;
+    }
+
+    private static DockerApiException NotFound() => new(System.Net.HttpStatusCode.NotFound, "no such network");
+
+    private void NoDockerNetworksExist() =>
+        _client.Networks.ListNetworksAsync(Arg.Any<NetworksListParameters>(), Arg.Any<CancellationToken>()).Returns([]);
+
+    [Test]
+    public async Task EnsureNetworkExistsAsync_WhenRecordedDockerNetworkIsGone_ProvisionsANewOneInThePool()
+    {
+        var network = SeedSharedNetwork("shared-net", "vanished", "172.21.0.0/16");
+        _client.Networks.InspectNetworkAsync("vanished", Arg.Any<CancellationToken>()).Returns(Task.FromException<NetworkResponse>(NotFound()));
+        NoDockerNetworksExist();
+        _client.Networks.CreateNetworkAsync(Arg.Any<NetworksCreateParameters>(), Arg.Any<CancellationToken>())
+            .Returns(new NetworksCreateResponse { ID = "fresh" });
+
+        var result = await _sut.EnsureNetworkExistsAsync(network.Id, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        var saved = await _db.Networks.SingleAsync();
+        saved.DockerNetworkId.ShouldBe("fresh");
+        saved.Subnet.ShouldBe("10.240.0.0/24");
+    }
+
+    [Test]
+    public async Task EnsureNetworkExistsAsync_WhenRecordedDockerNetworkStillExists_DoesNotCreateAnything()
+    {
+        var network = SeedSharedNetwork("shared-net", "alive", "10.240.3.0/24");
+        _client.Networks.InspectNetworkAsync("alive", Arg.Any<CancellationToken>()).Returns(new NetworkResponse { ID = "alive" });
+
+        var result = await _sut.EnsureNetworkExistsAsync(network.Id, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        await _client.Networks.DidNotReceive().CreateNetworkAsync(Arg.Any<NetworksCreateParameters>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task EnsureNetworkExistsAsync_AdoptingByName_RecordsTheExistingSubnet()
+    {
+        var network = SeedSharedNetwork("shared-net", dockerId: null);
+        _client.Networks.ListNetworksAsync(Arg.Any<NetworksListParameters>(), Arg.Any<CancellationToken>())
+            .Returns([new NetworkResponse
+            {
+                ID = "existing", Name = "shared-net",
+                IPAM = new IPAM { Config = [new IPAMConfig { Subnet = "10.240.9.0/24", Gateway = "10.240.9.1" }] }
+            }]);
+
+        var result = await _sut.EnsureNetworkExistsAsync(network.Id, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        var saved = await _db.Networks.SingleAsync();
+        saved.DockerNetworkId.ShouldBe("existing");
+        saved.Subnet.ShouldBe("10.240.9.0/24");
+        saved.Gateway.ShouldBe("10.240.9.1");
+    }
+
+    [Test]
+    public async Task RecreateNetworkAsync_WhenIdle_RemovesOldNetworkAndCreatesOneInThePool()
+    {
+        var network = SeedSharedNetwork("shared-net", "old", "172.21.0.0/16");
+        _client.Networks.InspectNetworkAsync("old", Arg.Any<CancellationToken>())
+            .Returns(new NetworkResponse { ID = "old", Containers = new Dictionary<string, EndpointResource>() });
+        NoDockerNetworksExist();
+        _client.Networks.CreateNetworkAsync(Arg.Any<NetworksCreateParameters>(), Arg.Any<CancellationToken>())
+            .Returns(new NetworksCreateResponse { ID = "new" });
+
+        var result = await _sut.RecreateNetworkAsync(network.Id, "legacy subnet", CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        await _client.Networks.Received(1).DeleteNetworkAsync("old", Arg.Any<CancellationToken>());
+        var saved = await _db.Networks.SingleAsync();
+        saved.DockerNetworkId.ShouldBe("new");
+        saved.Subnet.ShouldBe("10.240.0.0/24");
+        saved.Gateway.ShouldBe("10.240.0.1");
+    }
+
+    [Test]
+    public async Task RecreateNetworkAsync_WhenContainerIsAttached_RefusesAndTouchesNothing()
+    {
+        var network = SeedSharedNetwork("shared-net", "old", "172.21.0.0/16");
+        _client.Networks.InspectNetworkAsync("old", Arg.Any<CancellationToken>())
+            .Returns(new NetworkResponse { ID = "old", Containers = new Dictionary<string, EndpointResource> { { "c1", new EndpointResource() } } });
+
+        var result = await _sut.RecreateNetworkAsync(network.Id, "legacy subnet", CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(Error.Docker.NetworkInUse);
+        await _client.Networks.DidNotReceive().DeleteNetworkAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        (await _db.Networks.SingleAsync()).DockerNetworkId.ShouldBe("old");
+    }
+
+    [Test]
+    public async Task RecreateNetworkAsync_WhenOnlyAStoppedContainerReferencesIt_Refuses()
+    {
+        var network = SeedSharedNetwork("shared-net", "old", "172.21.0.0/16");
+        _client.Networks.InspectNetworkAsync("old", Arg.Any<CancellationToken>())
+            .Returns(new NetworkResponse { ID = "old", Containers = new Dictionary<string, EndpointResource>() });
+        _client.Containers.ListContainersAsync(Arg.Any<ContainersListParameters>(), Arg.Any<CancellationToken>())
+            .Returns([new ContainerListResponse { ID = "stopped" }]);
+
+        var result = await _sut.RecreateNetworkAsync(network.Id, "legacy subnet", CancellationToken.None);
+
+        result.Error.ShouldBe(Error.Docker.NetworkInUse);
+        await _client.Networks.DidNotReceive().DeleteNetworkAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task RecreateNetworkAsync_ExternalNetwork_IsRejected()
+    {
+        var network = SeedSharedNetwork("ext", "x", type: NetworkType.External);
+
+        var result = await _sut.RecreateNetworkAsync(network.Id, "legacy subnet", CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        await _client.Networks.DidNotReceive().DeleteNetworkAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task RecreateNetworkAsync_WhenCreateFailsAfterRemoval_LeavesRecordForTheNextPassToHeal()
+    {
+        var network = SeedSharedNetwork("shared-net", "old", "172.21.0.0/16");
+        _client.Networks.InspectNetworkAsync("old", Arg.Any<CancellationToken>())
+            .Returns(new NetworkResponse { ID = "old", Containers = new Dictionary<string, EndpointResource>() });
+        NoDockerNetworksExist();
+        _client.Networks.CreateNetworkAsync(Arg.Any<NetworksCreateParameters>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<NetworksCreateResponse>(new DockerApiException(System.Net.HttpStatusCode.InternalServerError, "boom")));
+
+        var result = await _sut.RecreateNetworkAsync(network.Id, "legacy subnet", CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        var saved = await _db.Networks.SingleAsync();
+        saved.DockerNetworkId.ShouldBeNull();
+        saved.Subnet.ShouldBeNull();
+
+        // The next pass (or deploy) sees "not provisioned" and creates it.
+        _client.Networks.CreateNetworkAsync(Arg.Any<NetworksCreateParameters>(), Arg.Any<CancellationToken>())
+            .Returns(new NetworksCreateResponse { ID = "new" });
+        (await _sut.EnsureNetworkExistsAsync(network.Id, CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await _db.Networks.SingleAsync()).DockerNetworkId.ShouldBe("new");
+    }
+
+    [Test]
+    public async Task IsNetworkInUseAsync_ReflectsAttachedContainers()
+    {
+        var network = SeedSharedNetwork("shared-net", "n1", "10.240.1.0/24");
+        _client.Networks.InspectNetworkAsync("n1", Arg.Any<CancellationToken>())
+            .Returns(new NetworkResponse { ID = "n1", Containers = new Dictionary<string, EndpointResource>() });
+        _client.Containers.ListContainersAsync(Arg.Any<ContainersListParameters>(), Arg.Any<CancellationToken>()).Returns([]);
+
+        (await _sut.IsNetworkInUseAsync(network.Id, CancellationToken.None)).ShouldBeFalse();
+
+        _client.Networks.InspectNetworkAsync("n1", Arg.Any<CancellationToken>())
+            .Returns(new NetworkResponse { ID = "n1", Containers = new Dictionary<string, EndpointResource> { { "c", new EndpointResource() } } });
+        (await _sut.IsNetworkInUseAsync(network.Id, CancellationToken.None)).ShouldBeTrue();
     }
 }

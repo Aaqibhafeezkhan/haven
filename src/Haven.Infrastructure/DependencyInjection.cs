@@ -288,7 +288,9 @@ public static class DependencyInjection
         services.AddHostedService<ContainerMonitoringJobService>();
 
         services.AddScoped<INetworkingServiceFactory, NetworkingServiceFactory>();
+        services.AddSingleton<NetworkLockProvider>();
         services.AddScoped<INetworkingService, DockerNetworkingService>();
+        services.AddScoped<INetworkHealthService, NetworkHealthService>();
 
         return services;
     }

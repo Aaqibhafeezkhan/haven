@@ -113,6 +113,24 @@ public sealed class Network : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Forgets the Docker-side identity (id, subnet, gateway) after the Docker network was removed or
+    /// found to be gone, so the next provisioning pass creates or adopts a fresh one.
+    /// </summary>
+    public void ClearDockerNetwork()
+    {
+        DockerNetworkId = null;
+        Subnet = null;
+        Gateway = null;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void RecordRecreated(string? previousSubnet, string reason)
+    {
+        UpdatedAt = DateTime.UtcNow;
+        Raise(new NetworkRecreatedEvent(Id, Name, previousSubnet, Subnet, reason));
+    }
+
     public void AssignNetworkInfo(string subnet, string gateway)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(subnet);

@@ -188,6 +188,12 @@ internal sealed class FakeNetworkingService(HavenDbContext dbContext) : INetwork
     public Task<Result> CreateProjectEnvironmentNetworkAsync(Guid projectId, Guid environmentId, CancellationToken cancellationToken)
         => Task.FromResult(Result.Success());
 
+    public Task<Result> RecreateNetworkAsync(Guid networkId, string reason, CancellationToken cancellationToken)
+        => Task.FromResult(Result.Success());
+
+    public Task<bool> IsNetworkInUseAsync(Guid networkId, CancellationToken cancellationToken)
+        => Task.FromResult(false);
+
     public async Task<Result> ConnectServiceToNetworksAsync(Guid serviceId, IEnumerable<Guid> networkIds, CancellationToken cancellationToken)
     {
         foreach (var networkId in networkIds)

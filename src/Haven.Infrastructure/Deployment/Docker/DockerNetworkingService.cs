@@ -27,6 +27,7 @@ public class DockerNetworkingService : INetworkingService
     private readonly IDockerClient _dockerClient;
     private readonly ILogger<DockerNetworkingService> _logger;
     private readonly IOptionsMonitor<NetworkOptions> _networkOptions;
+    private readonly NetworkLockProvider _networkLocks;
 
     // Subnet allocation is find-free-then-create; serialize it across scoped instances so two concurrent
     // creates can't pick the same candidate.
@@ -34,8 +35,9 @@ public class DockerNetworkingService : INetworkingService
     private const int MaxSubnetAllocationAttempts = 16;
 
     public DockerNetworkingService(HavenDbContext dbContext, ILogger<DockerNetworkingService> logger,
-        IDockerClient dockerClient, IOptionsMonitor<NetworkOptions> networkOptions)
+        IDockerClient dockerClient, IOptionsMonitor<NetworkOptions> networkOptions, NetworkLockProvider networkLocks)
     {
+        _networkLocks = networkLocks;
         _dbContext = dbContext;
         _logger = logger;
         _dockerClient = dockerClient;
@@ -76,8 +78,8 @@ public class DockerNetworkingService : INetworkingService
 
         try
         {
-            var created = await CreateEnvironmentDockerNetworkAsync(
-                network, networkName, project, environment, cancellationToken);
+            var created = await CreateManagedDockerNetworkAsync(
+                network, networkName, BuildEnvironmentLabels(network, project, environment), cancellationToken);
             if (created.IsFailure)
                 return created.Error;
 
@@ -442,15 +444,142 @@ public class DockerNetworkingService : INetworkingService
         return Result.Success();
     }
 
+    private readonly record struct Recreation(string? PreviousSubnet, string Reason);
+
     private async Task<Result> EnsureNetworkExistsAsync(Network network, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrEmpty(network.DockerNetworkId))
-            return Result.Success();
+        using var _ = await _networkLocks.AcquireAsync(network.Id, cancellationToken);
+        return await EnsureNetworkExistsCoreAsync(network, recreation: null, cancellationToken);
+    }
 
+    public async Task<Result> RecreateNetworkAsync(Guid networkId, string reason, CancellationToken cancellationToken)
+    {
+        using var _ = await _networkLocks.AcquireAsync(networkId, cancellationToken);
+
+        var network = await _dbContext.Networks.FirstOrDefaultAsync(n => n.Id == networkId, cancellationToken);
+        if (network == null) return Error.NotFoundFor(nameof(Network), networkId);
+
+        if (network.Type == NetworkType.External)
+            return Error.InvalidOperation("External networks are not managed by Haven and cannot be recreated.");
+
+        var previousSubnet = network.Subnet;
+
+        if (!string.IsNullOrEmpty(network.DockerNetworkId))
+        {
+            // Re-checked under the lock: a deploy may have attached a container since the caller looked.
+            if (await IsDockerNetworkInUseAsync(network.DockerNetworkId, cancellationToken))
+                return Error.Docker.NetworkInUse;
+
+            try
+            {
+                await _dockerClient.Networks.DeleteNetworkAsync(network.DockerNetworkId, cancellationToken);
+            }
+            catch (DockerApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Already gone - exactly the state we want.
+            }
+            catch (DockerApiException ex)
+            {
+                _logger.LogWarning(ex, "Could not remove Docker network {DockerNetworkId} for network {NetworkId}",
+                    network.DockerNetworkId, network.Id);
+                return Error.Docker.OperationFailed(ex.Message);
+            }
+
+            network.ClearDockerNetwork();
+        }
+
+        var result = await EnsureNetworkExistsCoreAsync(network, new Recreation(previousSubnet, reason), cancellationToken);
+
+        // Persist either way: on failure this records that the old Docker network is gone, so the next
+        // pass sees a missing network rather than a stale id.
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return result;
+    }
+
+    public async Task<bool> IsNetworkInUseAsync(Guid networkId, CancellationToken cancellationToken)
+    {
+        var dockerNetworkId = await _dbContext.Networks
+            .Where(n => n.Id == networkId)
+            .Select(n => n.DockerNetworkId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return !string.IsNullOrEmpty(dockerNetworkId) && await IsDockerNetworkInUseAsync(dockerNetworkId, cancellationToken);
+    }
+
+    private async Task<bool> IsDockerNetworkInUseAsync(string dockerNetworkId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var inspect = await _dockerClient.Networks.InspectNetworkAsync(dockerNetworkId, cancellationToken);
+            if (inspect?.Containers is { Count: > 0 })
+                return true;
+
+            // Network inspect only lists containers with a live endpoint; stopped containers still
+            // reference the network and would fail to start once it is replaced, so count them too.
+            var attached = await _dockerClient.Containers.ListContainersAsync(
+                new ContainersListParameters
+                {
+                    All = true,
+                    Filters = new Dictionary<string, IDictionary<string, bool>>
+                    {
+                        { "network", new Dictionary<string, bool> { { dockerNetworkId, true } } }
+                    }
+                },
+                cancellationToken);
+
+            return attached is { Count: > 0 };
+        }
+        catch (DockerApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> DockerNetworkExistsAsync(string dockerNetworkId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _dockerClient.Networks.InspectNetworkAsync(dockerNetworkId, cancellationToken);
+            return true;
+        }
+        catch (DockerApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+    }
+
+    private static Dictionary<string, string> BuildEnvironmentLabels(Network network, Project project,
+        Haven.Domain.Aggregates.Environment environment) => new()
+    {
+        { "haven.project-id", project.Id.ToString() },
+        { "haven.environment-id", environment.Id.ToString() },
+        { "haven.project-name", project.Name },
+        { "haven.environment-name", environment.Name },
+        { "haven.network-type", "environment" },
+        { "haven.network-id", network.Id.ToString() },
+        { "haven.created-at", DateTime.UtcNow.ToString("O") },
+        { DockerUtils.HavenManagedLabel.Key, DockerUtils.HavenManagedLabel.Value }
+    };
+
+    private async Task<Result> EnsureNetworkExistsCoreAsync(Network network, Recreation? recreation,
+        CancellationToken cancellationToken)
+    {
         var networkName = DockerUtils.SanitizeForDocker(network.Name);
 
         try
         {
+            if (!string.IsNullOrEmpty(network.DockerNetworkId))
+            {
+                if (await DockerNetworkExistsAsync(network.DockerNetworkId, cancellationToken))
+                    return Result.Success();
+
+                _logger.LogWarning(
+                    "Docker network {DockerNetworkId} recorded for network {NetworkId} no longer exists; re-provisioning.",
+                    network.DockerNetworkId, network.Id);
+                recreation ??= new Recreation(network.Subnet, "The recorded Docker network no longer existed");
+                network.ClearDockerNetwork();
+            }
+
             // Docker's "name" list filter does a substring match, not an exact match, so we must
             // re-filter for an exact name before trusting a result - otherwise this can silently
             // adopt an unrelated network (e.g. one whose name merely contains this one's) as if it
@@ -472,11 +601,18 @@ public class DockerNetworkingService : INetworkingService
                     "Found existing Docker network '{NetworkName}' for network {NetworkId}, updating Docker network ID",
                     networkName, network.Id);
                 network.SetDockerNetworkId(exactMatch.ID);
+
+                var ipam = exactMatch.IPAM?.Config?.FirstOrDefault(c =>
+                    !string.IsNullOrWhiteSpace(c.Subnet) && !string.IsNullOrWhiteSpace(c.Gateway));
+                if (ipam is not null)
+                    network.AssignNetworkInfo(ipam.Subnet, ipam.Gateway);
+
                 _dbContext.Networks.Update(network);
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 return Result.Success();
             }
 
+            Dictionary<string, string> labels;
             if (network.Type == NetworkType.ProjectEnvironment && network.ProjectId.HasValue && network.EnvironmentId.HasValue)
             {
                 _logger.LogInformation(
@@ -492,24 +628,9 @@ public class DockerNetworkingService : INetworkingService
                         network.ProjectId ?? network.EnvironmentId ?? Guid.Empty);
                 }
 
-                var created = await CreateEnvironmentDockerNetworkAsync(
-                    network, networkName, project, environment, cancellationToken);
-                if (created.IsFailure)
-                    return created.Error;
-
-                network.SetDockerNetworkId(created.Value.DockerId);
-                network.AssignNetworkInfo(created.Value.Subnet, created.Value.Gateway);
-                _dbContext.Networks.Update(network);
-                await _dbContext.SaveChangesAsync(cancellationToken);
-
-                _logger.LogInformation(
-                    "Successfully created Docker network {DockerNetworkId} for network {NetworkId}",
-                    created.Value.DockerId, network.Id);
-
-                return Result.Success();
+                labels = BuildEnvironmentLabels(network, project, environment);
             }
-
-            if (network.Type is NetworkType.Shared or NetworkType.System)
+            else if (network.Type is NetworkType.Shared or NetworkType.System)
             {
                 var networkTypeLabel = network.Type == NetworkType.System ? "system" : "shared";
 
@@ -517,35 +638,36 @@ public class DockerNetworkingService : INetworkingService
                     "Network '{NetworkName}' does not exist in Docker, creating it for {NetworkType} network {NetworkId}",
                     networkName, networkTypeLabel, network.Id);
 
-                var createResponse = await _dockerClient.Networks.CreateNetworkAsync(
-                    new NetworksCreateParameters
-                    {
-                        Name = networkName,
-                        Driver = "bridge",
-                        Attachable = true,
-                        CheckDuplicate = true,
-                        Labels = new Dictionary<string, string>
-                        {
-                            { "haven.network-type", networkTypeLabel },
-                            { "haven.network-id", network.Id.ToString() },
-                            { "haven.created-at", DateTime.UtcNow.ToString("O") },
-                            { DockerUtils.HavenManagedLabel.Key, DockerUtils.HavenManagedLabel.Value }
-                        }
-                    },
-                    cancellationToken);
-
-                network.SetDockerNetworkId(createResponse.ID);
-                _dbContext.Networks.Update(network);
-                await _dbContext.SaveChangesAsync(cancellationToken);
-
-                _logger.LogInformation(
-                    "Successfully created Docker network {DockerNetworkId} for {NetworkType} network {NetworkId}",
-                    createResponse.ID, networkTypeLabel, network.Id);
-
-                return Result.Success();
+                labels = new Dictionary<string, string>
+                {
+                    { "haven.network-type", networkTypeLabel },
+                    { "haven.network-id", network.Id.ToString() },
+                    { "haven.created-at", DateTime.UtcNow.ToString("O") },
+                    { DockerUtils.HavenManagedLabel.Key, DockerUtils.HavenManagedLabel.Value }
+                };
+            }
+            else
+            {
+                return Error.Docker.NetworkNotFound;
             }
 
-            return Error.Docker.NetworkNotFound;
+            var created = await CreateManagedDockerNetworkAsync(network, networkName, labels, cancellationToken);
+            if (created.IsFailure)
+                return created.Error;
+
+            network.SetDockerNetworkId(created.Value.DockerId);
+            network.AssignNetworkInfo(created.Value.Subnet, created.Value.Gateway);
+            if (recreation is { } r)
+                network.RecordRecreated(r.PreviousSubnet, r.Reason);
+
+            _dbContext.Networks.Update(network);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Successfully created Docker network {DockerNetworkId} ({Subnet}) for network {NetworkId}",
+                created.Value.DockerId, created.Value.Subnet, network.Id);
+
+            return Result.Success();
         }
         catch (DockerApiException ex)
         {
@@ -601,7 +723,7 @@ public class DockerNetworkingService : INetworkingService
         }
     }
 
-    private readonly record struct CreatedEnvironmentNetwork(string DockerId, string Subnet, string Gateway);
+    private readonly record struct CreatedDockerNetwork(string DockerId, string Subnet, string Gateway);
 
     /// <summary>
     /// Creates the Docker network for a project environment on a free /24 out of the configured subnet
@@ -609,8 +731,8 @@ public class DockerNetworkingService : INetworkingService
     /// has already recorded and the host's own interfaces; if Docker still reports an overlap (e.g. a
     /// network appeared meanwhile) that candidate is excluded and the next one is tried.
     /// </summary>
-    private async Task<Result<CreatedEnvironmentNetwork>> CreateEnvironmentDockerNetworkAsync(
-        Network network, string networkName, Project project, Haven.Domain.Aggregates.Environment environment,
+    private async Task<Result<CreatedDockerNetwork>> CreateManagedDockerNetworkAsync(
+        Network network, string networkName, Dictionary<string, string> labels,
         CancellationToken cancellationToken)
     {
         var pool = _networkOptions.CurrentValue.SubnetPool;
@@ -663,21 +785,11 @@ public class DockerNetworkingService : INetworkingService
                                 Driver = "default",
                                 Config = [new IPAMConfig { Subnet = subnet, Gateway = gateway }]
                             },
-                            Labels = new Dictionary<string, string>
-                            {
-                                { "haven.project-id", project.Id.ToString() },
-                                { "haven.environment-id", environment.Id.ToString() },
-                                { "haven.project-name", project.Name },
-                                { "haven.environment-name", environment.Name },
-                                { "haven.network-type", "environment" },
-                                { "haven.network-id", network.Id.ToString() },
-                                { "haven.created-at", DateTime.UtcNow.ToString("O") },
-                                { DockerUtils.HavenManagedLabel.Key, DockerUtils.HavenManagedLabel.Value }
-                            }
+                            Labels = labels
                         },
                         cancellationToken);
 
-                    return new CreatedEnvironmentNetwork(response.ID, subnet, gateway);
+                    return new CreatedDockerNetwork(response.ID, subnet, gateway);
                 }
                 catch (DockerApiException ex) when (ex.Message.Contains("overlap", StringComparison.OrdinalIgnoreCase))
                 {

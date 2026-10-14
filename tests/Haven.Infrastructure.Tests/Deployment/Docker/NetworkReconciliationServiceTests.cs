@@ -1,6 +1,7 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
 
+using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Domain;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;
@@ -39,7 +40,7 @@ public sealed class NetworkReconciliationServiceTests
         _traefikRoutingHealer.VerifyAndHealAsync(Arg.Any<Guid>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(false);
         _logger = Substitute.For<ILogger<NetworkReconciliationService>>();
-        _sut = new NetworkReconciliationService(_db, _client, _traefikRoutingHealer, _logger);
+        _sut = new NetworkReconciliationService(_db, _client, _traefikRoutingHealer, Substitute.For<INetworkHealthService>(), _logger);
     }
 
     [TearDown]
