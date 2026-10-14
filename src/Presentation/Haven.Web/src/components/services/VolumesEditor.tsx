@@ -38,6 +38,12 @@ const EMPTY_NEW_VOLUME: AddVolumeInput = {
   backupEnabled: false,
 };
 
+const typeKey: Record<VolumeType, 'managed' | 'named' | 'hostPath'> = {
+  Managed: 'managed',
+  Named: 'named',
+  HostPath: 'hostPath',
+};
+
 const badgeVariant = (type: VolumeType) =>
   type === 'Managed' ? 'primary' : type === 'HostPath' ? 'warning' : 'default';
 
@@ -131,7 +137,7 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
         target: newVolume.target.trim(),
         source: needsSource ? newVolume.source?.trim() : undefined,
         readOnly: newVolume.readOnly,
-        backupEnabled: newVolume.backupEnabled,
+        backupEnabled: newVolume.type === 'Managed' && newVolume.backupEnabled,
       });
       setNewVolume(EMPTY_NEW_VOLUME);
       setIsAddOpen(false);
@@ -304,43 +310,65 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
         }
       >
         <Stack gap="3">
-          <SelectInput
-            label={t('volumes.type')}
-            value={newVolume.type}
-            onChange={v => setNewVolume(p => ({ ...p, type: v as VolumeType }))}
-            options={typeOptions}
-          />
           <Input
             label={t('volumes.name')}
+            hint={t('volumes.nameHint')}
             value={newVolume.name}
             onChange={e => setNewVolume(p => ({ ...p, name: e.target.value }))}
-            placeholder="nginx-config"
+            placeholder={t('volumes.namePlaceholder')}
             autoFocus
+            required
           />
-          <Input
-            label={t('volumes.target')}
-            value={newVolume.target}
-            onChange={e => setNewVolume(p => ({ ...p, target: e.target.value }))}
-            placeholder="/etc/nginx"
-          />
+          <Stack gap="1">
+            <SelectInput
+              label={t('volumes.type')}
+              value={newVolume.type}
+              onChange={v => setNewVolume(p => ({ ...p, type: v as VolumeType, source: '' }))}
+              options={typeOptions}
+            />
+            <Label variant="secondary" size="sm">
+              {t(`volumes.typeDescriptions.${typeKey[newVolume.type]}`)}
+            </Label>
+          </Stack>
           {needsSource && (
             <Input
-              label={t('volumes.source')}
+              label={
+                newVolume.type === 'HostPath'
+                  ? t('volumes.sourceLabels.hostPath')
+                  : t('volumes.sourceLabels.named')
+              }
               value={newVolume.source ?? ''}
               onChange={e => setNewVolume(p => ({ ...p, source: e.target.value }))}
               placeholder={newVolume.type === 'HostPath' ? '/srv/data' : 'my-volume'}
+              required
             />
           )}
-          <Checkbox
-            label={t('volumes.readOnly')}
-            checked={newVolume.readOnly}
-            onChange={e => setNewVolume(p => ({ ...p, readOnly: e.target.checked }))}
+          <Input
+            label={t('volumes.targetLabel')}
+            value={newVolume.target}
+            onChange={e => setNewVolume(p => ({ ...p, target: e.target.value }))}
+            placeholder={t('volumes.targetPlaceholder')}
+            required
           />
-          <Checkbox
-            label={t('volumes.backupHint')}
-            checked={newVolume.backupEnabled}
-            onChange={e => setNewVolume(p => ({ ...p, backupEnabled: e.target.checked }))}
-          />
+          <Stack gap="2">
+            <Label variant="primary" size="sm" weight="semibold">
+              {t('volumes.options')}
+            </Label>
+            <Checkbox
+              label={t('volumes.readOnlyLabel')}
+              description={t('volumes.readOnlyDescription')}
+              checked={newVolume.readOnly}
+              onChange={e => setNewVolume(p => ({ ...p, readOnly: e.target.checked }))}
+            />
+            {newVolume.type === 'Managed' && (
+              <Checkbox
+                label={t('volumes.backupLabel')}
+                description={t('volumes.backupDescription')}
+                checked={newVolume.backupEnabled}
+                onChange={e => setNewVolume(p => ({ ...p, backupEnabled: e.target.checked }))}
+              />
+            )}
+          </Stack>
         </Stack>
       </Modal>
 

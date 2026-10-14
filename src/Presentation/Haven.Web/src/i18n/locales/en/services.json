@@ -79,9 +79,27 @@
     "readOnly": "Read-only",
     "backup": "Back up",
     "backupHint": "Include in backups (managed volume files are backed up too)",
+    "nameHint": "A display name to identify this volume in Haven. It does not affect where data is stored.",
+    "namePlaceholder": "nginx-config",
+    "typeDescriptions": {
+      "managed": "Haven creates and owns this volume. You can create and edit its files from the UI.",
+      "named": "Mounts an existing Docker named volume. Docker manages where the data lives.",
+      "hostPath": "Mounts a directory from the host machine into the container (bind mount)."
+    },
+    "sourceLabels": {
+      "named": "Docker volume name",
+      "hostPath": "Host directory path"
+    },
+    "targetLabel": "Mount path in container",
+    "targetPlaceholder": "/etc/nginx",
+    "options": "Options",
+    "readOnlyLabel": "Mount as read-only",
+    "readOnlyDescription": "The container can read this volume but cannot write to it.",
+    "backupLabel": "Include in backups",
+    "backupDescription": "The files stored in this volume are saved with the service's backups and manifest, so they can be restored later.",
     "manageFiles": "Manage files",
     "types": {
-      "managed": "Managed (files edited in Haven)",
+      "managed": "Managed",
       "named": "Named volume",
       "hostPath": "Host path"
     },
