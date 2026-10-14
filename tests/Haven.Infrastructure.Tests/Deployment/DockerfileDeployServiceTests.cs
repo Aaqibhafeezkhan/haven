@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 using Docker.DotNet;
 using Docker.DotNet.Models;
 
@@ -5,6 +7,7 @@ using Haven.Application.Common;
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Templating;
 using Haven.Application.Configuration;
 using Haven.Domain;
 using Haven.Domain.Aggregates;
@@ -42,6 +45,7 @@ public sealed class DockerfileDeployServiceTests
     private INetworkingService _networkingService = null!;
     private IGitService _gitService = null!;
     private IDeploymentLogService _logService = null!;
+    private IServiceTemplateNamespaceProvider _templateNamespaceProvider = null!;
     private IServiceRegistryEntryRepository _serviceRegistryEntryRepository = null!;
     private ISidecarRepository _sidecarRepository = null!;
     private ITraefikRoutingHealer _traefikRoutingHealer = null!;
@@ -117,8 +121,12 @@ public sealed class DockerfileDeployServiceTests
             Substitute.For<IContainerEnvironmentService>(),
             new DockerContainerInspector(_client, Substitute.For<ILogger<DockerContainerInspector>>()));
 
+        _templateNamespaceProvider = Substitute.For<IServiceTemplateNamespaceProvider>();
+        _templateNamespaceProvider.BuildAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<string, TemplateNamespaceResolver>());
+
         _sut = new DockerfileDeployService(
-            _logger, _client, _containerRuntime, _networkingServiceFactory, _gitService, _logService);
+            _logger, _client, _containerRuntime, _networkingServiceFactory, _gitService, _logService, _templateNamespaceProvider);
     }
 
     [TearDown]
@@ -559,6 +567,145 @@ public sealed class DockerfileDeployServiceTests
 
         captured.ShouldNotBeNull();
         captured!.Labels.Keys.ShouldNotContain(k => k.StartsWith("traefik."));
+    }
+
+    [Test]
+    public async Task DeployAsync_WithBuildArgsContainingPlaceholders_ShouldResolveThemBeforeBuilding()
+    {
+        var (service, _, _) = SetupServiceWithBuildArgs(new Dictionary<string, string>
+        {
+            ["NPM_TOKEN"] = "${{ secrets.NPM_TOKEN }}",
+            ["API_URL"] = "https://${{ env.API_HOST }}/v1"
+        });
+        SetupNamespaces(service.Id,
+            (TemplateNamespaces.Secrets, key => key == "NPM_TOKEN" ? "s3cr3t" : null),
+            (TemplateNamespaces.EnvVariables, key => key == "API_HOST" ? "api.example.com" : null));
+        var captured = CaptureBuildParameters();
+
+        var result = await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        captured.Value.ShouldNotBeNull();
+        captured.Value!.BuildArgs["NPM_TOKEN"].ShouldBe("s3cr3t");
+        captured.Value.BuildArgs["API_URL"].ShouldBe("https://api.example.com/v1");
+    }
+
+    [Test]
+    public async Task DeployAsync_WithBuildArgPlaceholderAndFilter_ShouldApplyFilter()
+    {
+        var (service, _, _) = SetupServiceWithBuildArgs(new Dictionary<string, string>
+        {
+            ["PASSWORD"] = "${{ secrets.DB_PASSWORD | urlencode }}"
+        });
+        SetupNamespaces(service.Id, (TemplateNamespaces.Secrets, _ => "p@ss word"));
+        var captured = CaptureBuildParameters();
+
+        await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+        captured.Value!.BuildArgs["PASSWORD"].ShouldBe("p%40ss%20word");
+    }
+
+    [Test]
+    public async Task DeployAsync_WithBuildArgsWithoutPlaceholders_ShouldPassValuesThroughUnchanged()
+    {
+        var (service, _, _) = SetupServiceWithBuildArgs(new Dictionary<string, string> { ["NODE_VERSION"] = "20" });
+        SetupNamespaces(service.Id, (TemplateNamespaces.Secrets, _ => "unused"));
+        var captured = CaptureBuildParameters();
+
+        await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+        captured.Value!.BuildArgs.ShouldBe(new Dictionary<string, string> { ["NODE_VERSION"] = "20" });
+    }
+
+    [Test]
+    public async Task DeployAsync_WithUnresolvablePlaceholder_ShouldLeaveItVerbatim()
+    {
+        var (service, _, _) = SetupServiceWithBuildArgs(new Dictionary<string, string>
+        {
+            ["A"] = "${{ secrets.MISSING }}",
+            ["B"] = "${{ unknown.KEY }}"
+        });
+        SetupNamespaces(service.Id, (TemplateNamespaces.Secrets, _ => null));
+        var captured = CaptureBuildParameters();
+
+        await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+        captured.Value!.BuildArgs["A"].ShouldBe("${{ secrets.MISSING }}");
+        captured.Value.BuildArgs["B"].ShouldBe("${{ unknown.KEY }}");
+    }
+
+    [Test]
+    public async Task DeployAsync_WithBuildArgs_ShouldBuildNamespacesForTheDeployedService()
+    {
+        var (service, _, _) = SetupServiceWithBuildArgs(new Dictionary<string, string> { ["A"] = "b" });
+
+        await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+        await _templateNamespaceProvider.Received(1).BuildAsync(service.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeployAsync_WithoutBuildArgs_ShouldNotBuildNamespaces()
+    {
+        var (service, _, _) = SetupValidServiceWithProject(ServiceType.Dockerfile, DockerfileSource.Raw);
+
+        await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+        await _templateNamespaceProvider.DidNotReceive().BuildAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeployAsync_WhenNamespacesCannotBeBuilt_ShouldFailWithoutBuilding()
+    {
+        var (service, _, _) = SetupServiceWithBuildArgs(new Dictionary<string, string> { ["A"] = "${{ secrets.X }}" });
+        _templateNamespaceProvider.BuildAsync(service.Id, Arg.Any<CancellationToken>())
+            .Returns((IReadOnlyDictionary<string, TemplateNamespaceResolver>?)null);
+
+        var result = await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        await _client.Images.DidNotReceive().BuildImageFromDockerfileAsync(
+            Arg.Any<ImageBuildParameters>(), Arg.Any<Stream>(), Arg.Any<IEnumerable<AuthConfig>>(),
+            Arg.Any<IDictionary<string, string>>(), Arg.Any<IProgress<JSONMessage>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeployAsync_ShouldNotMutateStoredBuildArgs()
+    {
+        var (service, _, _) = SetupServiceWithBuildArgs(new Dictionary<string, string> { ["TOKEN"] = "${{ secrets.T }}" });
+        SetupNamespaces(service.Id, (TemplateNamespaces.Secrets, _ => "resolved"));
+
+        await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+        ((DockerfileConfig)service.SourceConfig!).BuildArgs["TOKEN"].ShouldBe("${{ secrets.T }}");
+    }
+
+    private (Service service, Project project, Environment environment) SetupServiceWithBuildArgs(
+        Dictionary<string, string> buildArgs)
+    {
+        var result = SetupValidServiceWithProject(ServiceType.Dockerfile, DockerfileSource.Raw);
+        var config = (DockerfileConfig)result.service.SourceConfig!;
+        config.BuildArgs = buildArgs;
+        result.service.SourceConfig = config;
+        return result;
+    }
+
+    private void SetupNamespaces(Guid serviceId, params (string Name, TemplateNamespaceResolver Resolver)[] namespaces)
+    {
+        IReadOnlyDictionary<string, TemplateNamespaceResolver> dict =
+            namespaces.ToDictionary(n => n.Name, n => n.Resolver);
+        _templateNamespaceProvider.BuildAsync(serviceId, Arg.Any<CancellationToken>()).Returns(dict);
+    }
+
+    private StrongBox<ImageBuildParameters?> CaptureBuildParameters()
+    {
+        var box = new StrongBox<ImageBuildParameters?>();
+        _client.Images
+            .BuildImageFromDockerfileAsync(
+                Arg.Do<ImageBuildParameters>(p => box.Value = p), Arg.Any<Stream>(), Arg.Any<IEnumerable<AuthConfig>>(),
+                Arg.Any<IDictionary<string, string>>(), Arg.Any<IProgress<JSONMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        return box;
     }
 
     private (Service service, Project project, Environment environment) SetupValidServiceWithProject(
