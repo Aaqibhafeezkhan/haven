@@ -24,29 +24,37 @@
   color: var(--color-text-muted);
 }
 
-.volumeCard {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
+.tableWrap {
+  overflow-x: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
 }
 
-.volumeCardDirty {
-  border-color: var(--color-primary);
-}
-
-.volumeRow {
+.tags {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
   flex-wrap: wrap;
+  gap: var(--space-1);
 }
 
-.mono {
-  font-family: var(--font-mono, monospace);
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.iconBtn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.iconBtnDanger:hover {
+  color: var(--color-error);
 }
 
 .grow {
@@ -69,12 +77,6 @@
 .deleteBtn:hover:not(:disabled) {
   color: var(--color-error);
   background: var(--color-surface-hover);
-}
-
-.toggleWrap {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 /* Managed files modal */

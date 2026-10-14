@@ -191,3 +191,41 @@
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
 }
+
+/* Sortable headers */
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sortButton:hover {
+  color: var(--color-text-primary);
+}
+
+.sortIcon {
+  display: inline-flex;
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+}
+
+.sortButton:hover .sortIcon,
+.sortButton:focus-visible .sortIcon {
+  opacity: 0.6;
+}
+
+.sortActive {
+  color: var(--color-primary);
+}
+
+.sortActive .sortIcon {
+  opacity: 1;
+}

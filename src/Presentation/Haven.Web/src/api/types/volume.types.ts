@@ -1,5 +1,12 @@
 export type VolumeType = 'Named' | 'HostPath' | 'Managed';
 
+export type VolumeSortBy = 'name' | 'type' | 'target' | 'createdAt' | 'updatedAt';
+
+export interface ListVolumesParams {
+  sortBy?: VolumeSortBy;
+  sortDescending?: boolean;
+}
+
 export interface ServiceVolumeDto {
   id: string;
   serviceId: string;

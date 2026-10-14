@@ -16,6 +16,22 @@ public sealed class ListVolumesForServiceHandler(IServiceRepository serviceRepos
         if (service is null)
             return Error.NotFoundFor(nameof(Service), query.ServiceId);
 
-        return Result<IReadOnlyList<ServiceVolumeDto>>.Success(service.Volumes.ToDtos());
+
+        Func<ServiceVolume, IComparable> keySelector = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "type" => v => v.Type.ToString(),
+            "target" => v => v.Target,
+            "createdat" => v => v.CreatedAt,
+            "updatedat" => v => v.UpdatedAt,
+            _ => v => v.Name,
+        };
+
+        var ordered = query.SortDescending
+            ? service.Volumes.OrderByDescending(keySelector)
+            : service.Volumes.OrderBy(keySelector);
+
+        var volumes = ordered.ThenBy(v => v.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
+        return Result<IReadOnlyList<ServiceVolumeDto>>.Success(volumes.ToDtos());
     }
 }

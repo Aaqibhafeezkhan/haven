@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import {
   AddVolumeInput,
+  ListVolumesParams,
   ManagedVolumeFileEntry,
   ServiceVolumeDto,
   UpdateVolumeInput,
@@ -10,8 +11,8 @@ const base = (projectId: string, environmentId: string, serviceId: string) =>
   `/projects/${projectId}/environments/${environmentId}/services/${serviceId}/volumes`;
 
 export const volumesApi = {
-  list: (projectId: string, environmentId: string, serviceId: string) =>
-    apiClient.get<ServiceVolumeDto[]>(base(projectId, environmentId, serviceId)),
+  list: (projectId: string, environmentId: string, serviceId: string, params?: ListVolumesParams) =>
+    apiClient.get<ServiceVolumeDto[]>(base(projectId, environmentId, serviceId), params),
 
   add: (projectId: string, environmentId: string, serviceId: string, body: AddVolumeInput) =>
     apiClient.post<string>(base(projectId, environmentId, serviceId), body),

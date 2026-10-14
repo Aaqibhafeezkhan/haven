@@ -1,42 +1,33 @@
-import { HardDrive, Plus, Trash2 } from 'lucide-react';
+import { FolderOpen, HardDrive, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSort } from '@/hooks/useSort';
 import styles from '@/styles/components/services/VolumesEditor.module.css';
 
 import {
   AddVolumeInput,
   ServiceVolumeDto,
-  UpdateVolumeInput,
+  VolumeSortBy,
   VolumeType,
 } from '../../api/types/volume.types';
 import { volumesApi } from '../../api/volumes';
-import { Row, Spacer, Stack } from '../layout';
+import { Row, Spacer } from '../layout';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../layout/Table';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { Checkbox } from '../ui/Checkbox';
 import { ErrorAlert } from '../ui/ErrorAlert';
-import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Modal } from '../ui/Modal';
-import { SelectInput } from '../ui/SelectInput';
 import { Spinner } from '../ui/Spinner';
 import { ManagedVolumeFilesModal } from './ManagedVolumeFilesModal';
+import { VolumeFormModal, volumeTypeKey } from './VolumeFormModal';
 
 interface VolumesEditorProps {
   projectId: string;
   environmentId: string;
   serviceId: string;
 }
-
-const EMPTY_NEW_VOLUME: AddVolumeInput = {
-  type: 'Managed',
-  name: '',
-  target: '',
-  source: '',
-  readOnly: false,
-  backupEnabled: false,
-};
 
 const badgeVariant = (type: VolumeType) =>
   type === 'Managed' ? 'primary' : type === 'HostPath' ? 'warning' : 'default';
@@ -47,100 +38,53 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
   const [volumes, setVolumes] = useState<ServiceVolumeDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [edits, setEdits] = useState<Record<string, UpdateVolumeInput>>({});
-  const [isSaving, setIsSaving] = useState(false);
+
+  const { sortBy, sortDescending, onSort } = useSort<VolumeSortBy>('name');
 
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newVolume, setNewVolume] = useState<AddVolumeInput>(EMPTY_NEW_VOLUME);
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<ServiceVolumeDto | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<ServiceVolumeDto | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [filesVolume, setFilesVolume] = useState<ServiceVolumeDto | null>(null);
 
-  const typeOptions = [
-    { value: 'Managed', label: t('volumes.types.managed') },
-    { value: 'Named', label: t('volumes.types.named') },
-    { value: 'HostPath', label: t('volumes.types.hostPath') },
-  ];
-
   const loadVolumes = useCallback(async () => {
     try {
-      setLoading(true);
-      const result = await volumesApi.list(projectId, environmentId, serviceId);
+      const result = await volumesApi.list(projectId, environmentId, serviceId, {
+        sortBy,
+        sortDescending,
+      });
       setVolumes(result ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('error'));
     } finally {
       setLoading(false);
     }
-  }, [projectId, environmentId, serviceId, t]);
+  }, [projectId, environmentId, serviceId, sortBy, sortDescending, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     void loadVolumes();
   }, [loadVolumes]);
 
-  const updateField = (id: string, updates: UpdateVolumeInput) => {
-    setEdits(prev => ({ ...prev, [id]: { ...prev[id], ...updates } }));
+  const handleCreate = async (input: AddVolumeInput) => {
+    await volumesApi.add(projectId, environmentId, serviceId, input);
+    setIsAddOpen(false);
+    await loadVolumes();
   };
 
-  const getField = <K extends keyof ServiceVolumeDto>(
-    volume: ServiceVolumeDto,
-    field: K
-  ): ServiceVolumeDto[K] =>
-    ((edits[volume.id] as Record<string, unknown> | undefined)?.[field as string] ??
-      volume[field]) as ServiceVolumeDto[K];
-
-  const hasChanges = Object.keys(edits).length > 0;
-
-  const saveChanges = async () => {
-    if (!hasChanges) return;
-    try {
-      setIsSaving(true);
-      await Promise.all(
-        Object.entries(edits).map(([id, data]) =>
-          volumesApi.update(projectId, environmentId, serviceId, id, data)
-        )
-      );
-      setEdits({});
-      await loadVolumes();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('error'));
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const needsSource = newVolume.type === 'Named' || newVolume.type === 'HostPath';
-  const canCreate =
-    !!newVolume.name.trim() &&
-    !!newVolume.target.trim() &&
-    (!needsSource || !!newVolume.source?.trim());
-
-  const handleCreate = async () => {
-    if (!canCreate) return;
-    try {
-      setIsCreating(true);
-      setCreateError(null);
-      await volumesApi.add(projectId, environmentId, serviceId, {
-        type: newVolume.type,
-        name: newVolume.name.trim(),
-        target: newVolume.target.trim(),
-        source: needsSource ? newVolume.source?.trim() : undefined,
-        readOnly: newVolume.readOnly,
-        backupEnabled: newVolume.backupEnabled,
-      });
-      setNewVolume(EMPTY_NEW_VOLUME);
-      setIsAddOpen(false);
-      await loadVolumes();
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : t('error'));
-    } finally {
-      setIsCreating(false);
-    }
+  const handleUpdate = async (input: AddVolumeInput) => {
+    if (!editTarget) return;
+    await volumesApi.update(projectId, environmentId, serviceId, editTarget.id, {
+      name: input.name,
+      target: input.target,
+      source: input.source,
+      readOnly: input.readOnly,
+      backupEnabled: input.backupEnabled,
+    });
+    setEditTarget(null);
+    await loadVolumes();
   };
 
   const handleDelete = async () => {
@@ -155,12 +99,6 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
     } finally {
       setIsDeleting(false);
     }
-  };
-
-  const openAddModal = () => {
-    setNewVolume(EMPTY_NEW_VOLUME);
-    setCreateError(null);
-    setIsAddOpen(true);
   };
 
   if (loading) {
@@ -181,17 +119,12 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
         </Label>
         {volumes.length > 0 && <Badge>{volumes.length}</Badge>}
         <Spacer expand direction="horizontal" />
-        {hasChanges && (
-          <>
-            <Button variant="ghost" size="sm" onClick={() => setEdits({})} disabled={isSaving}>
-              {t('volumes.discard')}
-            </Button>
-            <Button variant="primary" size="sm" onClick={saveChanges} isLoading={isSaving}>
-              {t('volumes.saveChanges')}
-            </Button>
-          </>
-        )}
-        <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={openAddModal}>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Plus size={14} />}
+          onClick={() => setIsAddOpen(true)}
+        >
           {t('volumes.add')}
         </Button>
       </Row>
@@ -202,147 +135,128 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
           <Label variant="secondary" size="sm">
             {t('volumes.empty')}
           </Label>
-          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={openAddModal}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Plus size={14} />}
+            onClick={() => setIsAddOpen(true)}
+          >
             {t('volumes.addFirst')}
           </Button>
         </div>
       ) : (
-        <Stack gap="2">
-          {volumes.map(volume => {
-            const isDirty = !!edits[volume.id];
-            const isManaged = volume.type === 'Managed';
-            return (
-              <div
-                key={volume.id}
-                className={`${styles.volumeCard} ${isDirty ? styles.volumeCardDirty : ''}`}
-              >
-                <div className={styles.volumeRow}>
-                  <Badge variant={badgeVariant(volume.type)}>{volume.type}</Badge>
-                  <Input
-                    className={styles.grow}
-                    value={getField(volume, 'name')}
-                    onChange={e => updateField(volume.id, { name: e.target.value })}
-                    placeholder={t('volumes.name')}
-                    disabled={isSaving}
-                  />
-                  <button
-                    className={styles.deleteBtn}
-                    onClick={() => setDeleteTarget(volume)}
-                    disabled={isSaving}
-                    title={t('volumes.delete')}
+        <div className={styles.tableWrap}>
+          <Table compact padding="2">
+            <TableHead>
+              <TableRow isHeader hasActionsColumn>
+                <TableHeader
+                  sortKey="name"
+                  sortBy={sortBy}
+                  sortDescending={sortDescending}
+                  onSort={onSort}
+                >
+                  {t('volumes.columns.name')}
+                </TableHeader>
+                <TableHeader
+                  sortKey="type"
+                  sortBy={sortBy}
+                  sortDescending={sortDescending}
+                  onSort={onSort}
+                >
+                  {t('volumes.columns.type')}
+                </TableHeader>
+                <TableHeader>{t('volumes.columns.source')}</TableHeader>
+                <TableHeader
+                  sortKey="target"
+                  sortBy={sortBy}
+                  sortDescending={sortDescending}
+                  onSort={onSort}
+                >
+                  {t('volumes.columns.target')}
+                </TableHeader>
+                <TableHeader>{t('volumes.columns.options')}</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {volumes.map(volume => {
+                const isManaged = volume.type === 'Managed';
+                return (
+                  <TableRow
+                    key={volume.id}
+                    onRowClick={() => setEditTarget(volume)}
+                    actions={
+                      <>
+                        {isManaged && (
+                          <button
+                            className={styles.iconBtn}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setFilesVolume(volume);
+                            }}
+                            title={t('volumes.manageFiles')}
+                          >
+                            <FolderOpen size={14} />
+                          </button>
+                        )}
+                        <button
+                          className={styles.iconBtn}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setEditTarget(volume);
+                          }}
+                          title={t('volumes.edit')}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setDeleteTarget(volume);
+                          }}
+                          title={t('volumes.delete')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    }
                   >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-
-                <div className={styles.volumeRow}>
-                  <Input
-                    className={`${styles.grow} ${styles.mono}`}
-                    value={getField(volume, 'target')}
-                    onChange={e => updateField(volume.id, { target: e.target.value })}
-                    placeholder={t('volumes.target')}
-                    disabled={isSaving}
-                  />
-                  {!isManaged && (
-                    <Input
-                      className={`${styles.grow} ${styles.mono}`}
-                      value={getField(volume, 'source') ?? ''}
-                      onChange={e => updateField(volume.id, { source: e.target.value })}
-                      placeholder={t('volumes.source')}
-                      disabled={isSaving}
-                    />
-                  )}
-                </div>
-
-                <div className={styles.volumeRow}>
-                  <Checkbox
-                    label={t('volumes.readOnly')}
-                    checked={getField(volume, 'readOnly')}
-                    onChange={e => updateField(volume.id, { readOnly: e.target.checked })}
-                    disabled={isSaving}
-                  />
-                  <Checkbox
-                    label={t('volumes.backup')}
-                    checked={getField(volume, 'backupEnabled')}
-                    onChange={e => updateField(volume.id, { backupEnabled: e.target.checked })}
-                    disabled={isSaving}
-                  />
-                  <Spacer expand direction="horizontal" />
-                  {isManaged && (
-                    <Button variant="ghost" size="sm" onClick={() => setFilesVolume(volume)}>
-                      {t('volumes.manageFiles')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </Stack>
+                    <TableCell variant="highlight">{volume.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={badgeVariant(volume.type)}>
+                        {t(`volumes.types.${volumeTypeKey[volume.type]}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell variant={isManaged ? 'muted' : 'mono'}>
+                      {isManaged ? t('volumes.managedSource') : volume.source}
+                    </TableCell>
+                    <TableCell variant="mono">{volume.target}</TableCell>
+                    <TableCell>
+                      <div className={styles.tags}>
+                        {volume.readOnly && <Badge>{t('volumes.readOnlyShort')}</Badge>}
+                        {isManaged && volume.backupEnabled && (
+                          <Badge variant="success">{t('volumes.backupShort')}</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
-      <Modal
-        isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
-        title={t('volumes.addTitle')}
-        size="sm"
-        error={createError ?? undefined}
-        footer={
-          <Row gap="2" justify="flex-end" full>
-            <Button variant="ghost" onClick={() => setIsAddOpen(false)} disabled={isCreating}>
-              {t('volumes.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleCreate}
-              isLoading={isCreating}
-              disabled={!canCreate}
-              icon={<Plus size={14} />}
-            >
-              {t('volumes.create')}
-            </Button>
-          </Row>
-        }
-      >
-        <Stack gap="3">
-          <SelectInput
-            label={t('volumes.type')}
-            value={newVolume.type}
-            onChange={v => setNewVolume(p => ({ ...p, type: v as VolumeType }))}
-            options={typeOptions}
-          />
-          <Input
-            label={t('volumes.name')}
-            value={newVolume.name}
-            onChange={e => setNewVolume(p => ({ ...p, name: e.target.value }))}
-            placeholder="nginx-config"
-            autoFocus
-          />
-          <Input
-            label={t('volumes.target')}
-            value={newVolume.target}
-            onChange={e => setNewVolume(p => ({ ...p, target: e.target.value }))}
-            placeholder="/etc/nginx"
-          />
-          {needsSource && (
-            <Input
-              label={t('volumes.source')}
-              value={newVolume.source ?? ''}
-              onChange={e => setNewVolume(p => ({ ...p, source: e.target.value }))}
-              placeholder={newVolume.type === 'HostPath' ? '/srv/data' : 'my-volume'}
-            />
-          )}
-          <Checkbox
-            label={t('volumes.readOnly')}
-            checked={newVolume.readOnly}
-            onChange={e => setNewVolume(p => ({ ...p, readOnly: e.target.checked }))}
-          />
-          <Checkbox
-            label={t('volumes.backupHint')}
-            checked={newVolume.backupEnabled}
-            onChange={e => setNewVolume(p => ({ ...p, backupEnabled: e.target.checked }))}
-          />
-        </Stack>
-      </Modal>
+      {isAddOpen && <VolumeFormModal onClose={() => setIsAddOpen(false)} onSubmit={handleCreate} />}
+
+      {editTarget && (
+        <VolumeFormModal
+          key={editTarget.id}
+          volume={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSubmit={handleUpdate}
+        />
+      )}
 
       <Modal
         isOpen={!!deleteTarget}
