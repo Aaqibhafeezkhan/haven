@@ -13,57 +13,86 @@ interface BuildArgsEditorProps {
   disabled?: boolean;
 }
 
+interface ArgRow {
+  id: number;
+  key: string;
+  value: string;
+}
+
+let nextRowId = 0;
+
+const toRows = (args: Record<string, string>): ArgRow[] =>
+  Object.entries(args).map(([key, value]) => ({ id: nextRowId++, key, value }));
+
+const toRecord = (rows: ArgRow[]): Record<string, string> =>
+  Object.fromEntries(rows.filter(r => r.key !== '').map(r => [r.key, r.value]));
+
+const sameArgs = (a: Record<string, string>, b: Record<string, string>) => {
+  const aKeys = Object.keys(a);
+  return aKeys.length === Object.keys(b).length && aKeys.every(k => a[k] === b[k]);
+};
+
 export function BuildArgsEditor({ buildArgs, onChange, disabled }: BuildArgsEditorProps) {
   const { t } = useTranslation('services');
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  const [rows, setRows] = useState<ArgRow[]>(() => toRows(buildArgs));
 
-  const entries = Object.entries(buildArgs);
+  // Rows are the source of truth while editing so duplicate or blank keys survive in the UI;
+  // only resync when the parent changes the args to something the rows don't already represent.
+  const [syncedArgs, setSyncedArgs] = useState(buildArgs);
+  if (syncedArgs !== buildArgs) {
+    setSyncedArgs(buildArgs);
+    if (!sameArgs(toRecord(rows), buildArgs)) setRows(toRows(buildArgs));
+  }
+
   const parsedArgs = parseEnvFile(pasteText);
   const parsedCount = Object.keys(parsedArgs).length;
+  const hasBlankRow = rows.some(r => r.key === '');
+
+  const commit = (next: ArgRow[]) => {
+    setRows(next);
+    onChange(toRecord(next));
+  };
 
   const importArgs = (mode: 'merge' | 'replace') => {
     if (parsedCount === 0) return;
-    onChange(mode === 'merge' ? { ...buildArgs, ...parsedArgs } : parsedArgs);
+    commit(toRows(mode === 'merge' ? { ...toRecord(rows), ...parsedArgs } : parsedArgs));
     setPasteText('');
     setPasteOpen(false);
   };
 
-  const updateKey = (idx: number, key: string) => {
-    onChange(Object.fromEntries(entries.map(([k, v], i) => (i === idx ? [key, v] : [k, v]))));
+  const updateRow = (id: number, patch: Partial<ArgRow>) => {
+    commit(rows.map(r => (r.id === id ? { ...r, ...patch } : r)));
   };
 
-  const updateValue = (idx: number, value: string) => {
-    onChange(Object.fromEntries(entries.map(([k, v], i) => [k, i === idx ? value : v])));
-  };
-
-  const removeArg = (idx: number) => {
-    onChange(Object.fromEntries(entries.filter((_, i) => i !== idx)));
+  const removeArg = (id: number) => {
+    commit(rows.filter(r => r.id !== id));
   };
 
   const addArg = () => {
-    if ('' in buildArgs) return;
-    onChange({ ...buildArgs, '': '' });
+    if (hasBlankRow) return;
+    commit([...rows, { id: nextRowId++, key: '', value: '' }]);
   };
 
   return (
     <FormGroup>
       <div className={styles.labelWithHelp}>
-        <FormLabel htmlFor="buildArgs">{t('createPage.buildArgs')}</FormLabel>
+        <FormLabel>{t('createPage.buildArgs')}</FormLabel>
         <span className={styles.helpText}>{t('createPage.buildArgsHelp')}</span>
       </div>
       <Stack gap="3" className={styles.argsContainer}>
-        {entries.length === 0 ? (
+        {rows.length === 0 ? (
           <p className={styles.emptyState}>{t('createPage.noBuildArgs')}</p>
         ) : (
-          entries.map(([key, value], idx) => (
-            <div key={idx} className={styles.argRow}>
+          rows.map(({ id, key, value }) => (
+            <div key={id} className={styles.argRow}>
               <input
                 type="text"
                 className={styles.argInput}
                 placeholder={t('createPage.buildArgKeyPlaceholder')}
                 value={key}
-                onChange={e => updateKey(idx, e.target.value)}
+                onChange={e => updateRow(id, { key: e.target.value })}
                 disabled={disabled}
               />
               <input
@@ -71,13 +100,13 @@ export function BuildArgsEditor({ buildArgs, onChange, disabled }: BuildArgsEdit
                 className={styles.argInput}
                 placeholder={t('createPage.buildArgValuePlaceholder')}
                 value={value}
-                onChange={e => updateValue(idx, e.target.value)}
+                onChange={e => updateRow(id, { value: e.target.value })}
                 disabled={disabled}
               />
               <button
                 type="button"
                 className={styles.argRemove}
-                onClick={() => removeArg(idx)}
+                onClick={() => removeArg(id)}
                 disabled={disabled}
               >
                 ×
@@ -91,7 +120,7 @@ export function BuildArgsEditor({ buildArgs, onChange, disabled }: BuildArgsEdit
           type="button"
           className={styles.addArgButton}
           onClick={addArg}
-          disabled={disabled || '' in buildArgs}
+          disabled={disabled || hasBlankRow}
         >
           {t('createPage.addBuildArg')}
         </button>
@@ -133,7 +162,7 @@ export function BuildArgsEditor({ buildArgs, onChange, disabled }: BuildArgsEdit
               onClick={() => importArgs('replace')}
               disabled={disabled || parsedCount === 0}
             >
-              {t('createPage.fromCommandReplace')}
+              {t('createPage.fromEnvFileReplace')}
             </button>
           </div>
         </div>

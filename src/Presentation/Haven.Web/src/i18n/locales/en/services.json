@@ -321,6 +321,7 @@
     "fromEnvFilePreview_one": "{{count}} build argument detected",
     "fromEnvFilePreview_other": "{{count}} build arguments detected",
     "fromEnvFileMerge": "Merge",
+    "fromEnvFileReplace": "Replace all",
     "variables": "Variables",
     "variablesHelp": "One variable per line (KEY=VALUE)",
     "variablesPlaceholder": "DEBUG=true\nNODE_ENV=production\nAPI_URL=https://api.example.com",
