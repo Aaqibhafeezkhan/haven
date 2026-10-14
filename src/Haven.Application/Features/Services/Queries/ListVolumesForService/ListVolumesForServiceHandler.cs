@@ -15,8 +15,8 @@ public sealed class ListVolumesForServiceHandler(IServiceRepository serviceRepos
         var service = await serviceRepository.GetByIdAsync(query.ServiceId, cancellationToken);
         if (service is null)
             return Error.NotFoundFor(nameof(Service), query.ServiceId);
-        
-        
+
+
         Func<ServiceVolume, IComparable> keySelector = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
             "type" => v => v.Type.ToString(),
