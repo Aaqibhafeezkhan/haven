@@ -1,6 +1,9 @@
+using System.Linq.Expressions;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
 using Haven.Domain.Aggregates;
+using Haven.Domain.Entities;
+using Haven.Domain.Enums;
 using Haven.Infrastructure.Persistence.Extensions;
 
 using Microsoft.EntityFrameworkCore;
@@ -9,25 +12,140 @@ namespace Haven.Infrastructure.Persistence.Repositories;
 
 public class ServiceRegistryEntryRepository(HavenDbContext db) : IServiceRegistryEntryRepository
 {
-    public Task<PagedResult<ServiceRegistryEntry>> GetPagedAsync(int pageNumber, int pageSize, string? search, CancellationToken ct = default)
+    public Task<PagedResult<ServiceRegistryEntry>> GetPagedAsync(int pageNumber, int pageSize, ServiceRegistryEntryFilter? filter = null, string? sortBy = null, bool sortDescending = false, CancellationToken ct = default)
     {
         var query = db.ServiceRegistryEntries
             .AsNoTracking()
-            .Include(e => e.Service)
+            .Include(e => e.Service!).ThenInclude(s => s.Environment!).ThenInclude(env => env.Project)
             .Include(e => e.Sidecar)
-            .Include(e => e.Domains)
+            .Include(e => e.Domains).ThenInclude(d => d.Certificate)
+            .AsQueryable();
+
+        if (filter is not null)
+            query = ApplyFilter(query, filter);
+
+        return ApplySort(query, sortBy, sortDescending).ToPagedResultAsync(pageNumber, pageSize, ct);
+    }
+
+    public Task<PagedResult<ServiceRegistryDomain>> GetDomainsPagedAsync(int pageNumber, int pageSize, string? search, string? sortBy = null, bool sortDescending = false, CancellationToken ct = default)
+    {
+        var query = db.ServiceRegistryDomains
+            .AsNoTracking()
+            .Include(d => d.Certificate)
+            .Include(d => d.ServiceRegistryEntry!).ThenInclude(e => e.Service!).ThenInclude(s => s.Environment!).ThenInclude(env => env.Project)
+            .Include(d => d.ServiceRegistryEntry!).ThenInclude(e => e.Sidecar)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query = query.Where(e =>
-                (e.Service != null && e.Service.Name.Contains(search)) ||
-                (e.Sidecar != null && e.Sidecar.Name.Contains(search)) ||
-                (e.ContainerName != null && e.ContainerName.Contains(search)));
+            query = query.Where(d =>
+                d.Hostname.Contains(search) ||
+                (d.ServiceRegistryEntry!.ContainerName != null && d.ServiceRegistryEntry.ContainerName.Contains(search)) ||
+                (d.ServiceRegistryEntry.Service != null && (
+                    d.ServiceRegistryEntry.Service.Name.Contains(search) ||
+                    d.ServiceRegistryEntry.Service.Environment!.Name.Contains(search) ||
+                    d.ServiceRegistryEntry.Service.Environment.Project!.Name.Contains(search))) ||
+                (d.ServiceRegistryEntry.Sidecar != null && d.ServiceRegistryEntry.Sidecar.Name.Contains(search)));
         }
 
-        return query.OrderByDescending(e => e.UpdatedAt).ToPagedResultAsync(pageNumber, pageSize, ct);
+        var ordered = (sortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "tls" => Order(query, d => (int)d.TlsMode, sortDescending),
+            "service" => Order(query, d => d.ServiceRegistryEntry!.Service != null ? d.ServiceRegistryEntry.Service.Name : d.ServiceRegistryEntry.Sidecar!.Name, sortDescending),
+            "created" => Order(query, d => d.CreatedAt, sortDescending),
+            _ => Order(query, d => d.Hostname, sortDescending),
+        };
+
+        return ordered.ThenBy(d => d.Hostname).ThenBy(d => d.Id).ToPagedResultAsync(pageNumber, pageSize, ct);
     }
+
+    public async Task<ServiceRegistrySummary> GetSummaryAsync(CancellationToken ct = default)
+    {
+        var entries = db.ServiceRegistryEntries.AsNoTracking();
+
+        var byStatus = await entries
+            .GroupBy(e => e.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var running = byStatus.Where(x => x.Status == ServiceStatus.Running).Sum(x => x.Count);
+        var stopped = byStatus.Where(x => x.Status == ServiceStatus.Stopped).Sum(x => x.Count);
+        var starting = byStatus.Where(x => x.Status is ServiceStatus.DeploymentPending or ServiceStatus.Deploying).Sum(x => x.Count);
+        var unknown = byStatus.Where(x => x.Status == ServiceStatus.Unknown).Sum(x => x.Count);
+        var total = byStatus.Sum(x => x.Count);
+
+        var domains = await db.ServiceRegistryDomains.AsNoTracking().CountAsync(ct);
+        var external = await entries.CountAsync(e => e.Service != null && e.Service.ExposureMode == ExposureMode.External, ct);
+
+        return new ServiceRegistrySummary(total, running, stopped, starting, unknown, domains, external);
+    }
+
+    private static IQueryable<ServiceRegistryEntry> ApplyFilter(IQueryable<ServiceRegistryEntry> query, ServiceRegistryEntryFilter filter)
+    {
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var search = filter.Search.Trim();
+            query = query.Where(e =>
+                (e.ContainerName != null && e.ContainerName.Contains(search)) ||
+                (e.Sidecar != null && e.Sidecar.Name.Contains(search)) ||
+                (e.Service != null && (
+                    e.Service.Name.Contains(search) ||
+                    e.Service.Environment!.Name.Contains(search) ||
+                    e.Service.Environment.Project!.Name.Contains(search))) ||
+                e.Domains.Any(d => d.Hostname.Contains(search)));
+        }
+
+        if (filter.Status is { } status)
+        {
+            query = status switch
+            {
+                RegistryStatusFilter.Running => query.Where(e => e.Status == ServiceStatus.Running),
+                RegistryStatusFilter.Stopped => query.Where(e => e.Status == ServiceStatus.Stopped),
+                RegistryStatusFilter.Starting => query.Where(e => e.Status == ServiceStatus.DeploymentPending || e.Status == ServiceStatus.Deploying),
+                _ => query.Where(e => e.Status == ServiceStatus.Unknown),
+            };
+        }
+
+        if (filter.Exposure is { } exposure)
+            query = query.Where(e => e.Service != null && e.Service.ExposureMode == exposure);
+
+        if (filter.Type is { } type)
+            query = query.Where(e => e.Service != null && e.Service.Type == type);
+
+        if (filter.ProjectId is { } projectId)
+            query = query.Where(e => e.Service != null && e.Service.Environment!.ProjectId == projectId);
+
+        if (filter.EnvironmentId is { } environmentId)
+            query = query.Where(e => e.Service != null && e.Service.EnvironmentId == environmentId);
+
+        return query;
+    }
+
+    private static IOrderedQueryable<ServiceRegistryEntry> ApplySort(IQueryable<ServiceRegistryEntry> query, string? sortBy, bool descending)
+    {
+        // Unspecified sort keeps the historical default: most recently updated first.
+        if (string.IsNullOrWhiteSpace(sortBy))
+            return query.OrderByDescending(e => e.UpdatedAt);
+
+        var ordered = sortBy.ToLowerInvariant() switch
+        {
+            "name" => Order(query, e => e.ContainerName ?? string.Empty, descending),
+            "type" => Order(query, e => e.Service != null ? (int)e.Service.Type : -1, descending),
+            "project" => Order(query, e => e.Service != null ? e.Service.Environment!.Project!.Name : string.Empty, descending),
+            "exposure" => Order(query, e => e.Service != null ? (int)e.Service.ExposureMode : -1, descending),
+            "status" => Order(query, e => (int)e.Status, descending),
+            // Uptime grows as StartedAt gets older, so the key is inverted.
+            "uptime" => Order(query, e => e.StartedAt, !descending),
+            _ => Order(query, e => e.UpdatedAt, descending),
+        };
+
+        // Stable tiebreaker so pages don't shuffle between requests.
+        return ordered.ThenBy(e => e.ContainerName).ThenBy(e => e.Id);
+    }
+
+    private static IOrderedQueryable<T> Order<T, TKey>(
+        IQueryable<T> query, Expression<Func<T, TKey>> key, bool descending) =>
+        descending ? query.OrderByDescending(key) : query.OrderBy(key);
 
     public async Task<ServiceRegistryEntry?> GetForServiceAsync(Guid serviceId, CancellationToken ct = default)
     {

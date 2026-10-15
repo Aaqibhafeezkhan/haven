@@ -17,6 +17,13 @@ public sealed class ServiceRegistryEntryDto
     public DateTime? StartedAt { get; set; }
     public ServiceType ServiceType { get; set; } = ServiceType.DockerImage;
     public ExposureMode ExposureMode { get; set; } = ExposureMode.None;
-    public Guid ServiceId { get; set; }
+    public Guid? ServiceId { get; set; }
+    public string? ServiceName { get; set; }
+    public Guid? SidecarId { get; set; }
+    public string? SidecarName { get; set; }
+    public Guid? EnvironmentId { get; set; }
+    public string? EnvironmentName { get; set; }
+    public Guid? ProjectId { get; set; }
+    public string? ProjectName { get; set; }
     public List<ServiceRegistryDomainDto> Domains { get; set; } = [];
 }

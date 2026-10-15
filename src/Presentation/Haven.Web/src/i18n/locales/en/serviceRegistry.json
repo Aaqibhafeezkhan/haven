@@ -1,23 +1,113 @@
 {
   "title": "Service Registry",
-  "subtitle": "Live runtime state for all registered services.",
+  "subtitle": "Live runtime state and access points for all registered services.",
   "search": {
-    "placeholder": "Search..."
+    "placeholder": "Search name, project, domain...",
+    "clear": "Clear search"
   },
   "loading": "Loading...",
   "sectionTitle": "Entries",
   "empty": "No registry entries found.",
   "error": "Failed to load service registry.",
   "table": {
-    "fqdn": "FQDN",
+    "name": "Name",
+    "status": "Status",
     "type": "Type",
-    "addresses": "Addresses",
     "domains": "Domains",
+    "addresses": "Addresses",
     "exposure": "Exposure",
     "uptime": "Uptime"
   },
-  "pagination": {
-    "previous": "Previous",
-    "next": "Next"
+  "emptySearch": "No entries match \"{{search}}\".",
+  "none": "—",
+  "openService": "Open service",
+  "domains": {
+    "open": "Open {{hostname}} in a new tab"
+  },
+  "addresses": {
+    "more": "+{{count}} more",
+    "showLess": "Show less"
+  },
+  "emptyFiltered": "No entries match the current filters.",
+  "sidecarLabel": "Sidecar {{name}}",
+  "tabs": {
+    "services": "Services",
+    "domains": "Domains"
+  },
+  "refresh": {
+    "now": "Refresh",
+    "live": "Live",
+    "paused": "Paused",
+    "pauseHint": "Auto-refreshing every 15s. Click to pause.",
+    "resumeHint": "Auto-refresh is paused. Click to resume."
+  },
+  "summary": {
+    "total": "Entries",
+    "running": "Running",
+    "stopped": "Stopped",
+    "domains": "Domains",
+    "exposed": "Exposed externally",
+    "starting": "Starting",
+    "unknown": "Unknown"
+  },
+  "filters": {
+    "all": "All",
+    "running": "Running",
+    "stopped": "Stopped",
+    "allProjects": "All projects",
+    "allEnvironments": "All environments",
+    "anyExposure": "Any exposure",
+    "anyType": "Any type",
+    "clear": "Clear filters",
+    "exposure": {
+      "None": "Not exposed",
+      "Internal": "Internal network",
+      "External": "External access",
+      "Custom": "Custom"
+    },
+    "types": {
+      "DockerImage": "Docker image",
+      "Dockerfile": "Dockerfile"
+    },
+    "starting": "Starting",
+    "unknown": "Unknown"
+  },
+  "copy": {
+    "containerName": "Copy container name",
+    "hostname": "Copy hostname",
+    "address": "Copy address"
+  },
+  "details": {
+    "expand": "Show details",
+    "collapse": "Hide details",
+    "ports": "Ports",
+    "containerPort": "Container",
+    "published": "Published on",
+    "notPublished": "not published",
+    "network": "Network",
+    "containerIp": "Container IP",
+    "domains": "Domains",
+    "tlsOff": "no TLS",
+    "tlsCert": "TLS ({{name}})",
+    "tlsMode": "TLS ({{mode}})",
+    "timeline": "Timeline",
+    "started": "Started",
+    "registered": "Registered",
+    "updated": "Last updated"
+  },
+  "domainsTab": {
+    "title": "All domains",
+    "searchPlaceholder": "Search hostname, service, project...",
+    "empty": "No domains configured.",
+    "hostname": "Hostname",
+    "service": "Served by",
+    "tls": "TLS",
+    "port": "Container port",
+    "noCertificate": "No certificate",
+    "tlsModes": {
+      "None": "None",
+      "Acme": "Let's Encrypt",
+      "Custom": "Custom certificate"
+    }
   }
 }

@@ -3,6 +3,9 @@ import { BuildInfoDto, LatestVersionDto } from './types/system.types';
 
 export const systemApi = {
   getBuildInfo: () => apiClient.get<BuildInfoDto>('/system/build-info'),
-  getAllPermissions: (showOnlyAttributedPermissions: boolean = false) => apiClient.get<string[]>('/system/permissions?showOnlyAttributedPermissions=' + showOnlyAttributedPermissions),
+  getAllPermissions: (showOnlyAttributedPermissions: boolean = false) =>
+    apiClient.get<string[]>(
+      '/system/permissions?showOnlyAttributedPermissions=' + showOnlyAttributedPermissions
+    ),
   getLatestVersion: () => apiClient.get<LatestVersionDto>('/system/latest-version'),
 };

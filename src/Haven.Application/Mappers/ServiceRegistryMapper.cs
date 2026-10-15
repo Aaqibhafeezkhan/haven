@@ -23,7 +23,14 @@ public static partial class ServiceRegistryMapper
         {
             dto.ServiceType = entry.Service.Type;
             dto.ExposureMode = entry.Service.ExposureMode;
+            dto.ServiceName = entry.Service.Name;
+            dto.EnvironmentId = entry.Service.EnvironmentId;
+            dto.EnvironmentName = entry.Service.Environment?.Name;
+            dto.ProjectId = entry.Service.Environment?.ProjectId;
+            dto.ProjectName = entry.Service.Environment?.Project?.Name;
         }
+
+        dto.SidecarName = entry.Sidecar?.Name;
 
         return dto;
     }
@@ -51,6 +58,12 @@ public static partial class ServiceRegistryMapper
     [MapperIgnoreTarget(nameof(ServiceRegistryDomainDto.CertificateName))]
     private static partial ServiceRegistryDomainDto ToDtoPartial(this ServiceRegistryDomain domain);
 
+    [MapperIgnoreTarget(nameof(ServiceRegistryEntryDto.ServiceName))]
+    [MapperIgnoreTarget(nameof(ServiceRegistryEntryDto.SidecarName))]
+    [MapperIgnoreTarget(nameof(ServiceRegistryEntryDto.EnvironmentId))]
+    [MapperIgnoreTarget(nameof(ServiceRegistryEntryDto.EnvironmentName))]
+    [MapperIgnoreTarget(nameof(ServiceRegistryEntryDto.ProjectId))]
+    [MapperIgnoreTarget(nameof(ServiceRegistryEntryDto.ProjectName))]
     private static partial ServiceRegistryEntryDto ToDtoPartial(this ServiceRegistryEntry entry);
     [MapProperty(nameof(PortMapping.HostIp), nameof(PortMappingDto.IpAddress))]
     private static partial PortMappingDto ToDtoPartial(this PortMapping entry);
