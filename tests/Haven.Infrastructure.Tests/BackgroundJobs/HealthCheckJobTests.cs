@@ -21,6 +21,7 @@ public sealed class HealthCheckJobTests
     private IHealthCheckRepository _healthCheckRepository = null!;
     private IServiceRepository _serviceRepository = null!;
     private IHealthCheckRunnerFactory _runnerFactory = null!;
+    private IServiceRegistry _serviceRegistry = null!;
     private IUnitOfWork _unitOfWork = null!;
     private HealthCheckJob _sut = null!;
 
@@ -31,10 +32,14 @@ public sealed class HealthCheckJobTests
         _serviceRepository = Substitute.For<IServiceRepository>();
         _runnerFactory = Substitute.For<IHealthCheckRunnerFactory>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
+        _serviceRegistry = Substitute.For<IServiceRegistry>();
+        _serviceRegistry.EnsureServiceRegisteredAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => Haven.Domain.Aggregates.ServiceRegistryEntry.Create(call.ArgAt<Guid>(0)));
 
         _sut = new HealthCheckJob(
             _healthCheckRepository,
             _serviceRepository,
+            _serviceRegistry,
             _runnerFactory,
             _unitOfWork,
             Substitute.For<ILogger<HealthCheckJob>>());

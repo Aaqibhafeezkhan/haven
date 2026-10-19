@@ -36,10 +36,11 @@ public class ComputedOutputResolverTests
         return service;
     }
 
-    private static ServiceRegistryEntry Registry(string ip, ServiceStatus status = ServiceStatus.Running)
+    private static ServiceRegistryEntry Registry(string ip, ServiceRuntimeState state = ServiceRuntimeState.Running)
     {
         var entry = ServiceRegistryEntry.Create(Guid.NewGuid());
-        entry.UpdateRuntime(ip, [], status);
+        entry.UpdateNetwork(ip, []);
+        entry.ApplyRuntimeState(state, DateTime.UtcNow);
         return entry;
     }
 

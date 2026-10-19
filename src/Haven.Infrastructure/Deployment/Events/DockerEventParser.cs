@@ -47,7 +47,7 @@ public class DockerEventParser : IDockerEventParser
             DockerEventTypes.Start => new ContainerStartedEvent(containerId, GetTimestamp(message), serviceId.Value),
             DockerEventTypes.Stop => new ContainerStoppedEvent(containerId, GetTimestamp(message), serviceId.Value),
             DockerEventTypes.Kill => new ContainerKilledEvent(containerId, GetTimestamp(message), serviceId.Value),
-            DockerEventTypes.Die => new ContainerDiedEvent(containerId, GetTimestamp(message), serviceId.Value),
+            DockerEventTypes.Die => new ContainerDiedEvent(containerId, GetTimestamp(message), serviceId.Value, GetExitCode(message)),
             DockerEventTypes.Health.Unhealthy => new ContainerUnhealthyEvent(containerId, GetTimestamp(message), serviceId.Value),
             DockerEventTypes.Health.Healthy => new ContainerHealthyEvent(containerId, GetTimestamp(message), serviceId.Value),
             DockerEventTypes.Oom => new ContainerOutOfMemoryEvent(containerId, GetTimestamp(message), serviceId.Value),
@@ -91,6 +91,13 @@ public class DockerEventParser : IDockerEventParser
 
         return null;
     }
+
+    private static int? GetExitCode(Message message) =>
+        message.Actor?.Attributes is not null
+        && message.Actor.Attributes.TryGetValue("exitCode", out var raw)
+        && int.TryParse(raw, out var code)
+            ? code
+            : null;
 
     private static DateTime GetTimestamp(Message message) =>
         message.TimeNano > 0

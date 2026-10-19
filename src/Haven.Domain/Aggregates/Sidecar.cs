@@ -12,10 +12,10 @@ public sealed class Sidecar : AggregateRoot, IDeployableContainer
     public string Name { get; set; } = default!;
     public string? Alias { get; set; }
     public SidecarKind Kind { get; set; }
-    public ServiceStatus Status { get; set; }
-    public ServiceHealth Health { get; set; }
-
     public bool Enabled { get; set; }
+
+    /// <summary>Operator intent: an enabled sidecar should be running, a disabled one stopped. Not persisted.</summary>
+    public DesiredState DesiredState => Enabled ? DesiredState.Running : DesiredState.Stopped;
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -45,8 +45,6 @@ public sealed class Sidecar : AggregateRoot, IDeployableContainer
             Alias = alias,
             Kind = kind,
             SourceConfigJson = Serialize(sourceConfig),
-            Status = ServiceStatus.Stopped,
-            Health = ServiceHealth.Unknown,
             Enabled = false,
             CreatedAt = now,
             UpdatedAt = now
@@ -61,8 +59,6 @@ public sealed class Sidecar : AggregateRoot, IDeployableContainer
         string name,
         string? alias,
         SidecarKind kind,
-        ServiceStatus status,
-        ServiceHealth health,
         bool enabled,
         DateTime createdAt,
         DateTime updatedAt,
@@ -76,8 +72,6 @@ public sealed class Sidecar : AggregateRoot, IDeployableContainer
             Name = name,
             Alias = alias,
             Kind = kind,
-            Status = status,
-            Health = health,
             Enabled = enabled,
             CreatedAt = createdAt,
             UpdatedAt = updatedAt,
@@ -131,30 +125,8 @@ public sealed class Sidecar : AggregateRoot, IDeployableContainer
     {
         if (!Enabled) return;
         Enabled = false;
-        Status = ServiceStatus.Stopped;
         UpdatedAt = DateTime.UtcNow;
         Raise(new SidecarDisabledEvent(Id, Name));
-    }
-
-    public void MarkDeploymentPending()
-    {
-        Status = ServiceStatus.DeploymentPending;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void MarkDeploying()
-    {
-        Status = ServiceStatus.Deploying;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void MarkDeployed()
-    {
-        if (Status == ServiceStatus.Running) return;
-        Status = ServiceStatus.Running;
-        var now = DateTime.UtcNow;
-        UpdatedAt = now;
-        LastDeployedAt = now;
     }
 
     public void RecordDeployment()
@@ -162,19 +134,6 @@ public sealed class Sidecar : AggregateRoot, IDeployableContainer
         var now = DateTime.UtcNow;
         UpdatedAt = now;
         LastDeployedAt = now;
-    }
-
-    public void MarkStopped()
-    {
-        if (Status == ServiceStatus.Stopped) return;
-        Status = ServiceStatus.Stopped;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void RecordHealth(ServiceHealth health)
-    {
-        Health = health;
-        UpdatedAt = DateTime.UtcNow;
     }
 
     public void AttachToNetwork(Guid networkId)

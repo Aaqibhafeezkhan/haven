@@ -67,7 +67,6 @@ public sealed class EnableSidecarHandlerTests
 
         result.IsSuccess.ShouldBeTrue();
         sidecar.Enabled.ShouldBeTrue();
-        sidecar.Status.ShouldBe(ServiceStatus.DeploymentPending);
         _deploymentJobEnqueuer.Received(1).EnqueueSidecarDeployment(sidecar.Id);
     }
 }

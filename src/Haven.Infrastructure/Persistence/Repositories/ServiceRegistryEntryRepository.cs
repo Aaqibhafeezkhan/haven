@@ -29,6 +29,19 @@ public class ServiceRegistryEntryRepository(HavenDbContext db) : IServiceRegistr
         return query.OrderByDescending(e => e.UpdatedAt).ToPagedResultAsync(pageNumber, pageSize, ct);
     }
 
+    public async Task<Dictionary<Guid, ServiceRegistryEntry>> GetByOwnerIdsAsync(IReadOnlyCollection<Guid> ownerIds, CancellationToken ct = default)
+    {
+        if (ownerIds.Count == 0) return [];
+
+        var entries = await db.ServiceRegistryEntries
+            .AsNoTracking()
+            .Where(e => (e.ServiceId != null && ownerIds.Contains(e.ServiceId.Value))
+                        || (e.SidecarId != null && ownerIds.Contains(e.SidecarId.Value)))
+            .ToListAsync(ct);
+
+        return entries.ToDictionary(e => e.OwnerId);
+    }
+
     public async Task<ServiceRegistryEntry?> GetForServiceAsync(Guid serviceId, CancellationToken ct = default)
     {
         var local = db.ServiceRegistryEntries.Local.FirstOrDefault(s => s.ServiceId == serviceId);

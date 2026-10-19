@@ -3,7 +3,7 @@ import {
   HealthStatus,
   ServiceDashboardDto,
   ServiceStatisticsDto,
-  ServiceStatus,
+  ServiceDisplayStatus,
 } from './service.types';
 
 export interface EnvironmentDto {
@@ -28,7 +28,7 @@ export interface EnvironmentDashboardDto {
   totalEnvVars: number;
   environmentVariables: EnvironmentVariableDto[];
   services: ServiceDashboardDto[];
-  serviceStatusMap: Record<string, ServiceStatus>;
+  serviceStatusMap: Record<string, ServiceDisplayStatus>;
 }
 export interface CreateEnvironmentInput {
   name: string;

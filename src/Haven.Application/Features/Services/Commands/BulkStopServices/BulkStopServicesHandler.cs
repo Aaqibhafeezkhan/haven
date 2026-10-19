@@ -4,6 +4,7 @@ using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
 using Haven.Application.Features.Services.Shared;
 using Haven.Domain.Aggregates;
+using Haven.Domain.Enums;
 using Haven.Domain.Exceptions;
 
 using Environment = Haven.Domain.Aggregates.Environment;
@@ -39,6 +40,7 @@ public sealed class BulkStopServicesHandler(
 
             try
             {
+                service.SetDesiredState(DesiredState.Stopped);
                 deploymentJobEnqueuer.EnqueueStop(request.ProjectId, request.EnvironmentId, serviceId);
                 results.Add(new BulkServiceActionResult(serviceId, true, null));
             }

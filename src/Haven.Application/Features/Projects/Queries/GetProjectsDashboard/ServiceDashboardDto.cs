@@ -15,7 +15,9 @@ public sealed class ServiceDashboardDto
     public string? Alias { get; set; }
     public ServiceType Type { get; set; }
     public ExposureMode ExposureMode { get; set; }
-    public ServiceStatus Status { get; set; }
+    public DesiredState DesiredState { get; set; }
+    public ServiceRuntimeState RuntimeState { get; set; }
+    public ServiceDisplayStatus Status { get; set; }
     public ServiceHealth Health { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

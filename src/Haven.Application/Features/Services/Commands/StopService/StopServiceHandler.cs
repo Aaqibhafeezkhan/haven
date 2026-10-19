@@ -2,6 +2,7 @@ using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Domain.Aggregates;
+using Haven.Domain.Enums;
 
 using Environment = Haven.Domain.Aggregates.Environment;
 
@@ -26,6 +27,7 @@ public sealed class StopServiceHandler(
         if (service is null)
             return Error.NotFoundFor(nameof(Service), request.ServiceId);
 
+        service.SetDesiredState(DesiredState.Stopped);
         deploymentJobEnqueuer.EnqueueStop(request.ProjectId, request.EnvironmentId, request.ServiceId);
         return Result.Success();
     }

@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { EnvironmentDto } from '@/api/types';
 import { ProjectDto } from '@/api/types';
 import { ServiceDashboardDto } from '@/api/types';
-import { ServiceStatus } from '@/api/types';
+import { ServiceDisplayStatus } from '@/api/types';
 import { ConfigurationPageLayout, Row, Stack } from '@/components/layout';
 import { ScopedNotificationsSection } from '@/components/notificationChannels/ScopedNotificationsSection';
 import { Tabs } from '@/components/ui/Tabs';
@@ -121,7 +121,7 @@ export function ServiceDetailsPage() {
 
   useSubscribeToServiceUpdates(serviceStatusHub, serviceId, data => {
     if (data.serviceId === serviceId) {
-      setService(prev => (prev ? { ...prev, status: data.newStatus as ServiceStatus } : null));
+      setService(prev => (prev ? { ...prev, status: data.newStatus as ServiceDisplayStatus } : null));
     }
   });
 

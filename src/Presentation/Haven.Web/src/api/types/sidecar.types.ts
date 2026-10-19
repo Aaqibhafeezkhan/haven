@@ -1,4 +1,4 @@
-import { RestartPolicy, ServiceHealth, ServiceStatus } from './service.types';
+import { RestartPolicy, ServiceHealth, ServiceDisplayStatus } from './service.types';
 
 export type SidecarKind = 'Traefik' | 'Whoami' | 'Custom';
 
@@ -7,7 +7,7 @@ export interface SidecarDto {
   name: string;
   alias?: string;
   kind: SidecarKind;
-  status: ServiceStatus;
+  status: ServiceDisplayStatus;
   health: ServiceHealth;
   enabled: boolean;
   createdAt: string;

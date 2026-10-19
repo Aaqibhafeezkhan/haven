@@ -17,7 +17,7 @@ import { BulkServiceActionResponse } from '@/api/types';
 import { EnvironmentDashboardDto } from '@/api/types';
 import { ProjectDto } from '@/api/types';
 import { ServiceDto } from '@/api/types';
-import { ServiceStatus } from '@/api/types';
+import { ServiceDisplayStatus } from '@/api/types';
 import {
   BulkAction,
   BulkActionConfirmModal,
@@ -210,7 +210,7 @@ export function EnvironmentDetailsPage() {
       setServices(prevServices =>
         prevServices.map(service =>
           service.id === data.serviceId
-            ? { ...service, status: data.newStatus as ServiceStatus }
+            ? { ...service, status: data.newStatus as ServiceDisplayStatus }
             : service
         )
       );

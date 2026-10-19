@@ -89,7 +89,8 @@ public class ServiceComputedOutputsIntegrationTests
         var (projectId, environmentId, serviceId) = await CreatePostgresServiceAsync();
 
         var registry = ServiceRegistryEntry.Create(serviceId);
-        registry.UpdateRuntime("172.18.0.5", [], ServiceStatus.Running);
+        registry.UpdateNetwork("172.18.0.5", []);
+        registry.ApplyRuntimeState(ServiceRuntimeState.Running, DateTime.UtcNow);
         await _serviceRegistryEntryRepository.InsertAsync(registry, CancellationToken.None);
         await _fixture.GetService<Haven.Infrastructure.Persistence.HavenDbContext>().SaveChangesAsync();
 

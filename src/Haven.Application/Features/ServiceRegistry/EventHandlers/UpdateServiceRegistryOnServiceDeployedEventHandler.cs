@@ -10,6 +10,6 @@ public class UpdateServiceRegistryOnServiceDeployedEventHandler(IServiceRegistry
 {
     public async ValueTask Handle(ServiceLifetimeDomainEvent notification, CancellationToken cancellationToken)
     {
-        await ServiceRegistryEventHandlerUtils.UpdateRegistryEntryAsync(notification.ServiceId, repository, registry, cancellationToken);
+        await ServiceRegistryEventHandlerUtils.EnsureRegistryEntryAsync(notification.ServiceId, repository, registry, cancellationToken);
     }
 }

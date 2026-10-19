@@ -48,7 +48,12 @@ export const getStatusColor = (status: string): 'success' | 'warning' | 'danger'
       return 'default';
     case 'Degraded':
       return 'warning';
+    case 'Crashed':
+      return 'danger';
     case 'DeploymentPending':
+    case 'Deploying':
+    case 'Starting':
+    case 'NotDeployed':
       return 'default';
     case 'Unknown':
       return 'default';

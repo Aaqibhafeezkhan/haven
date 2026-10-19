@@ -1,4 +1,5 @@
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Services.Queries;
 using Haven.Application.Features.Services.Queries.GetServicesByEnvironment;
 using Haven.Domain;
@@ -29,7 +30,9 @@ public sealed class GetServicesByEnvironmentHandlerTests
         _projectRepository = Substitute.For<IProjectRepository>();
         _environmentRepository = Substitute.For<IEnvironmentRepository>();
         _serviceRepository = Substitute.For<IServiceRepository>();
-        _sut = new GetServicesByEnvironmentHandler(_projectRepository, _environmentRepository, _serviceRepository);
+        var stateReader = Substitute.For<IServiceStateReader>();
+        stateReader.LoadAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>()).Returns(ServiceStateSnapshot.Empty);
+        _sut = new GetServicesByEnvironmentHandler(_projectRepository, _environmentRepository, _serviceRepository, stateReader);
     }
 
     [Test]
@@ -114,7 +117,7 @@ public sealed class GetServicesByEnvironmentHandlerTests
         webDto.EnvironmentId.ShouldBe(environment.Id);
         webDto.Type.ShouldBe(ServiceType.DockerImage);
         webDto.ExposureMode.ShouldBe(ExposureMode.External);
-        webDto.Status.ShouldBe(ServiceStatus.Stopped);
+        webDto.Status.ShouldBe(ServiceDisplayStatus.NotDeployed);
     }
 
     [Test]
@@ -144,5 +147,5 @@ public sealed class GetServicesByEnvironmentHandlerTests
     };
 
     private static Service BuildService(Guid environmentId, string name, ServiceType type, ExposureMode mode)
-        => Service.Reconstitute(Guid.NewGuid(), environmentId, name, null, type, mode, ServiceStatus.Stopped, DateTime.UtcNow, DateTime.UtcNow);
+        => Service.Reconstitute(Guid.NewGuid(), environmentId, name, null, type, mode, DesiredState.Stopped, DateTime.UtcNow, DateTime.UtcNow);
 }

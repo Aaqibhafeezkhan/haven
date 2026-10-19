@@ -66,7 +66,6 @@ public sealed class UpdateSidecarHandlerTests
         var result = await _sut.Handle(command, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        sidecar.Status.ShouldBe(ServiceStatus.DeploymentPending);
         _deploymentJobEnqueuer.Received(1).EnqueueSidecarDeployment(sidecar.Id);
     }
 

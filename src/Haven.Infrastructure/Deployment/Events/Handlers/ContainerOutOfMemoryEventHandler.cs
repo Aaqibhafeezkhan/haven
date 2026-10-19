@@ -14,13 +14,15 @@ public class ContainerOutOfMemoryEventHandler : INotificationHandler<ContainerOu
     private readonly HavenDbContext _db;
     private readonly IProjectRepository _repository;
     private readonly ISidecarRepository _sidecarRepository;
+    private readonly ServiceRuntimeStateRecorder _recorder;
     private readonly ILogger<ContainerOutOfMemoryEventHandler> _logger;
 
-    public ContainerOutOfMemoryEventHandler(HavenDbContext db, IProjectRepository repository, ISidecarRepository sidecarRepository, ILogger<ContainerOutOfMemoryEventHandler> logger)
+    public ContainerOutOfMemoryEventHandler(HavenDbContext db, IProjectRepository repository, ISidecarRepository sidecarRepository, ServiceRuntimeStateRecorder recorder, ILogger<ContainerOutOfMemoryEventHandler> logger)
     {
         _db = db;
         _repository = repository;
         _sidecarRepository = sidecarRepository;
+        _recorder = recorder;
         _logger = logger;
     }
 
@@ -42,13 +44,12 @@ public class ContainerOutOfMemoryEventHandler : INotificationHandler<ContainerOu
                 return;
             }
 
-            if (service.Status == ServiceStatus.Stopped)
+            if (!await _recorder.ApplyStopAsync(service, ServiceRuntimeState.Crashed, null, cancellationToken))
             {
-                _logger.LogInformation("Service {ServiceId} is already stopped, skipping stop handler", notification.ServiceId);
+                _logger.LogInformation("Service {ServiceId} is already stopped or being deployed, skipping stop handler", notification.ServiceId);
                 return;
             }
 
-            project.StopService(service.EnvironmentId, service.Id);
             await _db.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Service {ServiceId} marked as stopped due to out-of-memory error", notification.ServiceId);
@@ -62,13 +63,12 @@ public class ContainerOutOfMemoryEventHandler : INotificationHandler<ContainerOu
             return;
         }
 
-        if (sidecar.Status == ServiceStatus.Stopped)
+        if (!await _recorder.ApplyStopAsync(sidecar, ServiceRuntimeState.Crashed, null, cancellationToken))
         {
-            _logger.LogInformation("Sidecar {SidecarId} is already stopped, skipping stop handler", sidecar.Id);
+            _logger.LogInformation("Sidecar {SidecarId} is already stopped or restarting, skipping stop handler", sidecar.Id);
             return;
         }
 
-        sidecar.MarkStopped();
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Sidecar {SidecarId} marked as stopped due to out-of-memory error", sidecar.Id);

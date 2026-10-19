@@ -1,4 +1,5 @@
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Sidecars.Queries.ListSidecars;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Enums;
@@ -19,7 +20,9 @@ public sealed class ListSidecarsHandlerTests
     public void Setup()
     {
         _sidecarRepository = Substitute.For<ISidecarRepository>();
-        _sut = new ListSidecarsHandler(_sidecarRepository);
+        var stateReader = Substitute.For<IServiceStateReader>();
+        stateReader.LoadAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>()).Returns(ServiceStateSnapshot.Empty);
+        _sut = new ListSidecarsHandler(_sidecarRepository, stateReader);
     }
 
     [Test]
@@ -51,6 +54,6 @@ public sealed class ListSidecarsHandlerTests
         dto.Name.ShouldBe("whoami");
         dto.Kind.ShouldBe(SidecarKind.Whoami);
         dto.Enabled.ShouldBeFalse();
-        dto.Status.ShouldBe(ServiceStatus.Stopped);
+        dto.Status.ShouldBe(ServiceDisplayStatus.NotDeployed);
     }
 }

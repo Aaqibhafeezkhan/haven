@@ -169,6 +169,12 @@ namespace Haven.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("DesiredState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("desired_state");
+
                     b.Property<Guid>("EnvironmentId")
                         .HasColumnType("uuid")
                         .HasColumnName("environment_id");
@@ -183,11 +189,6 @@ namespace Haven.Infrastructure.Migrations
                     b.Property<Guid?>("GitCredentialsId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Health")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("health");
-
                     b.Property<DateTime?>("LastDeployedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -199,10 +200,6 @@ namespace Haven.Infrastructure.Migrations
                     b.Property<string>("SourceConfigJson")
                         .HasColumnType("TEXT")
                         .HasColumnName("source_config");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
 
                     b.Property<string>("Token")
                         .IsRequired()
@@ -240,6 +237,12 @@ namespace Haven.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("container_name");
 
+                    b.Property<string>("Health")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("health");
+
                     b.Property<string>("IpAddress")
                         .HasMaxLength(45)
                         .HasColumnType("character varying(45)")
@@ -256,6 +259,12 @@ namespace Haven.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("registered_at");
 
+                    b.Property<string>("RuntimeState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("runtime_state");
+
                     b.Property<Guid?>("ServiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("service_id");
@@ -268,9 +277,9 @@ namespace Haven.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
+                    b.Property<DateTime>("StateChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("state_changed_at");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -312,11 +321,6 @@ namespace Haven.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
 
-                    b.Property<string>("Health")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("health");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasColumnType("text")
@@ -334,10 +338,6 @@ namespace Haven.Infrastructure.Migrations
                     b.Property<string>("SourceConfigJson")
                         .HasColumnType("TEXT")
                         .HasColumnName("source_config");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1364,11 +1364,13 @@ namespace Haven.Infrastructure.Migrations
                 {
                     b.HasOne("Haven.Domain.Aggregates.Service", "Service")
                         .WithMany()
-                        .HasForeignKey("ServiceId");
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("Haven.Domain.Aggregates.Sidecar", "Sidecar")
                         .WithMany()
-                        .HasForeignKey("SidecarId");
+                        .HasForeignKey("SidecarId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Service");
 

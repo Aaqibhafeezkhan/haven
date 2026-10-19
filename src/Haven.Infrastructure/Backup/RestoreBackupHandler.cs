@@ -569,7 +569,8 @@ public sealed class RestoreBackupHandler(
                             snapshot.Alias,
                             snapshot.Type,
                             snapshot.ExposureMode,
-                            snapshot.SourceConfigJson
+                            snapshot.SourceConfigJson,
+                            snapshot.DesiredState
                         });
 
                         await context.FeatureFlags.Where(f => f.ServiceId == snapshot.Id).ExecuteDeleteAsync(ct);
@@ -842,7 +843,9 @@ public sealed class RestoreBackupHandler(
         => s.Name != c.Name || s.Alias != c.Alias || s.Kind != c.Kind || s.SourceConfigJson != c.SourceConfigJson;
 
     private static bool HasServiceChanges(Service s, Service c)
-        => s.Name != c.Name || s.Alias != c.Alias || s.Type != c.Type || s.ExposureMode != c.ExposureMode || s.SourceConfigJson != c.SourceConfigJson;
+        => s.Name != c.Name || s.Alias != c.Alias || s.Type != c.Type || s.ExposureMode != c.ExposureMode || s.SourceConfigJson != c.SourceConfigJson
+           // Desired state is operator intent and lives in manifests; runtime state and health are observed and never compared.
+           || s.DesiredState != c.DesiredState;
 
     /// <summary>
     /// True if any of the snapshot's (backup-enabled) volumes is new or differs from the current

@@ -3,6 +3,7 @@ using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;
+using Haven.Domain.Enums;
 
 namespace Haven.Application.Features.Services.Commands.DeleteService;
 
@@ -16,6 +17,12 @@ public sealed class DeleteServiceHandler(
         if (service is null) return Error.NotFoundFor(nameof(Service), command.ServiceId);
 
         var registryEntry = await registryEntryRepository.GetForServiceAsync(command.ServiceId, cancellationToken);
+
+        // A missing entry means the service was never deployed.
+        var runtimeState = registryEntry?.RuntimeState ?? ServiceRuntimeState.NotDeployed;
+        if (runtimeState is ServiceRuntimeState.Running or ServiceRuntimeState.Restarting)
+            return Error.Validation($"Service '{service.Name}' is currently running and cannot be removed. Stop it first.");
+
         if (registryEntry is not null)
         {
             await registryEntryRepository.DeleteAsync(registryEntry, cancellationToken);

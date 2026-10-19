@@ -9,6 +9,7 @@ namespace Haven.Infrastructure.BackgroundJobs;
 public sealed class HealthCheckJob(
     IHealthCheckRepository healthCheckRepository,
     IServiceRepository serviceRepository,
+    IServiceRegistry serviceRegistry,
     IHealthCheckRunnerFactory runnerFactory,
     IUnitOfWork unitOfWork,
     ILogger<HealthCheckJob> logger)
@@ -32,7 +33,9 @@ public sealed class HealthCheckJob(
         var runner = runnerFactory.Create(healthCheck.Kind);
         var result = await runner.RunHealthCheckAsync(healthCheck, cancellationToken);
 
-        service.RecordHealthCheckResult(healthCheck, result);
+        var aggregateHealth = service.RecordHealthCheckResult(healthCheck, result);
+        var entry = await serviceRegistry.EnsureServiceRegisteredAsync(service.Id, cancellationToken);
+        entry.ApplyHealth(aggregateHealth);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Health check '{HealthCheckId}' ran with result {Result}", healthCheckId, result);

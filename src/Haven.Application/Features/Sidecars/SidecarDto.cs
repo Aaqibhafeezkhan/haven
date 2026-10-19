@@ -8,7 +8,7 @@ public sealed class SidecarDto
     public string Name { get; set; } = default!;
     public string? Alias { get; set; }
     public SidecarKind Kind { get; set; }
-    public ServiceStatus Status { get; set; }
+    public ServiceDisplayStatus Status { get; set; }
     public ServiceHealth Health { get; set; }
     public bool Enabled { get; set; }
     public DateTime CreatedAt { get; set; }

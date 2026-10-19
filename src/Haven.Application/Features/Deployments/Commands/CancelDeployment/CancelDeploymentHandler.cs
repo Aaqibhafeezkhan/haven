@@ -18,7 +18,7 @@ public sealed class CancelDeploymentHandler(
         if (deployment is null)
             return Error.NotFoundFor("Deployment", request.DeploymentId);
 
-        if (deployment.Status != DeploymentStatus.InProgress)
+        if (deployment.Status.IsTerminal)
             return Error.Deployment.DeploymentNotInProgress;
 
         cancellationService.Cancel(deployment.ServiceId);

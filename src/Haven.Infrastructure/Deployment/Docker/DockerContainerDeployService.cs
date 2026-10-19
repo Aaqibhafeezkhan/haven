@@ -153,8 +153,9 @@ public class DockerContainerDeployService : IDeployService
 
         if (containers.Count == 0)
         {
-            _logger.LogWarning("No Docker container found for service '{ServiceName}' to stop", service.Name);
-            return Error.NotFoundFor("Docker Container", service.Id);
+            // Nothing to stop: a crash-looping container is often gone between restarts. Stopping is idempotent, so this is success.
+            _logger.LogInformation("No Docker container found for service '{ServiceName}'; already stopped", service.Name);
+            return Result.Success();
         }
 
         await _containerRuntime.StopAndRemoveAsync((IReadOnlyCollection<ContainerListResponse>)containers, service.Id, _networkingService,

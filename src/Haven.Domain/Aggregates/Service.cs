@@ -16,8 +16,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
     public string? Alias { get; set; }
     public ServiceType Type { get; set; }
     public ExposureMode ExposureMode { get; set; }
-    public ServiceStatus Status { get; set; }
-    public ServiceHealth Health { get; set; }
+    public DesiredState DesiredState { get; set; } = DesiredState.Stopped;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? LastDeployedAt { get; set; }
@@ -42,6 +41,11 @@ public sealed class Service : AggregateRoot, IDeployableContainer
     public ICollection<CustomAction> CustomActions { get; set; } = [];
     public GitCredentials? GitCredentials { get; set; } = null;
 
+    /// <summary>\
+    /// Gets the most recent deployment that is not in a terminal state.
+    /// </summary>
+    public Deployment? ActiveDeployment => Deployments.FirstOrDefault(d => !d.Status.IsTerminal);
+
     public static Service Create(Guid environmentId, string name, ServiceType type, ExposureMode exposureMode, string? alias = null, ServiceSourceConfig? sourceConfig = null)
     {
         HavenServiceName.EnsureValidAndNotReserved(name);
@@ -58,7 +62,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
             Token = GenerateToken(),
             SourceConfigJson = Serialize(sourceConfig),
             GitCredentialId = ExtractGitCredentialId(sourceConfig),
-            Status = ServiceStatus.Stopped,
+            DesiredState = DesiredState.Stopped,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -81,7 +85,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
             Type = type,
             SourceConfigJson = sourceConfigJson,
             Token = string.Empty,
-            Status = ServiceStatus.Stopped,
+            DesiredState = DesiredState.Stopped,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -131,27 +135,69 @@ public sealed class Service : AggregateRoot, IDeployableContainer
         return hasChanges;
     }
 
-    public void MarkDeploymentPending()
+    /// <summary>
+    /// Queues a new deployment. Throws if one is already in flight.
+    /// </summary>
+    public Deployment BeginDeployment(string logFile, string? triggeredBy = null)
     {
-        Status = ServiceStatus.DeploymentPending;
+        if (ActiveDeployment is not null)
+            throw new ValidationException($"Service '{Name}' already has a deployment in progress.");
+
+        var deployment = Deployment.Create(Id, logFile, triggeredBy);
+        Deployments.Add(deployment);
         UpdatedAt = DateTime.UtcNow;
+        Raise(new ServiceDeployingEvent(Id, Name));
+        return deployment;
     }
 
-    public void MarkDeploying()
+    /// <summary>Records that a deployment finished successfully and the operator wants the service up.</summary>
+    public void CompleteDeployment(Deployment deployment)
     {
-        Status = ServiceStatus.Deploying;
+        EnsureOwnsDeployment(deployment);
+        deployment.Complete();
+        OnDeploymentSucceeded();
+    }
+
+    /// <summary>
+    /// Signals that a deployment started when the <see cref="Deployment"/> row itself is persisted
+    /// elsewhere (the deployment log service owns its lifecycle and log file).
+    /// </summary>
+    public void AnnounceDeploymentStarted()
+    {
         UpdatedAt = DateTime.UtcNow;
         Raise(new ServiceDeployingEvent(Id, Name));
     }
 
-    public void MarkDeployed()
+    /// <summary>
+    /// Applies the service-level effects of a successful deployment: the operator now wants it running.
+    /// </summary>
+    public void OnDeploymentSucceeded()
     {
-        if (Status == ServiceStatus.Running) return;
-        Status = ServiceStatus.Running;
+        DesiredState = DesiredState.Running;
         var now = DateTime.UtcNow;
         UpdatedAt = now;
         LastDeployedAt = now;
         Raise(new ServiceDeployedEvent(Id, Name));
+    }
+
+    public void FailDeployment(Deployment deployment)
+    {
+        EnsureOwnsDeployment(deployment);
+        deployment.Fail();
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void CancelDeployment(Deployment deployment)
+    {
+        EnsureOwnsDeployment(deployment);
+        deployment.Cancel();
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    private void EnsureOwnsDeployment(Deployment deployment)
+    {
+        if (!Deployments.Contains(deployment))
+            throw new ValidationException("The deployment does not belong to this service.");
     }
 
     public void RecordDeployment()
@@ -161,12 +207,14 @@ public sealed class Service : AggregateRoot, IDeployableContainer
         LastDeployedAt = now;
     }
 
-    public void MarkStopped()
+    /// <summary>Sets operator intent. Observed state is reconciled elsewhere.</summary>
+    public void SetDesiredState(DesiredState desiredState)
     {
-        if (Status == ServiceStatus.Stopped) return;
-        Status = ServiceStatus.Stopped;
+        if (DesiredState == desiredState) return;
+        DesiredState = desiredState;
         UpdatedAt = DateTime.UtcNow;
-        Raise(new ServiceStoppedEvent(Id, Name));
+        if (desiredState == DesiredState.Stopped)
+            Raise(new ServiceStoppedEvent(Id, Name));
     }
 
     public void RegenerateToken()
@@ -177,7 +225,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
 
     public void Restart()
     {
-        Status = ServiceStatus.Running;
+        DesiredState = DesiredState.Running;
         UpdatedAt = DateTime.UtcNow;
         Raise(new ServiceRestartedEvent(Id, Name));
     }
@@ -208,7 +256,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
         string? alias,
         ServiceType type,
         ExposureMode exposureMode,
-        ServiceStatus status,
+        DesiredState desiredState,
         DateTime createdAt,
         DateTime updatedAt,
         ServiceSourceConfig? sourceConfig = null,
@@ -226,7 +274,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
             Alias = alias,
             Type = type,
             ExposureMode = exposureMode,
-            Status = status,
+            DesiredState = desiredState,
             SourceConfigJson = Serialize(sourceConfig),
             GitCredentialId = ExtractGitCredentialId(sourceConfig),
             CreatedAt = createdAt,
@@ -395,28 +443,39 @@ public sealed class Service : AggregateRoot, IDeployableContainer
         }
     }
 
-    public void RecordHealthCheckResult(HealthCheck healthCheck, ServiceHealth result)
+    /// <summary>
+    /// Aggregate of the enabled checks' last results. No enabled checks counts as healthy.
+    /// </summary>
+    public ServiceHealth ComputeHealthFromChecks()
+    {
+        var enabledChecks = HealthChecks.Where(hc => hc.Enabled).ToList();
+        if (enabledChecks.Count == 0) return ServiceHealth.Healthy;
+        if (enabledChecks.Any(hc => hc.LastRunStatus == ServiceHealth.Unhealthy)) return ServiceHealth.Unhealthy;
+        if (enabledChecks.Any(hc => hc.LastRunStatus == ServiceHealth.Unknown)) return ServiceHealth.Unknown;
+        return ServiceHealth.Healthy;
+    }
+
+    /// <summary>
+    /// Stores the check result and returns the new aggregate health. The aggregate itself is
+    /// observed state and is persisted by the caller on the registry entry.
+    /// </summary>
+    public ServiceHealth RecordHealthCheckResult(HealthCheck healthCheck, ServiceHealth result)
     {
         if (!HealthChecks.Contains(healthCheck))
             throw new ValidationException("The health check does not belong to this service.");
 
+        var previousHealth = ComputeHealthFromChecks();
+
         healthCheck.LastRunStatus = result;
         healthCheck.LastRunAt = DateTime.UtcNow;
 
-        var previousHealth = Health;
+        var health = ComputeHealthFromChecks();
 
-        var enabledChecks = HealthChecks.Where(hc => hc.Enabled).ToList();
-        Health = enabledChecks.Count == 0
-            ? ServiceHealth.Healthy
-            : enabledChecks.Any(hc => hc.LastRunStatus == ServiceHealth.Unhealthy)
-                ? ServiceHealth.Unhealthy
-                : enabledChecks.Any(hc => hc.LastRunStatus == ServiceHealth.Unknown)
-                    ? ServiceHealth.Unknown
-                    : ServiceHealth.Healthy;
-
-        if (Health == ServiceHealth.Unhealthy && previousHealth != ServiceHealth.Unhealthy)
+        if (health == ServiceHealth.Unhealthy && previousHealth != ServiceHealth.Unhealthy)
             Raise(new ServiceDegradedEvent(Id, Name));
-        else if (Health == ServiceHealth.Healthy && previousHealth == ServiceHealth.Unhealthy)
+        else if (health == ServiceHealth.Healthy && previousHealth == ServiceHealth.Unhealthy)
             Raise(new ServiceRecoveredEvent(Id, Name));
+
+        return health;
     }
 }

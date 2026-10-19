@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Exporting;
 using Haven.Application.Features.Projects.Queries.GetProjectsDashboard;
 using Haven.Application.Features.Services;
@@ -18,20 +19,28 @@ namespace Haven.Application.Mappers;
 public static partial class ServiceMapper
 {
     [MapperIgnoreTarget(nameof(ServiceDto.WebhookUrl))]
+    [MapperIgnoreTarget(nameof(ServiceDto.Status))]
+    [MapperIgnoreTarget(nameof(ServiceDto.RuntimeState))]
+    [MapperIgnoreTarget(nameof(ServiceDto.Health))]
     [MapperIgnoreTarget(nameof(ServiceDto.SourceConfig))]
     private static partial ServiceDto ToDtoPartial(this Service service);
 
-    public static ServiceDto ToDto(this Service service)
+    public static ServiceDto ToDto(this Service service, ServiceStateSnapshot? state = null)
     {
+        state ??= ServiceStateSnapshot.Empty;
         var partial = service.ToDtoPartial();
+        partial.Status = state.GetDisplayStatus(service.Id);
+        partial.RuntimeState = state.GetRuntimeState(service.Id);
+        partial.Health = state.GetHealth(service.Id);
         partial.WebhookUrl = $"/webhooks/deploy/{service.Token}";
         partial.SourceConfig = service.SourceConfig;
 
         return partial;
     }
 
-    public static ServiceDashboardDto ToDashboardDto(this Service service)
+    public static ServiceDashboardDto ToDashboardDto(this Service service, ServiceStateSnapshot? state = null)
     {
+        state ??= ServiceStateSnapshot.Empty;
         return new ServiceDashboardDto
         {
             Id = service.Id,
@@ -40,8 +49,10 @@ public static partial class ServiceMapper
             Alias = service.Alias,
             Type = service.Type,
             ExposureMode = service.ExposureMode,
-            Status = service.Status,
-            Health = service.Health,
+            DesiredState = service.DesiredState,
+            RuntimeState = state.GetRuntimeState(service.Id),
+            Status = state.GetDisplayStatus(service.Id),
+            Health = state.GetHealth(service.Id),
             CreatedAt = service.CreatedAt,
             UpdatedAt = service.UpdatedAt,
             LastDeployedAt = service.LastDeployedAt,
@@ -59,7 +70,7 @@ public static partial class ServiceMapper
             dto.Alias,
             dto.Type,
             dto.ExposureMode,
-            dto.Status,
+            dto.DesiredState ?? ServiceManifestDto.ParseLegacyStatus(dto.Status),
             dto.CreatedAt,
             dto.UpdatedAt,
             dto.SourceConfig.ToDomain(dto.Type),

@@ -3,6 +3,7 @@ using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Features.Networks.Queries.SearchAttachableServices;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;
+using Haven.Domain.Enums;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -90,7 +91,7 @@ public sealed class ServiceRepository(HavenDbContext context) : IServiceReposito
                 s.Environment!.Project!.Name.ToLower().Contains(normalizedSearch));
         }
 
-        return await query
+        var items = await query
             .OrderBy(s => s.Environment!.Project!.Name)
             .ThenBy(s => s.Environment!.Name)
             .ThenBy(s => s.Name)
@@ -99,13 +100,24 @@ public sealed class ServiceRepository(HavenDbContext context) : IServiceReposito
             {
                 Id = s.Id,
                 Name = s.Name,
-                Status = s.Status.ToString(),
                 ProjectId = s.Environment!.Project!.Id,
                 ProjectName = s.Environment!.Project!.Name,
                 EnvironmentId = s.Environment!.Id,
                 EnvironmentName = s.Environment!.Name
             })
             .ToListAsync(cancellationToken);
+
+        var ids = items.Select(i => i.Id).ToList();
+        var states = await context.ServiceRegistryEntries
+            .AsNoTracking()
+            .Where(e => e.ServiceId != null && ids.Contains(e.ServiceId.Value))
+            .Select(e => new { ServiceId = e.ServiceId!.Value, e.RuntimeState })
+            .ToDictionaryAsync(e => e.ServiceId, e => e.RuntimeState, cancellationToken);
+
+        foreach (var item in items)
+            item.Status = states.GetValueOrDefault(item.Id, ServiceRuntimeState.NotDeployed).ToString();
+
+        return items;
     }
 
     public async Task<Result> CanCreateAsync(Service service, CancellationToken cancellationToken)

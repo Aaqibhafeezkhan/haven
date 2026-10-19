@@ -2,7 +2,7 @@ import { clsx } from 'clsx';
 
 import { ServiceDto } from '@/api/types';
 import { DockerConfig } from '@/api/types';
-import { ServiceStatus } from '@/api/types';
+import { ServiceDisplayStatus } from '@/api/types';
 import styles from '@/styles/components/projects/ServiceCard.module.css';
 
 import { Row, Spacer } from '../layout';
@@ -21,15 +21,17 @@ interface ServiceCardProps {
   onToggleSelect?: () => void;
 }
 
-function getStatusColor(status: ServiceStatus): string {
+function getStatusColor(status: ServiceDisplayStatus): string {
   switch (status) {
     case 'Running':
       return styles.statusRunning;
     case 'Stopped':
+    case 'Crashed':
       return styles.statusStopped;
     case 'Degraded':
       return styles.statusDegraded;
-    case 'DeploymentPending':
+    case 'Deploying':
+    case 'Starting':
       return styles.statusDeploymentPending;
     default:
       return styles.statusUnknown;
@@ -116,16 +118,7 @@ export function ServiceCard({
                 onClick={e => e.stopPropagation()}
               />
             )}
-            <HealthIndicator
-              health={
-                service.status !== 'Running'
-                  ? service.status.toLocaleLowerCase()
-                  : service.health !== 'Healthy'
-                    ? service.health.toLocaleLowerCase()
-                    : service.status.toLocaleLowerCase()
-              }
-              useTooltip
-            />
+            <HealthIndicator health={service.status.toLocaleLowerCase()} useTooltip />
             <Label variant="primary" size="xl" weight="bold">
               {service.name}
             </Label>

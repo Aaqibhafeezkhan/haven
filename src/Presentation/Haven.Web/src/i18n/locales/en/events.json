@@ -32,6 +32,18 @@
       "label": "Project Updated",
       "description": "Triggered when a project is updated."
     },
+    "ServiceCrashedEvent": {
+      "label": "Service Crashed",
+      "description": "Triggered when a service that should be running stops unexpectedly. Not triggered by an intentional stop."
+    },
+    "ServiceRuntimeStateChangedEvent": {
+      "label": "Runtime State Changed",
+      "description": "Triggered when the observed runtime state of a service or sidecar changes."
+    },
+    "ServiceHealthChangedEvent": {
+      "label": "Health Changed",
+      "description": "Triggered when the observed health of a running service or sidecar changes."
+    },
     "ServiceCreatedEvent": {
       "label": "Service Created",
       "description": "Triggered when a new service is created."

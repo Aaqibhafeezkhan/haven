@@ -1,6 +1,8 @@
 using FluentValidation;
 
 using Haven.Application.Common.Behaviors;
+using Haven.Application.Common.Interfaces.Services;
+using Haven.Application.Common.Services;
 using Haven.Application.Common.Telemetry;
 using Haven.Application.Features.CustomActions.Abstractions;
 using Haven.Application.Features.CustomActions.Services;
@@ -29,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<IExportFormatFactory, ExportFormatFactory>();
         services.AddScoped<ServiceTemplateInstantiator>();
         services.AddScoped<IComputedOutputResolver, ComputedOutputResolver>();
+        services.AddScoped<IServiceStateReader, ServiceStateReader>();
 
         services.AddScoped<IActionStrategy, ExecActionStrategy>();
         services.AddScoped<IActionRunner, ActionRunner>();

@@ -5,13 +5,16 @@ namespace Haven.Application.Features.ServiceRegistry.EventHandlers;
 
 public static class ServiceRegistryEventHandlerUtils
 {
-    public static async Task UpdateRegistryEntryAsync(Guid serviceId, IServiceRepository repository, IServiceRegistry registry,
+    /// <summary>
+    /// Makes sure a registry entry exists for the service. Runtime state and health are observed
+    /// (Docker events, deployments, health checks) and applied by whoever observes them, never derived from the service.
+    /// </summary>
+    public static async Task EnsureRegistryEntryAsync(Guid serviceId, IServiceRepository repository, IServiceRegistry registry,
         CancellationToken ct)
     {
         var service = await repository.GetByIdAsync(serviceId, ct);
         if (service is null) return;
 
-        var entry = await registry.EnsureServiceRegisteredAsync(serviceId, ct);
-        entry.UpdateFromService(service);
+        await registry.EnsureServiceRegisteredAsync(serviceId, ct);
     }
 }
