@@ -146,22 +146,10 @@ public sealed class Project : AggregateRoot
         var service = environment.RemoveService(serviceId);
     }
 
-    public void MarkServiceDeploymentPending(Guid environmentId, Guid serviceId)
+    public void SetServiceDesiredState(Guid environmentId, Guid serviceId, DesiredState desiredState)
     {
         var environment = GetEnvironment(environmentId);
-        environment.MarkServiceDeploymentPending(serviceId);
-    }
-
-    public void DeployService(Guid environmentId, Guid serviceId)
-    {
-        var environment = GetEnvironment(environmentId);
-        environment.DeployService(serviceId);
-    }
-
-    public void StopService(Guid environmentId, Guid serviceId)
-    {
-        var environment = GetEnvironment(environmentId);
-        environment.StopService(serviceId);
+        environment.SetServiceDesiredState(serviceId, desiredState);
     }
 
     public void RestartService(Guid environmentId, Guid serviceId)
@@ -177,33 +165,6 @@ public sealed class Project : AggregateRoot
     public void UpdateEnvironmentVariables()
     {
         Raise(new EnvironmentVariablesUpdatedEvent(Id, EnvironmentVariableParentType.Project));
-    }
-
-    public (int Total, int Running, int Stopped, int Degraded, int DeploymentPending, int Deploying, int Unknown) GetServiceStatistics()
-    {
-        var total = 0;
-        var running = 0;
-        var stopped = 0;
-        var degraded = 0;
-        var deploymentPending = 0;
-        var deploying = 0;
-        var unknown = 0;
-
-        foreach (var environment in Environments)
-        {
-            var (envTotal, envRunning, envStopped, envDegraded, envDeploymentPending, envDeploying, envUnknown) =
-                environment.GetServiceStatistics();
-
-            total += envTotal;
-            running += envRunning;
-            stopped += envStopped;
-            degraded += envDegraded;
-            deploymentPending += envDeploymentPending;
-            deploying += envDeploying;
-            unknown += envUnknown;
-        }
-
-        return (total, running, stopped, degraded, deploymentPending, deploying, unknown);
     }
 
     public static Project Reconstitute(Guid id, string name, string? alias, string? description)

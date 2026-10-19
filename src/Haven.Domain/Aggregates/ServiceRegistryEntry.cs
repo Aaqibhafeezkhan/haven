@@ -20,7 +20,8 @@ public class ServiceRegistryEntry : AggregateRoot
     public string? ContainerName { get; set; }
     public string? IpAddress { get; set; }
     public List<PortMapping> Ports { get; set; } = [];
-    public ServiceStatus Status { get; set; } = ServiceStatus.Unknown;
+    public ServiceRuntimeState RuntimeState { get; set; } = ServiceRuntimeState.NotDeployed;
+    public ServiceHealth Health { get; set; } = ServiceHealth.Unknown;
     public DateTime RegisteredAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? StartedAt { get; set; }
@@ -54,34 +55,30 @@ public class ServiceRegistryEntry : AggregateRoot
         };
     }
 
-    public void UpdateFromService(Service service)
-    {
-        Status = service.Status;
-        if (service.Status == ServiceStatus.Running)
-            StartedAt ??= DateTime.UtcNow;
-        else
-            StartedAt = null;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void UpdateRuntime(string ip, List<PortMapping> ports, ServiceStatus status)
+    public void UpdateRuntime(string ip, List<PortMapping> ports, ServiceRuntimeState state)
     {
         IpAddress = ip;
         Ports = ports;
-        Status = status;
-        if (status == ServiceStatus.Running)
+        SetRuntimeState(state);
+    }
+
+    public void SetRuntimeState(ServiceRuntimeState state)
+    {
+        RuntimeState = state;
+        if (state == ServiceRuntimeState.Running)
             StartedAt ??= DateTime.UtcNow;
         else
             StartedAt = null;
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void MarkStopped()
+    public void SetHealth(ServiceHealth health)
     {
-        Status = ServiceStatus.Stopped;
-        StartedAt = null;
+        Health = health;
         UpdatedAt = DateTime.UtcNow;
     }
+
+    public void MarkStopped() => SetRuntimeState(ServiceRuntimeState.Stopped);
 
     public ServiceRegistryDomain AddDomain(string hostname, int containerPort, TlsMode tlsMode = TlsMode.None, string? internalBasePath = null)
     {

@@ -13,16 +13,10 @@ public interface IDeployableContainer
     Guid Id { get; }
     string Name { get; }
     string? Alias { get; }
-    ServiceStatus Status { get; }
-    ServiceHealth Health { get; }
     ServiceSourceConfig? SourceConfig { get; }
     DateTime CreatedAt { get; }
     DateTime UpdatedAt { get; }
     DateTime? LastDeployedAt { get; }
 
-    void MarkDeploymentPending();
-    void MarkDeploying();
-    void MarkDeployed();
     void RecordDeployment();
-    void MarkStopped();
 }
