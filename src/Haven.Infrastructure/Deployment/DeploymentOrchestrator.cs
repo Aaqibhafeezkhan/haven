@@ -40,6 +40,15 @@ public class DeploymentOrchestrator(
             {
                 logger.LogError("Skipping deploy of '{Name}' ({Id}): repository manifest sync failed: {Error}",
                     container.Name, container.Id, syncResult.Error.Message);
+
+                unitOfWork.DiscardUnsavedChanges();
+
+                // Surface the failure in the UI as a failed deployment instead of silently doing nothing.
+                var failed = await logService.CreateDeploymentForServiceAsync(repositoryOwned.Id, cancellationToken);
+                await logService.AppendLogAsync(failed.Id,
+                    $"Repository manifest sync failed: {syncResult.Error.Message}", cancellationToken);
+                await logService.MarkDeploymentFailedAsync(failed.Id, CancellationToken.None);
+                metrics.DeploymentsFailed.Add(1, Tags(container));
                 return syncResult.Error;
             }
         }

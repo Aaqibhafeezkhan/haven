@@ -695,7 +695,7 @@ public sealed class DeploymentOrchestratorTests
     }
 
     [Test]
-    public async Task DeployServiceAsync_WhenManifestSyncFails_ShouldNotDeployOrCreateDeploymentLog()
+    public async Task DeployServiceAsync_WhenManifestSyncFails_ShouldNotDeploy()
     {
         var service = CreateService();
         service.RepositoryBinding = CreateBinding();
@@ -706,7 +706,35 @@ public sealed class DeploymentOrchestratorTests
 
         _deployServiceFactory.DidNotReceive().Create(Arg.Any<IDeployableContainer>());
         await _deployService.DidNotReceive().DeployAsync(Arg.Any<IDeployableContainer>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
-        await _logService.DidNotReceive().CreateDeploymentForServiceAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeployServiceAsync_WhenManifestSyncFails_ShouldDiscardUnsavedChanges()
+    {
+        var service = CreateService();
+        service.RepositoryBinding = CreateBinding();
+        _manifestSyncService.SyncAsync(service, Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Failure(Error.Validation("bad manifest")));
+
+        await _sut.DeployAsync(service, CancellationToken.None);
+
+        _unitOfWork.Received(1).DiscardUnsavedChanges();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeployServiceAsync_WhenManifestSyncFails_ShouldRecordFailedDeploymentWithReason()
+    {
+        var service = CreateService();
+        service.RepositoryBinding = CreateBinding();
+        _manifestSyncService.SyncAsync(service, Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Failure(Error.Validation("bad manifest")));
+
+        await _sut.DeployAsync(service, CancellationToken.None);
+
+        await _logService.Received(1).CreateDeploymentForServiceAsync(service.Id, Arg.Any<CancellationToken>());
+        await _logService.Received(1).AppendLogAsync(Arg.Any<Guid>(), Arg.Is<string>(s => s.Contains("bad manifest")), Arg.Any<CancellationToken>());
+        await _logService.Received(1).MarkDeploymentFailedAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Test]

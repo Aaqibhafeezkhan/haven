@@ -19,4 +19,11 @@ public interface IUnitOfWork
     /// be re-fetched from the database instead of being retried as a duplicate insert.
     /// </summary>
     void Detach<TEntity>(TEntity entity) where TEntity : class;
+
+    /// <summary>
+    /// Reverts every pending change in this unit of work (added entities are dropped, modified and
+    /// deleted ones restored to their loaded values) so a half-applied mutation can't be saved by a later
+    /// <see cref="SaveChangesAsync"/>.
+    /// </summary>
+    void DiscardUnsavedChanges();
 }

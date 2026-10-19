@@ -70,6 +70,24 @@ public class HavenDbContext : DbContext, IUnitOfWork
     public void Detach<TEntity>(TEntity entity) where TEntity : class =>
         Entry(entity).State = EntityState.Detached;
 
+    public void DiscardUnsavedChanges()
+    {
+        foreach (var entry in ChangeTracker.Entries().ToList())
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    entry.State = EntityState.Detached;
+                    break;
+                case EntityState.Modified:
+                case EntityState.Deleted:
+                    entry.CurrentValues.SetValues(entry.OriginalValues);
+                    entry.State = EntityState.Unchanged;
+                    break;
+            }
+        }
+    }
+
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var result = await base.SaveChangesAsync(cancellationToken);
