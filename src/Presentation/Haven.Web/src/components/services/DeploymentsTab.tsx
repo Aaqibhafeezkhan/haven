@@ -33,9 +33,15 @@ function statusVariant(status: DeploymentStatus): 'success' | 'danger' | 'warnin
       return 'danger';
     case 'Cancelled':
       return 'default';
-    case 'InProgress':
+    case 'Queued':
+    case 'Building':
+    case 'Starting':
       return 'warning';
   }
+}
+
+function isDeploymentActive(status: DeploymentStatus): boolean {
+  return status === 'Queued' || status === 'Building' || status === 'Starting';
 }
 
 function formatDuration(start: string, end?: string): string {
@@ -252,7 +258,7 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
                     · {formatDuration(selected.startedAt, selected.finishedAt)}
                   </Label>
                 )}
-                {canDeploy && selected.status === 'InProgress' && (
+                {canDeploy && isDeploymentActive(selected.status) && (
                   <Button
                     variant="danger"
                     size="sm"
@@ -267,7 +273,7 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
               </Row>
               <DeploymentLogViewer
                 deploymentId={selected.id}
-                isActive={selected.status === 'InProgress'}
+                isActive={isDeploymentActive(selected.status)}
               />
             </Stack>
           </Card>

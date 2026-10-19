@@ -12,7 +12,8 @@ namespace Haven.Application.Features.Services.Commands.BulkDeployServices;
 
 public sealed class BulkDeployServicesHandler(
     IProjectRepository projectRepository,
-    IDeploymentJobEnqueuer deploymentJobEnqueuer)
+    IDeploymentJobEnqueuer deploymentJobEnqueuer,
+    IDeploymentLogService deploymentLogService)
     : ICommandHandler<BulkDeployServicesCommand, BulkServiceActionResponse>
 {
     public async ValueTask<Result<BulkServiceActionResponse>> Handle(
@@ -39,7 +40,8 @@ public sealed class BulkDeployServicesHandler(
 
             try
             {
-                service.MarkDeploymentPending();
+                await deploymentLogService.QueueDeploymentForServiceAsync(service.Id, cancellationToken);
+                service.AnnounceDeploymentStarted();
                 deploymentJobEnqueuer.EnqueueDeployment(request.ProjectId, request.EnvironmentId, serviceId);
                 results.Add(new BulkServiceActionResult(serviceId, true, null));
             }

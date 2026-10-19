@@ -5,6 +5,7 @@ using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Hubs;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Configuration;
+using Haven.Domain.Enums;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -18,27 +19,67 @@ public class DeploymentLogService(
 {
     private readonly ConcurrentDictionary<Guid, LogWriter> _writers = new();
 
-    public async Task<Domain.Entities.Deployment> CreateDeploymentForServiceAsync(Guid serviceId, CancellationToken ct)
+    public async Task<Domain.Entities.Deployment> QueueDeploymentForServiceAsync(Guid serviceId, CancellationToken ct)
     {
-        var baseLogFilePath = instanceOptions.CurrentValue.DeploymentLogBasePath;
-        var logFilePath = $"{baseLogFilePath}/{serviceId}_{DateTime.UtcNow:yyyyMMddHHmmss}.log";
-        var deployment = Domain.Entities.Deployment.Create(serviceId, logFilePath);
-
         using var scope = scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IDeploymentRepository>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+        var existing = await repository.FindActiveForServiceAsync(serviceId, ct);
+        if (existing is not null) return existing;
+
+        var deployment = Domain.Entities.Deployment.Create(serviceId, NewLogFilePath(serviceId));
         await repository.AddAsync(deployment, ct);
         await unitOfWork.SaveChangesAsync(ct);
+        return deployment;
+    }
 
-        Directory.CreateDirectory(baseLogFilePath);
+    /// <summary>
+    /// Starts the deployment for a service: adopts the one queued when the deploy was requested, or creates it
+    /// when the deploy was started some other way. Opens the log file either way.
+    /// </summary>
+    public async Task<Domain.Entities.Deployment> CreateDeploymentForServiceAsync(Guid serviceId, CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IDeploymentRepository>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+        var deployment = await repository.FindActiveForServiceAsync(serviceId, ct);
+        if (deployment is null)
+        {
+            deployment = Domain.Entities.Deployment.Create(serviceId, NewLogFilePath(serviceId));
+            await repository.AddAsync(deployment, ct);
+        }
+
+        // An in-flight deployment that is already past Queued (e.g. left behind by a crashed worker) is reused as-is.
+        if (deployment.Status == DeploymentStatus.Queued)
+            deployment.StartBuilding();
+        await unitOfWork.SaveChangesAsync(ct);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(deployment.LogFile)!);
         var writer = new LogWriter(new StreamWriter(
-            new FileStream(logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+            new FileStream(deployment.LogFile, FileMode.Create, FileAccess.Write, FileShare.Read))
         {
             AutoFlush = true
         });
         _writers[deployment.Id] = writer;
 
         return deployment;
+    }
+
+    private string NewLogFilePath(Guid serviceId) =>
+        $"{instanceOptions.CurrentValue.DeploymentLogBasePath}/{serviceId}_{DateTime.UtcNow:yyyyMMddHHmmss}.log";
+
+    public async Task MarkDeploymentStartingAsync(Guid deploymentId, CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IDeploymentRepository>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var deployment = await repository.FindByIdAsync(deploymentId, ct);
+        if (deployment is null || deployment.Status != DeploymentStatus.Building) return;
+
+        deployment.StartStarting();
+        await unitOfWork.SaveChangesAsync(ct);
     }
 
     public async Task AppendLogAsync(Guid deploymentId, string logEntry, CancellationToken ct)
@@ -61,6 +102,9 @@ public class DeploymentLogService(
         var deployment = await repository.FindByIdAsync(deploymentId, ct);
         if (deployment is null) return;
 
+        // Callers normally move the deployment to Starting once the container is up; make sure it has before completing.
+        if (deployment.Status != DeploymentStatus.Starting)
+            deployment.StartStarting();
         deployment.Complete();
         await unitOfWork.SaveChangesAsync(ct);
     }
@@ -75,6 +119,7 @@ public class DeploymentLogService(
         var deployment = await repository.FindByIdAsync(deploymentId, ct);
         if (deployment is null) return;
 
+        if (deployment.Status.IsTerminal) return;
         deployment.Fail();
         await unitOfWork.SaveChangesAsync(ct);
     }
@@ -89,6 +134,7 @@ public class DeploymentLogService(
         var deployment = await repository.FindByIdAsync(deploymentId, ct);
         if (deployment is null) return;
 
+        if (deployment.Status.IsTerminal) return;
         deployment.Cancel();
         await unitOfWork.SaveChangesAsync(ct);
     }

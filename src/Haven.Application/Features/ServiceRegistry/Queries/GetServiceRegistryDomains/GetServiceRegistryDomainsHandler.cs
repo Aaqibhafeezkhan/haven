@@ -1,5 +1,7 @@
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
+using Haven.Domain;
+using Haven.Domain.Enums;
 
 namespace Haven.Application.Features.ServiceRegistry.Queries.GetServiceRegistryDomains;
 
@@ -23,7 +25,8 @@ public sealed class GetServiceRegistryDomainsHandler(IServiceRegistryEntryReposi
                 CertificateName = d.Certificate?.Name,
                 CreatedAt = d.CreatedAt,
                 ContainerName = entry?.ContainerName,
-                Status = entry?.Status ?? Haven.Domain.Enums.ServiceStatus.Unknown,
+                RuntimeState = entry?.RuntimeState ?? ServiceRuntimeState.NotDeployed,
+                Health = entry?.Health ?? ServiceHealth.Unknown,
                 ServiceId = entry?.ServiceId,
                 ServiceName = service?.Name,
                 SidecarName = entry?.Sidecar?.Name,

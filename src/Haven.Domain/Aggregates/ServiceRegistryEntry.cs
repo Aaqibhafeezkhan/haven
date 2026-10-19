@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 using Haven.Domain.Entities;
 using Haven.Domain.Enums;
+using Haven.Domain.Events;
 using Haven.Domain.Exceptions;
 using Haven.Domain.ValueObjects;
 
@@ -20,7 +21,15 @@ public class ServiceRegistryEntry : AggregateRoot
     public string? ContainerName { get; set; }
     public string? IpAddress { get; set; }
     public List<PortMapping> Ports { get; set; } = [];
-    public ServiceStatus Status { get; set; } = ServiceStatus.Unknown;
+    public ServiceRuntimeState RuntimeState { get; private set; } = ServiceRuntimeState.NotDeployed;
+    public ServiceHealth Health { get; private set; } = ServiceHealth.Unknown;
+
+    /// <summary>When <see cref="RuntimeState"/> last changed. Starts at registration.</summary>
+    public DateTime StateChangedAt { get; private set; }
+
+    /// <summary>Derived from which owner id is set; not persisted.</summary>
+    [JsonIgnore] public OwnerKind OwnerKind => ServiceId.HasValue ? OwnerKind.Service : OwnerKind.Sidecar;
+    [JsonIgnore] public Guid OwnerId => ServiceId ?? SidecarId ?? Guid.Empty;
     public DateTime RegisteredAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? StartedAt { get; set; }
@@ -38,7 +47,8 @@ public class ServiceRegistryEntry : AggregateRoot
             Id = Guid.NewGuid(),
             ServiceId = serviceId,
             RegisteredAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            StateChangedAt = now
         };
     }
 
@@ -50,37 +60,59 @@ public class ServiceRegistryEntry : AggregateRoot
             Id = Guid.NewGuid(),
             SidecarId = sidecarId,
             RegisteredAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            StateChangedAt = now
         };
     }
 
-    public void UpdateFromService(Service service)
-    {
-        Status = service.Status;
-        if (service.Status == ServiceStatus.Running)
-            StartedAt ??= DateTime.UtcNow;
-        else
-            StartedAt = null;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void UpdateRuntime(string ip, List<PortMapping> ports, ServiceStatus status)
+    public void UpdateNetwork(string ip, List<PortMapping> ports)
     {
         IpAddress = ip;
         Ports = ports;
-        Status = status;
-        if (status == ServiceStatus.Running)
-            StartedAt ??= DateTime.UtcNow;
-        else
-            StartedAt = null;
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void MarkStopped()
+    /// <summary>
+    /// Applies an observed runtime state. Leaving <see cref="ServiceRuntimeState.Running"/> resets
+    /// <see cref="Health"/> to Unknown, since health is only meaningful while running.
+    /// </summary>
+    /// <returns><c>true</c> if the state changed.</returns>
+    public bool ApplyRuntimeState(ServiceRuntimeState next, DateTime now)
     {
-        Status = ServiceStatus.Stopped;
-        StartedAt = null;
+        if (RuntimeState == next) return false;
+
+        var previous = RuntimeState;
+        RuntimeState = next;
+        StateChangedAt = now;
+        UpdatedAt = now;
+        StartedAt = next == ServiceRuntimeState.Running ? now : null;
+
+        Raise(new ServiceRuntimeStateChangedEvent(Id, OwnerKind, OwnerId, previous, next));
+
+        if (previous == ServiceRuntimeState.Running && Health != ServiceHealth.Unknown)
+        {
+            var previousHealth = Health;
+            Health = ServiceHealth.Unknown;
+            Raise(new ServiceHealthChangedEvent(Id, OwnerKind, OwnerId, previousHealth, ServiceHealth.Unknown));
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Applies an observed health result. Ignored unless the entry is running.
+    /// </summary>
+    /// <returns><c>true</c> if the health changed.</returns>
+    public bool ApplyHealth(ServiceHealth next)
+    {
+        if (RuntimeState != ServiceRuntimeState.Running) return false;
+        if (Health == next) return false;
+
+        var previous = Health;
+        Health = next;
         UpdatedAt = DateTime.UtcNow;
+        Raise(new ServiceHealthChangedEvent(Id, OwnerKind, OwnerId, previous, next));
+        return true;
     }
 
     public ServiceRegistryDomain AddDomain(string hostname, int containerPort, TlsMode tlsMode = TlsMode.None, string? internalBasePath = null)

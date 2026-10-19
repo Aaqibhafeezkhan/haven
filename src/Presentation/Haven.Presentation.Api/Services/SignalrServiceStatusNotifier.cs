@@ -9,7 +9,7 @@ namespace Haven.Presentation.Api.Services;
 
 public class SignalrServiceStatusNotifier(IHubContext<ServiceStatusHub> hubContext, ILogger<SignalrServiceStatusNotifier> logger) : IServiceStatusNotifier
 {
-    public async Task NotifyStatusChangedAsync(Guid serviceId, string serviceName, ServiceStatus newStatus,
+    public async Task NotifyStatusChangedAsync(Guid serviceId, string serviceName, ServiceDisplayStatus newStatus,
         CancellationToken cancellationToken = default)
     {
         await hubContext.Clients.Group($"service-{serviceId}")

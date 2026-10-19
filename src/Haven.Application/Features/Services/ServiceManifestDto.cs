@@ -26,8 +26,21 @@ public sealed class ServiceManifestDto
     /// <summary>Whether the service is exposed externally or only internal to the environment.</summary>
     public required ExposureMode ExposureMode { get; set; }
 
-    /// <summary>Current runtime status of the service (Running, Stopped, DeploymentPending, etc.).</summary>
-    public required ServiceStatus Status { get; set; }
+    /// <summary>Operator intent: whether the service should be running or stopped.</summary>
+    public DesiredState? DesiredState { get; set; }
+
+    /// <summary>
+    /// Legacy field from manifests written before desired/observed state were split
+    /// (Running, Stopped, ...). Only read when <see cref="DesiredState"/> is absent; never written.
+    /// </summary>
+    [YamlDotNet.Serialization.YamlMember(DefaultValuesHandling = YamlDotNet.Serialization.DefaultValuesHandling.OmitNull)]
+    public string? Status { get; set; }
+
+    /// <summary>Maps a legacy manifest <c>status</c> value to a desired state: only an explicit Running keeps the service running.</summary>
+    public static DesiredState ParseLegacyStatus(string? status) =>
+        string.Equals(status, nameof(Domain.Enums.DesiredState.Running), StringComparison.OrdinalIgnoreCase)
+            ? Domain.Enums.DesiredState.Running
+            : Domain.Enums.DesiredState.Stopped;
 
     /// <summary>Source configuration defining how the service is deployed (e.g., Docker image details).</summary>
     public ServiceSourceConfigManifest? SourceConfig { get; set; }

@@ -2,12 +2,23 @@ import { EnvironmentVariableDto } from './environmentVariables.types';
 import { FeatureFlagDto } from './featureflags.types';
 
 export type ServiceType = 'DockerImage' | 'Dockerfile' | 'Compose' | 'Process';
-export type ServiceStatus =
-  | 'Running'
-  | 'Stopped'
-  | 'Degraded'
-  | 'DeploymentPending'
+/** Computed server-side from desired state, observed runtime state, health and any in-flight deployment. */
+export type ServiceDisplayStatus =
+  | 'NotDeployed'
   | 'Deploying'
+  | 'Starting'
+  | 'Running'
+  | 'Degraded'
+  | 'Stopped'
+  | 'Crashed'
+  | 'Unknown';
+export type DesiredState = 'Running' | 'Stopped';
+export type ServiceRuntimeState =
+  | 'NotDeployed'
+  | 'Running'
+  | 'Restarting'
+  | 'Stopped'
+  | 'Crashed'
   | 'Unknown';
 export type HealthStatus =
   | 'Running'
@@ -18,7 +29,7 @@ export type HealthStatus =
   | 'Unknown'
   | 'Deploying'
   | 'DeploymentPending';
-export type ServiceHealth = 'Healthy' | 'Unhealthy' | 'Unknown';
+export type ServiceHealth = 'Unknown' | 'Healthy' | 'Unhealthy';
 export type RestartPolicy = 'No' | 'Always' | 'UnlessStopped' | 'OnFailure';
 export interface ServiceStatisticsDto {
   total: number;
@@ -36,7 +47,9 @@ export interface ServiceDashboardDto {
   alias?: string;
   type: ServiceType;
   exposureMode: ExposureMode;
-  status: ServiceStatus;
+  desiredState: DesiredState;
+  runtimeState: ServiceRuntimeState;
+  status: ServiceDisplayStatus;
   health: ServiceHealth;
   createdAt: string;
   updatedAt: string;
@@ -89,7 +102,9 @@ export interface ServiceDto {
   alias?: string;
   type: ServiceType;
   exposureMode: ExposureMode;
-  status: ServiceStatus;
+  desiredState: DesiredState;
+  runtimeState: ServiceRuntimeState;
+  status: ServiceDisplayStatus;
   health: ServiceHealth;
   sourceConfig?: ServiceSourceConfig | DockerConfig;
   createdAt: string;
@@ -149,7 +164,9 @@ export interface ServiceRegistryEntryDto {
   containerName?: string;
   ipAddress?: string;
   ports: PortMappingDto[];
-  status: ServiceStatus;
+  runtimeState: ServiceRuntimeState;
+  health: ServiceHealth;
+  stateChangedAt: string;
   registeredAt: string;
   updatedAt: string;
   startedAt?: string;
@@ -197,7 +214,8 @@ export interface ServiceRegistryDomainListItemDto {
   certificateName?: string;
   createdAt: string;
   containerName?: string;
-  status: ServiceStatus;
+  runtimeState: ServiceRuntimeState;
+  health: ServiceHealth;
   serviceId?: string;
   serviceName?: string;
   sidecarName?: string;

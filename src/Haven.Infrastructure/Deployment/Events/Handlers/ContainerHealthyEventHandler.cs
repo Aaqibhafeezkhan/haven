@@ -14,14 +14,17 @@ public class ContainerHealthyEventHandler : INotificationHandler<ContainerHealth
     private readonly HavenDbContext _db;
     private readonly IProjectRepository _repository;
     private readonly ISidecarRepository _sidecarRepository;
+    private readonly ServiceRuntimeStateRecorder _recorder;
     private readonly ILogger<ContainerHealthyEventHandler> _logger;
 
     public ContainerHealthyEventHandler(HavenDbContext db, IProjectRepository repository, ISidecarRepository sidecarRepository,
+        ServiceRuntimeStateRecorder recorder,
         ILogger<ContainerHealthyEventHandler> logger)
     {
         _db = db;
         _repository = repository;
         _sidecarRepository = sidecarRepository;
+        _recorder = recorder;
         _logger = logger;
     }
 
@@ -44,15 +47,10 @@ public class ContainerHealthyEventHandler : INotificationHandler<ContainerHealth
                 return;
             }
 
-            if (service.Status == ServiceStatus.Running)
-            {
-                _logger.LogDebug("Service {ServiceId} is already running", notification.ServiceId);
-                return;
-            }
-
-            service.MarkDeployed();
+            await _recorder.ApplyRunningAsync(service, cancellationToken);
+            await _recorder.ApplyHealthAsync(service, ServiceHealth.Healthy, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Service {ServiceId} recovered from degraded state", notification.ServiceId);
+            _logger.LogInformation("Service {ServiceId} reported healthy", notification.ServiceId);
             return;
         }
 
@@ -63,14 +61,9 @@ public class ContainerHealthyEventHandler : INotificationHandler<ContainerHealth
             return;
         }
 
-        if (sidecar.Status == ServiceStatus.Running)
-        {
-            _logger.LogDebug("Sidecar {SidecarId} is already running", sidecar.Id);
-            return;
-        }
-
-        sidecar.MarkDeployed();
+        await _recorder.ApplyRunningAsync(sidecar, cancellationToken);
+        await _recorder.ApplyHealthAsync(sidecar, ServiceHealth.Healthy, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Sidecar {SidecarId} recovered from degraded state", sidecar.Id);
+        _logger.LogInformation("Sidecar {SidecarId} reported healthy", sidecar.Id);
     }
 }

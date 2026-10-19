@@ -11,7 +11,9 @@ public sealed class ServiceRegistryEntryDto
     public string? ContainerName { get; set; }
     public string? IpAddress { get; set; }
     public List<PortMappingDto> Ports { get; set; } = [];
-    public ServiceStatus Status { get; set; }
+    public ServiceRuntimeState RuntimeState { get; set; }
+    public ServiceHealth Health { get; set; }
+    public DateTime StateChangedAt { get; set; }
     public DateTime RegisteredAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? StartedAt { get; set; }

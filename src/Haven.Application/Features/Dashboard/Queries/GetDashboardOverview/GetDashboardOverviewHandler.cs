@@ -1,12 +1,14 @@
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Messaging;
 using Haven.Application.Features.Projects.Queries.GetProjectsDashboard;
+using Haven.Application.Features.Services;
 using Haven.Domain.Enums;
 
 namespace Haven.Application.Features.Dashboard.Queries.GetDashboardOverview;
 
-public sealed class GetDashboardOverviewHandler(IProjectRepository repository)
+public sealed class GetDashboardOverviewHandler(IProjectRepository repository, IServiceStateReader stateReader)
     : IQueryHandler<GetDashboardOverviewQuery, DashboardOverviewDto>
 {
     private static readonly Dictionary<HealthStatus, int> AttentionSeverity = new()
@@ -34,29 +36,33 @@ public sealed class GetDashboardOverviewHandler(IProjectRepository repository)
         var deploymentsLast24h = 0;
         var since = DateTime.UtcNow.AddHours(-24);
 
-        await foreach (var project in repository.GetAsync(cancellationToken))
+        // Materialize first: the streaming reader would otherwise stay open while the state reader queries on the same connection.
+        var projects = await repository.GetAsync(cancellationToken).ToListAsync(cancellationToken);
+
+        foreach (var project in projects)
         {
             totalProjects++;
             totalEnvironments += project.Environments.Count;
 
-            var (projTotal, projRunning, projStopped, projDegraded, projDeploymentPending, projDeploying, projUnknown) =
-                project.GetServiceStatistics();
-            total += projTotal;
-            running += projRunning;
-            stopped += projStopped;
-            degraded += projDegraded;
-            deploymentPending += projDeploymentPending;
-            deploying += projDeploying;
-            unknown += projUnknown;
+            var projectServices = project.Environments.SelectMany(e => e.Services).ToList();
+            var state = await stateReader.LoadAsync(projectServices.Select(x => x.Id), cancellationToken);
+            var projectStats = ServiceStatisticsCalculator.Compute(projectServices, state);
+            total += projectStats.Total;
+            running += projectStats.Running;
+            stopped += projectStats.Stopped;
+            degraded += projectStats.Degraded;
+            deploymentPending += projectStats.DeploymentPending;
+            deploying += projectStats.Deploying;
+            unknown += projectStats.Unknown;
 
             foreach (var environment in project.Environments)
             {
                 if (environment.Services.Count == 0)
                     continue;
 
-                var runningCount = environment.Services.Count(s => s.Status == ServiceStatus.Running);
-                var affectedServiceCount = environment.Services.Count(
-                    s => s.Status != ServiceStatus.Running || s.Health != ServiceHealth.Healthy);
+                var displayStatuses = environment.Services.Select(s => state.GetDisplayStatus(s.Id)).ToList();
+                var runningCount = displayStatuses.Count(x => x is ServiceDisplayStatus.Running or ServiceDisplayStatus.Degraded);
+                var affectedServiceCount = displayStatuses.Count(x => x != ServiceDisplayStatus.Running);
 
                 HealthStatus? status = affectedServiceCount == 0
                     ? null

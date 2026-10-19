@@ -11,6 +11,6 @@ public sealed class NotifyOnServiceDeployedEventHandler(IServiceStatusNotifier n
 {
     public async ValueTask Handle(ServiceDeployedEvent notification, CancellationToken cancellationToken)
     {
-        await notifier.NotifyStatusChangedAsync(notification.ServiceId, notification.Name, ServiceStatus.Running, cancellationToken);
+        await notifier.NotifyStatusChangedAsync(notification.ServiceId, notification.Name, ServiceDisplayStatus.Running, cancellationToken);
     }
 }

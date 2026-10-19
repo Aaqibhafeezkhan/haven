@@ -11,6 +11,6 @@ public sealed class NotifyOnServiceRestartedEventHandler(IServiceStatusNotifier 
 {
     public async ValueTask Handle(ServiceRestartedEvent notification, CancellationToken cancellationToken)
     {
-        await notifier.NotifyStatusChangedAsync(notification.ServiceId, notification.Name, ServiceStatus.Running, cancellationToken);
+        await notifier.NotifyStatusChangedAsync(notification.ServiceId, notification.Name, ServiceDisplayStatus.Starting, cancellationToken);
     }
 }

@@ -12,7 +12,7 @@ public record ContainerStoppedEvent(string ContainerId, DateTime Timestamp, Guid
 
 public record ContainerKilledEvent(string ContainerId, DateTime Timestamp, Guid ServiceId) : DockerEvent(ContainerId, Timestamp);
 
-public record ContainerDiedEvent(string ContainerId, DateTime Timestamp, Guid ServiceId) : DockerEvent(ContainerId, Timestamp);
+public record ContainerDiedEvent(string ContainerId, DateTime Timestamp, Guid ServiceId, int? ExitCode = null) : DockerEvent(ContainerId, Timestamp);
 
 public record ContainerUnhealthyEvent(string ContainerId, DateTime Timestamp, Guid ServiceId) : DockerEvent(ContainerId, Timestamp);
 

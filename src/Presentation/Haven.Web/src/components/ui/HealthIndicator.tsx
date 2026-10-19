@@ -17,6 +17,7 @@ interface HealthIndicatorProps {
     | 'unknown'
     | 'deploying'
     | 'deploymentpending'
+    | 'crashed'
     | string;
   useTooltip?: boolean;
   showLabel?: boolean;

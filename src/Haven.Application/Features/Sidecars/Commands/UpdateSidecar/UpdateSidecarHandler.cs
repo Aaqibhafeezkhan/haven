@@ -26,7 +26,6 @@ public sealed class UpdateSidecarHandler(
 
         if (hasChanges && sidecar.Enabled)
         {
-            sidecar.MarkDeploymentPending();
             deploymentJobEnqueuer.EnqueueSidecarDeployment(sidecar.Id);
         }
 

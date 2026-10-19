@@ -27,7 +27,7 @@ import { useRefreshableQuery } from '@/hooks/useRefreshableQuery';
 import { useSetUrlParams, useUrlState } from '@/hooks/useUrlState';
 import styles from '@/styles/components/registry/Registry.module.css';
 
-import { canOpenService, domainUrl, entryContext } from './registryUtils';
+import { canOpenService, domainUrl, entryContext, registryHealth } from './registryUtils';
 
 const PAGE_SIZE = 20;
 
@@ -186,7 +186,7 @@ export function RegistryDomainsTab({ refreshTick }: Props) {
                         </div>
                       </TableCell>
                       <TableCell nowrap>
-                        <HealthIndicator showLabel health={d.status} />
+                        <HealthIndicator showLabel health={registryHealth(d.runtimeState, d.health)} />
                       </TableCell>
                       <TableCell nowrap>
                         <Row gap="2" align="center">

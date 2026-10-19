@@ -1,5 +1,6 @@
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Messaging;
 using Haven.Application.Mappers;
 using Haven.Domain.Aggregates;
@@ -9,7 +10,8 @@ namespace Haven.Application.Features.Services.Queries.GetService;
 public sealed class GetServiceHandler(
     IProjectRepository projectRepository,
     IEnvironmentRepository environmentRepository,
-    IServiceRepository serviceRepository)
+    IServiceRepository serviceRepository,
+    IServiceStateReader stateReader)
     : IQueryHandler<GetServiceQuery, ServiceDto>
 {
     public async ValueTask<Result<ServiceDto>> Handle(GetServiceQuery query, CancellationToken cancellationToken)
@@ -26,7 +28,8 @@ public sealed class GetServiceHandler(
         if (service is null || service.EnvironmentId != query.EnvironmentId)
             return Error.NotFoundFor("Service", query.ServiceId);
 
-        var dto = service.ToDto();
+        var state = await stateReader.LoadAsync([service.Id], cancellationToken);
+        var dto = service.ToDto(state);
 
         return Result<ServiceDto>.Success(dto);
     }

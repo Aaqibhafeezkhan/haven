@@ -200,7 +200,7 @@ public sealed class ImportFromManifestHandlerTests
         Name = "web",
         Type = ServiceType.DockerImage,
         ExposureMode = ExposureMode.Internal,
-        Status = ServiceStatus.Stopped,
+        DesiredState = DesiredState.Stopped,
         CreatedAt = DateTime.UtcNow,
         UpdatedAt = DateTime.UtcNow,
         Token = "original-token",

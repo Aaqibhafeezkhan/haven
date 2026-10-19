@@ -1,4 +1,5 @@
 using Haven.Application.Common;
+using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Domain;
@@ -22,13 +23,17 @@ public sealed class DeployWebhookServiceTests
     private DeployWebhookService _sut = null!;
     private IDeploymentJobEnqueuer _jobEnqueuer = null!;
     private IServiceRepository _repository = null!;
+    private IDeploymentLogService _deploymentLogService = null!;
+    private IUnitOfWork _unitOfWork = null!;
 
     [SetUp]
     public void Setup()
     {
         _jobEnqueuer = Substitute.For<IDeploymentJobEnqueuer>();
         _repository = Substitute.For<IServiceRepository>();
-        _sut = new DeployWebhookService(_jobEnqueuer, _repository);
+        _deploymentLogService = Substitute.For<IDeploymentLogService>();
+        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _sut = new DeployWebhookService(_jobEnqueuer, _repository, _deploymentLogService, _unitOfWork);
     }
 
     [Test]

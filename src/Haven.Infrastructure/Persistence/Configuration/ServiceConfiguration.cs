@@ -41,13 +41,10 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
             .HasColumnName("exposure_mode")
             .IsRequired();
 
-        builder.Property(x => x.Status)
-            .HasColumnName("status")
-            .IsRequired();
-
-        builder.Property(x => x.Health)
-            .HasColumnName("health")
+        builder.Property(x => x.DesiredState)
+            .HasColumnName("desired_state")
             .HasConversion<string>()
+            .HasMaxLength(32)
             .IsRequired();
 
         builder.Property(x => x.CreatedAt)

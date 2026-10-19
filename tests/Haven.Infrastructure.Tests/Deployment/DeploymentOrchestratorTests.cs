@@ -114,12 +114,13 @@ public sealed class DeploymentOrchestratorTests
     public async Task DeployServiceAsync_WhenDeployFails_ShouldMarkServiceStopped()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
             .Returns(Result<DeployData>.Failure(Error.Failed));
 
         await _sut.DeployAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        entry.RuntimeState.ShouldBe(ServiceRuntimeState.Stopped);
     }
 
     [Test]
@@ -186,12 +187,13 @@ public sealed class DeploymentOrchestratorTests
     public async Task DeployServiceAsync_WhenDeployThrowsUnexpectedException_ShouldMarkServiceStopped()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync<InvalidOperationException>();
 
         await _sut.DeployAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        entry.RuntimeState.ShouldBe(ServiceRuntimeState.Stopped);
     }
 
     [Test]
@@ -267,35 +269,35 @@ public sealed class DeploymentOrchestratorTests
     }
 
     [Test]
-    public async Task DeployServiceAsync_WhenContainerDiedWhileDeploying_ShouldNotOverwriteStoppedStatus()
+    public async Task DeployServiceAsync_WhenContainerDiedWhileDeploying_ShouldNotOverwriteCrashedState()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
             .Returns(Result<DeployData>.Success(new DeployData { ServiceId = service.Id }));
-        // Simulates a reactive Docker "die" event handler marking the service Stopped,
-        // via a different unit of work, while DeployAsync was still in flight.
-        _unitOfWork.ReloadAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>())
+        _unitOfWork.ReloadAsync(Arg.Any<ServiceRegistryEntry>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                callInfo.Arg<Service>().MarkStopped();
+                callInfo.Arg<ServiceRegistryEntry>().ApplyRuntimeState(ServiceRuntimeState.Crashed, DateTime.UtcNow);
                 return Task.CompletedTask;
             });
 
         await _sut.DeployAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        entry.RuntimeState.ShouldBe(ServiceRuntimeState.Crashed);
     }
 
     [Test]
     public async Task DeployServiceAsync_WhenContainerDiedWhileDeploying_ShouldReturnFailure()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
             .Returns(Result<DeployData>.Success(new DeployData { ServiceId = service.Id }));
-        _unitOfWork.ReloadAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>())
+        _unitOfWork.ReloadAsync(Arg.Any<ServiceRegistryEntry>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                callInfo.Arg<Service>().MarkStopped();
+                callInfo.Arg<ServiceRegistryEntry>().ApplyRuntimeState(ServiceRuntimeState.Crashed, DateTime.UtcNow);
                 return Task.CompletedTask;
             });
 
@@ -309,12 +311,13 @@ public sealed class DeploymentOrchestratorTests
     public async Task DeployServiceAsync_WhenContainerDiedWhileDeploying_ShouldNotTouchRegistry()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
             .Returns(Result<DeployData>.Success(new DeployData { ServiceId = service.Id }));
-        _unitOfWork.ReloadAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>())
+        _unitOfWork.ReloadAsync(Arg.Any<ServiceRegistryEntry>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                callInfo.Arg<Service>().MarkStopped();
+                callInfo.Arg<ServiceRegistryEntry>().ApplyRuntimeState(ServiceRuntimeState.Crashed, DateTime.UtcNow);
                 return Task.CompletedTask;
             });
 
@@ -352,12 +355,14 @@ public sealed class DeploymentOrchestratorTests
     public async Task StopServiceAsync_WhenSuccessful_ShouldMarkServiceStopped()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.StopAsync(service, Arg.Any<CancellationToken>())
             .Returns(Result.Success());
 
         await _sut.StopAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        service.DesiredState.ShouldBe(DesiredState.Stopped);
+        entry.RuntimeState.ShouldBe(ServiceRuntimeState.Stopped);
     }
 
     [Test]
@@ -373,25 +378,17 @@ public sealed class DeploymentOrchestratorTests
     }
 
     [Test]
-    public async Task StopServiceAsync_WhenContainerKillEventAlreadyMarkedStopped_ShouldNotRaiseDuplicateStoppedEvent()
+    public async Task StopServiceAsync_WhenSuccessful_ShouldRaiseStoppedEventOnce()
     {
         var service = CreateService();
-        service.MarkDeployed();
+        service.SetDesiredState(DesiredState.Running);
         service.ClearDomainEvents();
         _deployService.StopAsync(service, Arg.Any<CancellationToken>())
             .Returns(Result.Success());
-        // Simulates the Docker daemon's kill/die event being processed (via its own
-        // DbContext scope) and marking the service Stopped while StopAsync was in flight.
-        _unitOfWork.ReloadAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                callInfo.Arg<Service>().MarkStopped();
-                return Task.CompletedTask;
-            });
 
         await _sut.StopAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        service.DesiredState.ShouldBe(DesiredState.Stopped);
         service.DomainEvents.OfType<ServiceStoppedEvent>().Count().ShouldBe(1);
     }
 
@@ -424,12 +421,13 @@ public sealed class DeploymentOrchestratorTests
     public async Task StartServiceAsync_WhenStartFails_ShouldMarkServiceStopped()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.StartAsync(service, Arg.Any<CancellationToken>())
             .Returns(Result<DeployData>.Failure(Error.Failed));
 
         await _sut.StartAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        entry.RuntimeState.ShouldBe(ServiceRuntimeState.Stopped);
     }
 
     [Test]
@@ -493,21 +491,22 @@ public sealed class DeploymentOrchestratorTests
     }
 
     [Test]
-    public async Task StartServiceAsync_WhenContainerDiedWhileStarting_ShouldNotOverwriteStoppedStatus()
+    public async Task StartServiceAsync_WhenContainerDiedWhileStarting_ShouldNotOverwriteCrashedState()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.StartAsync(service, Arg.Any<CancellationToken>())
             .Returns(Result<DeployData>.Success(new DeployData { ServiceId = service.Id }));
-        _unitOfWork.ReloadAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>())
+        _unitOfWork.ReloadAsync(Arg.Any<ServiceRegistryEntry>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                callInfo.Arg<Service>().MarkStopped();
+                callInfo.Arg<ServiceRegistryEntry>().ApplyRuntimeState(ServiceRuntimeState.Crashed, DateTime.UtcNow);
                 return Task.CompletedTask;
             });
 
         var result = await _sut.StartAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        entry.RuntimeState.ShouldBe(ServiceRuntimeState.Crashed);
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBe(Error.Docker.ContainerCrashedAfterStart);
     }
@@ -541,12 +540,13 @@ public sealed class DeploymentOrchestratorTests
     public async Task RestartServiceAsync_WhenStopFails_ShouldMarkServiceStopped()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.StopAsync(service, Arg.Any<CancellationToken>())
             .Returns(Result.Failure(Error.Failed));
 
         await _sut.RestartAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        entry.RuntimeState.ShouldBe(ServiceRuntimeState.Stopped);
     }
 
     [Test]
@@ -569,6 +569,7 @@ public sealed class DeploymentOrchestratorTests
     public async Task RestartServiceAsync_WhenStartFails_ShouldMarkServiceStopped()
     {
         var service = CreateService();
+        var entry = GivenRunningEntry(service);
         _deployService.StopAsync(service, Arg.Any<CancellationToken>())
             .Returns(Result.Success());
         _deployService.StartAsync(service, Arg.Any<CancellationToken>())
@@ -576,7 +577,7 @@ public sealed class DeploymentOrchestratorTests
 
         await _sut.RestartAsync(service, CancellationToken.None);
 
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        entry.RuntimeState.ShouldBe(ServiceRuntimeState.Stopped);
     }
 
     [Test]
@@ -645,6 +646,14 @@ public sealed class DeploymentOrchestratorTests
         entry.IpAddress.ShouldBe("10.0.0.1");
         entry.Ports.ShouldBe(ports);
         entry.ContainerName.ShouldBe("restarted-container");
+    }
+
+    private ServiceRegistryEntry GivenRunningEntry(Service service)
+    {
+        var entry = ServiceRegistryEntry.Create(service.Id);
+        entry.ApplyRuntimeState(ServiceRuntimeState.Running, DateTime.UtcNow);
+        _registry.GetForServiceAsync(service.Id, Arg.Any<CancellationToken>()).Returns(entry);
+        return entry;
     }
 
     private static Service CreateService(bool withEnvironment = true)

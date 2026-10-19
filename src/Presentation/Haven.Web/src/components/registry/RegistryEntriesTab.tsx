@@ -41,7 +41,7 @@ import styles from '@/styles/components/registry/Registry.module.css';
 
 import { AddressLinks, DomainLinks, EntryName } from './RegistryCells';
 import { RegistryEntryDetails } from './RegistryEntryDetails';
-import { canOpenService, formatUptime } from './registryUtils';
+import { canOpenService, formatUptime, registryHealth } from './registryUtils';
 
 const PAGE_SIZE = 20;
 const COLUMN_COUNT = 8;
@@ -324,7 +324,7 @@ export function RegistryEntriesTab({ refreshTick }: Props) {
                           <EntryName entry={entry} />
                         </TableCell>
                         <TableCell nowrap>
-                          <HealthIndicator showLabel health={entry.status} />
+                          <HealthIndicator showLabel health={registryHealth(entry.runtimeState, entry.health)} />
                         </TableCell>
                         <TableCell>
                           <ServiceTypeChip serviceType={entry.serviceType} />

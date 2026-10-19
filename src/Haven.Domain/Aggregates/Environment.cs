@@ -130,18 +130,11 @@ public sealed class Environment : AggregateRoot
     {
         var service = GetService(serviceId);
 
-        if (service.Status == ServiceStatus.Running)
-            throw new ValidationException($"Service '{service.Name}' is currently running and cannot be removed.");
-
         _services.Remove(service);
         return service;
     }
 
-    public void MarkServiceDeploymentPending(Guid serviceId) => GetService(serviceId).MarkDeploymentPending();
-
-    public void DeployService(Guid serviceId) => GetService(serviceId).MarkDeployed();
-
-    public void StopService(Guid serviceId) => GetService(serviceId).MarkStopped();
+    public void SetServiceDesiredState(Guid serviceId, DesiredState desiredState) => GetService(serviceId).SetDesiredState(desiredState);
 
     public void RestartService(Guid serviceId) => GetService(serviceId).Restart();
 
@@ -177,38 +170,5 @@ public sealed class Environment : AggregateRoot
         }
 
         Raise(new EnvironmentDeletedEvent(Id, Name));
-    }
-
-    public int GetRunningServicesCount() => Services.Count(s => s.Status is ServiceStatus.Running);
-    public HealthStatus GetStatus()
-    {
-        if (Services.Count == 0)
-            return HealthStatus.Unknown;
-        var runningCount = GetRunningServicesCount();
-        var total = Services.Count;
-
-        if (runningCount == total)
-            return HealthStatus.Healthy;
-        if (runningCount > 0)
-            return HealthStatus.Degraded;
-        if (Services.Any(s => s.Status is ServiceStatus.Deploying))
-            return HealthStatus.Deploying;
-        if (Services.Any(s => s.Status is ServiceStatus.DeploymentPending))
-            return HealthStatus.DeploymentPending;
-
-        return HealthStatus.Stopped;
-    }
-
-    public (int Total, int Running, int Stopped, int Degraded, int DeploymentPending, int Deploying, int Unknown) GetServiceStatistics()
-    {
-        var total = Services.Count;
-        var running = Services.Count(s => s.Status == ServiceStatus.Running);
-        var stopped = Services.Count(s => s.Status == ServiceStatus.Stopped);
-        var degraded = Services.Count(s => s.Status == ServiceStatus.Running && s.Health != ServiceHealth.Healthy);
-        var deploymentPending = Services.Count(s => s.Status == ServiceStatus.DeploymentPending);
-        var deploying = Services.Count(s => s.Status == ServiceStatus.Deploying);
-        var unknown = Services.Count(s => s.Status == ServiceStatus.Unknown);
-
-        return (total, running, stopped, degraded, deploymentPending, deploying, unknown);
     }
 }

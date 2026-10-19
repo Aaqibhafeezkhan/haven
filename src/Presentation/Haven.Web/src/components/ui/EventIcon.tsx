@@ -38,6 +38,7 @@ export const EVENT_TYPES = {
   ProjectCreated: 'ProjectCreatedEvent',
   ProjectDeleted: 'ProjectDeletedEvent',
   ProjectUpdated: 'ProjectUpdatedEvent',
+  ServiceCrashed: 'ServiceCrashedEvent',
   ServiceCreated: 'ServiceCreatedEvent',
   ServiceDegraded: 'ServiceDegradedEvent',
   ServiceDeleted: 'ServiceDeletedEvent',
@@ -100,6 +101,11 @@ const EVENT_CONFIG: Record<EventType, EventConfig> = {
     icon: PenLine,
     variant: 'warning',
     label: 'Project Updated',
+  },
+  [EVENT_TYPES.ServiceCrashed]: {
+    icon: Activity,
+    variant: 'danger',
+    label: 'Service Crashed',
   },
   [EVENT_TYPES.ServiceCreated]: {
     icon: Server,

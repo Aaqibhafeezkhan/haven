@@ -25,7 +25,6 @@ using NSubstitute;
 using Shouldly;
 
 using Environment = Haven.Domain.Aggregates.Environment;
-using ServiceStatus = Haven.Domain.Enums.ServiceStatus;
 
 namespace Haven.Infrastructure.Tests.Deployment;
 

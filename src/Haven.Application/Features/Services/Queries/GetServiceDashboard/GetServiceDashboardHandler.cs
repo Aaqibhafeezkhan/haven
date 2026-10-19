@@ -1,6 +1,7 @@
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Messaging;
 using Haven.Application.Configuration;
 using Haven.Application.Features.Projects.Queries.GetProjectsDashboard;
@@ -18,6 +19,7 @@ public sealed class GetServiceDashboardHandler(
     IEnvironmentVariableService environmentVariableService,
     IFeatureFlagRepository featureFlagRepository,
     IServiceRegistryEntryRepository serviceRegistryEntryRepository,
+    IServiceStateReader stateReader,
     IComputedOutputResolver computedOutputResolver,
     IOptionsMonitor<NetworkOptions> networkOptions)
     : IQueryHandler<GetServiceDashboardQuery, ServiceDashboardDto>
@@ -28,7 +30,8 @@ public sealed class GetServiceDashboardHandler(
         if (service is null || service.EnvironmentId != query.EnvironmentId)
             return Error.NotFoundFor("Service", query.ServiceId);
 
-        var dto = service.ToDashboardDto();
+        var state = await stateReader.LoadAsync([service.Id], cancellationToken);
+        var dto = service.ToDashboardDto(state);
         dto.WebhookUrl = BuildWebhookUrl(service.Token);
 
         var envVars = await environmentVariableService.BuildVariablesForServiceAsync(query.ServiceId, cancellationToken);

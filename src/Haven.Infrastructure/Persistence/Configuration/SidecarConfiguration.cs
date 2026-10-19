@@ -32,15 +32,6 @@ public class SidecarConfiguration : IEntityTypeConfiguration<Sidecar>
             .HasConversion<string>()
             .IsRequired();
 
-        builder.Property(x => x.Status)
-            .HasColumnName("status")
-            .IsRequired();
-
-        builder.Property(x => x.Health)
-            .HasColumnName("health")
-            .HasConversion<string>()
-            .IsRequired();
-
         builder.Property(x => x.Enabled)
             .HasColumnName("enabled")
             .IsRequired();

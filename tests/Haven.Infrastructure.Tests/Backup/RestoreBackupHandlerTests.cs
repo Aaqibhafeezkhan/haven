@@ -384,7 +384,7 @@ public sealed class RestoreBackupHandlerTests
         // a fresh, unrelated Guid - matching must happen by Kind, and the original DB Id must survive.
         var updatedSnapshot = Sidecar.Reconstitute(
             Guid.NewGuid(), "cache", "cache-alias", SidecarKind.Custom,
-            ServiceStatus.Stopped, ServiceHealth.Unknown, enabled: false,
+            enabled: false,
             createdAt: sidecar.CreatedAt, updatedAt: DateTime.UtcNow,
             sourceConfig: new DockerConfig { Image = "redis:7" });
 

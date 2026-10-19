@@ -16,15 +16,15 @@ public sealed class ServiceHealthTests
         Service.Create(Guid.NewGuid(), "test-service", ServiceType.DockerImage, ExposureMode.None);
 
     [Test]
-    public void RecordHealthCheckResult_Unhealthy_SetsServiceHealthAndRaisesServiceDegradedEvent()
+    public void RecordHealthCheckResult_Unhealthy_ReturnsUnhealthyAndRaisesServiceDegradedEvent()
     {
         var service = NewService();
         var healthCheck = service.AddHealthCheck("http-check", HealthCheckKind.Http, enabled: true, cronExpression: null, config: "{}");
         service.ClearDomainEvents();
 
-        service.RecordHealthCheckResult(healthCheck, ServiceHealth.Unhealthy);
+        var health = service.RecordHealthCheckResult(healthCheck, ServiceHealth.Unhealthy);
 
-        service.Health.ShouldBe(ServiceHealth.Unhealthy);
+        health.ShouldBe(ServiceHealth.Unhealthy);
         healthCheck.LastRunStatus.ShouldBe(ServiceHealth.Unhealthy);
         service.DomainEvents.ShouldContain(e => e is ServiceDegradedEvent);
     }
@@ -37,9 +37,9 @@ public sealed class ServiceHealthTests
         service.RecordHealthCheckResult(healthCheck, ServiceHealth.Unhealthy);
         service.ClearDomainEvents();
 
-        service.RecordHealthCheckResult(healthCheck, ServiceHealth.Unhealthy);
+        var health = service.RecordHealthCheckResult(healthCheck, ServiceHealth.Unhealthy);
 
-        service.Health.ShouldBe(ServiceHealth.Unhealthy);
+        health.ShouldBe(ServiceHealth.Unhealthy);
         service.DomainEvents.ShouldNotContain(e => e is ServiceDegradedEvent);
     }
 
@@ -50,9 +50,9 @@ public sealed class ServiceHealthTests
         var healthCheck = service.AddHealthCheck("http-check", HealthCheckKind.Http, enabled: true, cronExpression: null, config: "{}");
         service.ClearDomainEvents();
 
-        service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
+        var health = service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
 
-        service.Health.ShouldBe(ServiceHealth.Healthy);
+        health.ShouldBe(ServiceHealth.Healthy);
         service.DomainEvents.ShouldNotContain(e => e is ServiceDegradedEvent);
     }
 
@@ -64,9 +64,9 @@ public sealed class ServiceHealthTests
         service.RecordHealthCheckResult(healthCheck, ServiceHealth.Unhealthy);
         service.ClearDomainEvents();
 
-        service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
+        var health = service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
 
-        service.Health.ShouldBe(ServiceHealth.Healthy);
+        health.ShouldBe(ServiceHealth.Healthy);
         service.DomainEvents.ShouldContain(e => e is ServiceRecoveredEvent);
         service.DomainEvents.ShouldNotContain(e => e is ServiceDegradedEvent);
     }
@@ -79,9 +79,9 @@ public sealed class ServiceHealthTests
         service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
         service.ClearDomainEvents();
 
-        service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
+        var health = service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
 
-        service.Health.ShouldBe(ServiceHealth.Healthy);
+        health.ShouldBe(ServiceHealth.Healthy);
         service.DomainEvents.ShouldNotContain(e => e is ServiceRecoveredEvent);
     }
 
@@ -93,9 +93,9 @@ public sealed class ServiceHealthTests
         service.RecordHealthCheckResult(healthCheck, ServiceHealth.Unknown);
         service.ClearDomainEvents();
 
-        service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
+        var health = service.RecordHealthCheckResult(healthCheck, ServiceHealth.Healthy);
 
-        service.Health.ShouldBe(ServiceHealth.Healthy);
+        health.ShouldBe(ServiceHealth.Healthy);
         service.DomainEvents.ShouldNotContain(e => e is ServiceRecoveredEvent);
     }
 }

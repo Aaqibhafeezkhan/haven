@@ -11,7 +11,9 @@ public sealed class ServiceDto
     public string? Alias { get; set; }
     public ServiceType Type { get; set; }
     public ExposureMode ExposureMode { get; set; }
-    public ServiceStatus Status { get; set; }
+    public DesiredState DesiredState { get; set; }
+    public ServiceRuntimeState RuntimeState { get; set; }
+    public ServiceDisplayStatus Status { get; set; }
     public ServiceHealth Health { get; set; }
     public ServiceSourceConfig? SourceConfig { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -31,7 +33,7 @@ public sealed class ServiceDto
         string name,
         ServiceType type,
         ExposureMode exposureMode,
-        ServiceStatus status,
+        ServiceDisplayStatus status,
         ServiceSourceConfig? sourceConfig,
         DateTime createdAt,
         DateTime updatedAt)

@@ -134,8 +134,9 @@ public class DockerSidecarDeployService : IDeployService
 
         if (containers.Count == 0)
         {
-            _logger.LogWarning("No Docker container found for sidecar '{SidecarName}' to stop", sidecar.Name);
-            return Error.NotFoundFor("Docker Container", sidecar.Id);
+            // Nothing to stop: a crash-looping container is often gone between restarts. Stopping is idempotent, so this is success.
+            _logger.LogInformation("No Docker container found for sidecar '{SidecarName}'; already stopped", sidecar.Name);
+            return Result.Success();
         }
 
         await _containerRuntime.StopAndRemoveAsync((IReadOnlyCollection<ContainerListResponse>)containers, sidecar.Id, _networkingService,

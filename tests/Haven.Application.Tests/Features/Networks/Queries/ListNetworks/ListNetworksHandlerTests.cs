@@ -1,4 +1,5 @@
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Networks.Queries.ListNetworks;
 using Haven.Domain;
 using Haven.Domain.Aggregates;
@@ -23,7 +24,9 @@ public sealed class ListNetworksHandlerTests
     public void Setup()
     {
         _networkRepository = Substitute.For<INetworkRepository>();
-        _sut = new ListNetworksHandler(_networkRepository);
+        var stateReader = Substitute.For<IServiceStateReader>();
+        stateReader.LoadAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>()).Returns(ServiceStateSnapshot.Empty);
+        _sut = new ListNetworksHandler(_networkRepository, stateReader);
     }
 
     [Test]
@@ -92,7 +95,7 @@ public sealed class ListNetworksHandlerTests
         dto.Gateway.ShouldBe("172.16.5.1");
         dto.ServiceCount.ShouldBe(1);
         dto.Services.Single().Name.ShouldBe("api");
-        dto.Services.Single().Status.ShouldBe(service.Status.ToString());
+        dto.Services.Single().Status.ShouldBe(ServiceDisplayStatus.NotDeployed.ToString());
         dto.Services.Single().IpAddress.ShouldBe("172.16.5.3");
         dto.Services.Single().ProjectName.ShouldBe("acme");
     }

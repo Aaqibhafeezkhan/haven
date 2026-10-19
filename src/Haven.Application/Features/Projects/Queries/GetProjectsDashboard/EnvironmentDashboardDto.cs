@@ -17,5 +17,5 @@ public sealed class EnvironmentDashboardDto
     public int TotalEnvVars { get; set; }
     public List<EnvironmentVariableDto> EnvironmentVariables { get; set; } = [];
     public List<ServiceDashboardDto> Services { get; set; } = [];
-    public Dictionary<string, ServiceStatus> ServiceStatusMap { get; set; } = [];
+    public Dictionary<string, ServiceDisplayStatus> ServiceStatusMap { get; set; } = [];
 }

@@ -12,8 +12,7 @@ namespace Haven.Application.Mappers;
 public static partial class SidecarMapper
 {
     [MapperIgnoreSource(nameof(Sidecar.SidecarNetworks))]
-    [MapperIgnoreSource(nameof(Sidecar.Status))]
-    [MapperIgnoreSource(nameof(Sidecar.Health))]
+    [MapperIgnoreSource(nameof(Sidecar.DesiredState))]
     [MapperIgnoreSource(nameof(Sidecar.Enabled))]
     [MapperIgnoreSource(nameof(Sidecar.CreatedAt))]
     [MapperIgnoreSource(nameof(Sidecar.UpdatedAt))]
@@ -38,8 +37,6 @@ public static partial class SidecarMapper
             dto.Name,
             dto.Alias,
             Enum.Parse<SidecarKind>(dto.Kind),
-            ServiceStatus.Stopped,
-            ServiceHealth.Unknown,
             enabled: false,
             createdAt: now,
             updatedAt: now,

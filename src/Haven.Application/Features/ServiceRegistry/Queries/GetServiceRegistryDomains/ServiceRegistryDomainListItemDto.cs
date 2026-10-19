@@ -14,7 +14,8 @@ public sealed class ServiceRegistryDomainListItemDto
     public DateTime CreatedAt { get; set; }
 
     public string? ContainerName { get; set; }
-    public ServiceStatus Status { get; set; }
+    public ServiceRuntimeState RuntimeState { get; set; }
+    public ServiceHealth Health { get; set; }
     public Guid? ServiceId { get; set; }
     public string? ServiceName { get; set; }
     public string? SidecarName { get; set; }

@@ -297,13 +297,7 @@ export function ProjectDetailsPage() {
                           key={service.id}
                           size="sm"
                           serviceName={service.name}
-                          health={
-                            service.status !== 'Running'
-                              ? service.status.toLowerCase()
-                              : service.health !== 'Healthy'
-                                ? service.health.toLowerCase()
-                                : service.status.toLowerCase()
-                          }
+                          health={service.status.toLowerCase()}
                         />
                       ))}
                     </div>

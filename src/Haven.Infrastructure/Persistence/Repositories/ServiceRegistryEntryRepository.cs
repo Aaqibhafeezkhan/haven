@@ -65,14 +65,14 @@ public class ServiceRegistryEntryRepository(HavenDbContext db) : IServiceRegistr
         var entries = db.ServiceRegistryEntries.AsNoTracking();
 
         var byStatus = await entries
-            .GroupBy(e => e.Status)
+            .GroupBy(e => e.RuntimeState)
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync(ct);
 
-        var running = byStatus.Where(x => x.Status == ServiceStatus.Running).Sum(x => x.Count);
-        var stopped = byStatus.Where(x => x.Status == ServiceStatus.Stopped).Sum(x => x.Count);
-        var starting = byStatus.Where(x => x.Status is ServiceStatus.DeploymentPending or ServiceStatus.Deploying).Sum(x => x.Count);
-        var unknown = byStatus.Where(x => x.Status == ServiceStatus.Unknown).Sum(x => x.Count);
+        var running = byStatus.Where(x => x.Status == ServiceRuntimeState.Running).Sum(x => x.Count);
+        var stopped = byStatus.Where(x => x.Status is ServiceRuntimeState.Stopped or ServiceRuntimeState.Crashed).Sum(x => x.Count);
+        var starting = byStatus.Where(x => x.Status == ServiceRuntimeState.Restarting).Sum(x => x.Count);
+        var unknown = byStatus.Where(x => x.Status is ServiceRuntimeState.Unknown or ServiceRuntimeState.NotDeployed).Sum(x => x.Count);
         var total = byStatus.Sum(x => x.Count);
 
         var domains = await db.ServiceRegistryDomains.AsNoTracking().CountAsync(ct);
@@ -100,10 +100,10 @@ public class ServiceRegistryEntryRepository(HavenDbContext db) : IServiceRegistr
         {
             query = status switch
             {
-                RegistryStatusFilter.Running => query.Where(e => e.Status == ServiceStatus.Running),
-                RegistryStatusFilter.Stopped => query.Where(e => e.Status == ServiceStatus.Stopped),
-                RegistryStatusFilter.Starting => query.Where(e => e.Status == ServiceStatus.DeploymentPending || e.Status == ServiceStatus.Deploying),
-                _ => query.Where(e => e.Status == ServiceStatus.Unknown),
+                RegistryStatusFilter.Running => query.Where(e => e.RuntimeState == ServiceRuntimeState.Running),
+                RegistryStatusFilter.Stopped => query.Where(e => e.RuntimeState == ServiceRuntimeState.Stopped || e.RuntimeState == ServiceRuntimeState.Crashed),
+                RegistryStatusFilter.Starting => query.Where(e => e.RuntimeState == ServiceRuntimeState.Restarting),
+                _ => query.Where(e => e.RuntimeState == ServiceRuntimeState.Unknown || e.RuntimeState == ServiceRuntimeState.NotDeployed),
             };
         }
 
@@ -134,7 +134,7 @@ public class ServiceRegistryEntryRepository(HavenDbContext db) : IServiceRegistr
             "type" => Order(query, e => e.Service != null ? (int)e.Service.Type : -1, descending),
             "project" => Order(query, e => e.Service != null ? e.Service.Environment!.Project!.Name : string.Empty, descending),
             "exposure" => Order(query, e => e.Service != null ? (int)e.Service.ExposureMode : -1, descending),
-            "status" => Order(query, e => (int)e.Status, descending),
+            "status" => Order(query, e => (int)e.RuntimeState, descending),
             // Uptime grows as StartedAt gets older, so the key is inverted.
             "uptime" => Order(query, e => e.StartedAt, !descending),
             _ => Order(query, e => e.UpdatedAt, descending),
@@ -147,6 +147,19 @@ public class ServiceRegistryEntryRepository(HavenDbContext db) : IServiceRegistr
     private static IOrderedQueryable<T> Order<T, TKey>(
         IQueryable<T> query, Expression<Func<T, TKey>> key, bool descending) =>
         descending ? query.OrderByDescending(key) : query.OrderBy(key);
+
+    public async Task<Dictionary<Guid, ServiceRegistryEntry>> GetByOwnerIdsAsync(IReadOnlyCollection<Guid> ownerIds, CancellationToken ct = default)
+    {
+        if (ownerIds.Count == 0) return [];
+
+        var entries = await db.ServiceRegistryEntries
+            .AsNoTracking()
+            .Where(e => (e.ServiceId != null && ownerIds.Contains(e.ServiceId.Value))
+                        || (e.SidecarId != null && ownerIds.Contains(e.SidecarId.Value)))
+            .ToListAsync(ct);
+
+        return entries.ToDictionary(e => e.OwnerId);
+    }
 
     public async Task<ServiceRegistryEntry?> GetForServiceAsync(Guid serviceId, CancellationToken ct = default)
     {

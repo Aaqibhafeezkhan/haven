@@ -14,13 +14,15 @@ public class ContainerStartedEventHandler : INotificationHandler<ContainerStarte
     private readonly HavenDbContext _db;
     private readonly IProjectRepository _repository;
     private readonly ISidecarRepository _sidecarRepository;
+    private readonly ServiceRuntimeStateRecorder _recorder;
     private readonly ILogger<ContainerStartedEventHandler> _logger;
 
-    public ContainerStartedEventHandler(HavenDbContext db, IProjectRepository repository, ISidecarRepository sidecarRepository, ILogger<ContainerStartedEventHandler> logger)
+    public ContainerStartedEventHandler(HavenDbContext db, IProjectRepository repository, ISidecarRepository sidecarRepository, ServiceRuntimeStateRecorder recorder, ILogger<ContainerStartedEventHandler> logger)
     {
         _db = db;
         _repository = repository;
         _sidecarRepository = sidecarRepository;
+        _recorder = recorder;
         _logger = logger;
     }
 
@@ -42,16 +44,9 @@ public class ContainerStartedEventHandler : INotificationHandler<ContainerStarte
                 return;
             }
 
-            if (service.Status == ServiceStatus.Running)
-            {
-                // Container (re)started while already marked Running: still a new start.
-                service.RecordDeployment();
-                await _db.SaveChangesAsync(cancellationToken);
-                _logger.LogDebug("Service {ServiceId} is already running; updated last deployed time", notification.ServiceId);
-                return;
-            }
-
-            project.DeployService(service.EnvironmentId, service.Id);
+            // A (re)start is always a fresh start, whether or not the entry already said Running.
+            service.RecordDeployment();
+            await _recorder.ApplyRunningAsync(service, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Service {ServiceId} marked as running after container started", notification.ServiceId);
@@ -65,15 +60,8 @@ public class ContainerStartedEventHandler : INotificationHandler<ContainerStarte
             return;
         }
 
-        if (sidecar.Status == ServiceStatus.Running)
-        {
-            sidecar.RecordDeployment();
-            await _db.SaveChangesAsync(cancellationToken);
-            _logger.LogDebug("Sidecar {SidecarId} is already running; updated last deployed time", sidecar.Id);
-            return;
-        }
-
-        sidecar.MarkDeployed();
+        sidecar.RecordDeployment();
+        await _recorder.ApplyRunningAsync(sidecar, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Sidecar {SidecarId} marked as running after container started", sidecar.Id);

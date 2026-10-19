@@ -9,6 +9,7 @@ namespace Haven.Application.Features.Sidecars.Commands.DisableSidecar;
 
 public sealed class DisableSidecarHandler(
     ISidecarRepository sidecarRepository,
+    IServiceRegistryEntryRepository registryEntryRepository,
     IDeploymentJobEnqueuer deploymentJobEnqueuer)
     : ICommandHandler<DisableSidecarCommand>
 {
@@ -21,7 +22,8 @@ public sealed class DisableSidecarHandler(
         if (!sidecar.Enabled)
             return Result.Success();
 
-        var wasRunning = sidecar.Status != ServiceStatus.Stopped;
+        var entry = await registryEntryRepository.GetForSidecarAsync(sidecar.Id, cancellationToken);
+        var wasRunning = entry?.RuntimeState is not (null or ServiceRuntimeState.NotDeployed or ServiceRuntimeState.Stopped);
 
         sidecar.Disable();
 

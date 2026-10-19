@@ -37,7 +37,7 @@ public sealed class ServiceRegistryEntryRepositorySortTests
         {
             var entry = ServiceRegistryEntry.Create(services[i].Id);
             entry.ContainerName = names[i];
-            entry.Status = i == 0 ? ServiceStatus.Running : i == 1 ? ServiceStatus.Stopped : ServiceStatus.Deploying;
+            entry.ApplyRuntimeState(i == 0 ? ServiceRuntimeState.Running : i == 1 ? ServiceRuntimeState.Stopped : ServiceRuntimeState.Restarting, DateTime.UtcNow);
             if (i == 1) entry.AddDomain("alpha.example.com", 8080);
             await _sut.InsertAsync(entry, CancellationToken.None);
         }

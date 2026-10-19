@@ -66,3 +66,10 @@ export function entryContext(entry: {
 export function canOpenService(serviceId?: string): serviceId is string {
   return !!serviceId && serviceId !== '00000000-0000-0000-0000-000000000000';
 }
+
+/** Maps observed runtime state and health to the HealthIndicator value. */
+export function registryHealth(runtimeState: string, health: string): string {
+  return runtimeState === 'Running' && health === 'Unhealthy'
+    ? 'degraded'
+    : runtimeState.toLowerCase();
+}

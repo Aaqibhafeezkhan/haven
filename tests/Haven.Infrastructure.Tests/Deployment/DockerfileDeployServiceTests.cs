@@ -29,7 +29,6 @@ using NSubstitute.ExceptionExtensions;
 using Shouldly;
 
 using Environment = Haven.Domain.Aggregates.Environment;
-using ServiceStatus = Haven.Domain.Enums.ServiceStatus;
 
 namespace Haven.Infrastructure.Tests.Deployment;
 
@@ -459,7 +458,7 @@ public sealed class DockerfileDeployServiceTests
     }
 
     [Test]
-    public async Task StopAsync_WhenNoContainersFound_ShouldReturnNotFound()
+    public async Task StopAsync_WhenNoContainersFound_ShouldSucceedBecauseItIsAlreadyStopped()
     {
         var (service, _, _) = SetupValidServiceWithProject(ServiceType.Dockerfile, DockerfileSource.Raw);
 
@@ -469,7 +468,7 @@ public sealed class DockerfileDeployServiceTests
 
         var result = await _sut.StopAsync(service, CancellationToken.None);
 
-        result.IsFailure.ShouldBeTrue();
+        result.IsSuccess.ShouldBeTrue();
     }
 
     [Test]
