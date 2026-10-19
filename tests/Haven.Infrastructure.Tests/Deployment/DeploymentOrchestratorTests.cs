@@ -32,6 +32,7 @@ public sealed class DeploymentOrchestratorTests
     private IDeployServiceFactory _deployServiceFactory = null!;
     private IDeploymentLogService _logService = null!;
     private IDeployService _deployService = null!;
+    private IRepositoryManifestSyncService _manifestSyncService = null!;
 
     [SetUp]
     public void Setup()
@@ -41,8 +42,9 @@ public sealed class DeploymentOrchestratorTests
         _deployServiceFactory = Substitute.For<IDeployServiceFactory>();
         _logService = Substitute.For<IDeploymentLogService>();
         _deployService = Substitute.For<IDeployService>();
+        _manifestSyncService = Substitute.For<IRepositoryManifestSyncService>();
 
-        _sut = new DeploymentOrchestrator(_unitOfWork, _registry, _deployServiceFactory, _logService, Substitute.For<IRepositoryManifestSyncService>(), new HavenMetrics(), Substitute.For<ILogger<DeploymentOrchestrator>>());
+        _sut = new DeploymentOrchestrator(_unitOfWork, _registry, _deployServiceFactory, _logService, _manifestSyncService, new HavenMetrics(), Substitute.For<ILogger<DeploymentOrchestrator>>());
 
         _logService.CreateDeploymentForServiceAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Haven.Domain.Entities.Deployment.Create(Guid.NewGuid(), "log.txt"));
@@ -647,6 +649,101 @@ public sealed class DeploymentOrchestratorTests
         entry.Ports.ShouldBe(ports);
         entry.ContainerName.ShouldBe("restarted-container");
     }
+
+    [Test]
+    public async Task DeployServiceAsync_WhenServiceHasNoRepositoryBinding_ShouldNotSyncManifest()
+    {
+        var service = CreateService();
+        _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(Result<DeployData>.Failure(Error.Failed));
+
+        await _sut.DeployAsync(service, CancellationToken.None);
+
+        await _manifestSyncService.DidNotReceive().SyncAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeployServiceAsync_WhenServiceHasRepositoryBinding_ShouldSyncManifestBeforeDeploying()
+    {
+        var service = CreateService();
+        service.RepositoryBinding = CreateBinding();
+        _manifestSyncService.SyncAsync(service, Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
+        _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(Result<DeployData>.Failure(Error.Failed));
+
+        await _sut.DeployAsync(service, CancellationToken.None);
+
+        Received.InOrder(() =>
+        {
+            _manifestSyncService.SyncAsync(service, Arg.Any<CancellationToken>());
+            _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Test]
+    public async Task DeployServiceAsync_WhenManifestSyncFails_ShouldReturnSyncError()
+    {
+        var service = CreateService();
+        service.RepositoryBinding = CreateBinding();
+        var syncError = Error.Validation("bad manifest");
+        _manifestSyncService.SyncAsync(service, Arg.Any<CancellationToken>()).Returns(Result<bool>.Failure(syncError));
+
+        var result = await _sut.DeployAsync(service, CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(syncError);
+    }
+
+    [Test]
+    public async Task DeployServiceAsync_WhenManifestSyncFails_ShouldNotDeployOrCreateDeploymentLog()
+    {
+        var service = CreateService();
+        service.RepositoryBinding = CreateBinding();
+        _manifestSyncService.SyncAsync(service, Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Failure(Error.Validation("bad manifest")));
+
+        await _sut.DeployAsync(service, CancellationToken.None);
+
+        _deployServiceFactory.DidNotReceive().Create(Arg.Any<IDeployableContainer>());
+        await _deployService.DidNotReceive().DeployAsync(Arg.Any<IDeployableContainer>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+        await _logService.DidNotReceive().CreateDeploymentForServiceAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeployServiceAsync_WhenManifestSyncSucceedsWithNoChanges_ShouldStillDeploy()
+    {
+        var service = CreateService();
+        service.RepositoryBinding = CreateBinding();
+        _manifestSyncService.SyncAsync(service, Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(false));
+        _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(Result<DeployData>.Failure(Error.Failed));
+
+        await _sut.DeployAsync(service, CancellationToken.None);
+
+        await _deployService.Received(1).DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeployServiceAsync_WhenManifestSyncRuns_ShouldForwardCancellationToken()
+    {
+        var service = CreateService();
+        service.RepositoryBinding = CreateBinding();
+        using var cts = new CancellationTokenSource();
+        _manifestSyncService.SyncAsync(service, Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(false));
+        _deployService.DeployAsync(service, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(Result<DeployData>.Failure(Error.Failed));
+
+        await _sut.DeployAsync(service, cts.Token);
+
+        await _manifestSyncService.Received(1).SyncAsync(service, cts.Token);
+    }
+
+    private static RepositoryBinding CreateBinding() => new()
+    {
+        Repository = "org/repo",
+        Branch = "main",
+        FilePath = "haven.yaml"
+    };
 
     private ServiceRegistryEntry GivenRunningEntry(Service service)
     {
