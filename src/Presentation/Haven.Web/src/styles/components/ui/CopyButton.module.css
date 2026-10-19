@@ -1,0 +1,23 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    color 150ms ease-in-out,
+    background-color 150ms ease-in-out;
+}
+
+.button:hover {
+  color: var(--color-primary);
+  background-color: var(--color-surface-raised);
+}
+
+.copied {
+  color: var(--color-running);
+}

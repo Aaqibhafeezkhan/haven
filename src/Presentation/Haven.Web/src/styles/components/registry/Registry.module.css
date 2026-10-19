@@ -1,0 +1,335 @@
+/* ---- Summary strip ---- */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-3);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease-in-out,
+    box-shadow 150ms ease-in-out;
+}
+
+.stat:hover {
+  border-color: var(--color-primary);
+}
+
+.statActive {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.statValue {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.toneRunning {
+  color: var(--color-running);
+}
+
+.toneStopped {
+  color: var(--color-stopped);
+}
+
+.statLabel {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-secondary);
+}
+
+/* ---- Card chrome ---- */
+.spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 300px;
+}
+
+.spinner p {
+  color: var(--color-text-secondary);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  color: var(--color-text-primary);
+}
+
+.search {
+  width: 320px;
+  max-width: 100%;
+}
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.selects {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tableContent {
+  padding: 0;
+  overflow-x: auto;
+  transition: opacity 150ms ease-in-out;
+}
+
+/* Keep the table mounted while refetching (so search keeps focus) but signal the update. */
+.reloading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* Blend the table into the card, mirroring the projects table. */
+.thead {
+  background-color: var(--color-background-secondary);
+}
+
+.tbody {
+  background-color: transparent;
+}
+
+.row {
+  height: 64px;
+  box-shadow: inset 3px 0 0 transparent;
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.row:hover,
+.rowOpen {
+  background-color: var(--color-background-secondary);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+}
+
+.emptyState p {
+  margin: 0;
+}
+
+/* ---- Cells ---- */
+.nameCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nameLine {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.containerName {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.context {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.domainLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.domainLink:hover span:first-of-type {
+  text-decoration: underline;
+}
+
+.tlsTag {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.addressLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.addressLink:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.portArrow {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
+.moreButton {
+  width: fit-content;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.moreButton:hover {
+  color: var(--color-primary);
+}
+
+/* Copy buttons only appear while hovering/focusing the value they copy. */
+.copyable .copyButton {
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+}
+
+.copyable:hover .copyButton,
+.copyable:focus-within .copyButton,
+.copyButton:focus-visible {
+  opacity: 1;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    transform 150ms ease-in-out,
+    color 150ms ease-in-out;
+}
+
+.iconButton:hover {
+  color: var(--color-primary);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+/* ---- Expanded details ---- */
+.detailRow {
+  background-color: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+}
+
+.detailSection {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.detailTitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-secondary);
+}
+
+.detailTable {
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.detailTable th {
+  padding: 0 var(--space-4) var(--space-1) 0;
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.detailTable td {
+  padding: 2px var(--space-4) 2px 0;
+  font-family: var(--font-mono);
+}
+
+.detailList {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.detailList dt {
+  color: var(--color-text-muted);
+}
+
+.detailList dd {
+  margin: 0;
+  color: var(--color-text-primary);
+}
