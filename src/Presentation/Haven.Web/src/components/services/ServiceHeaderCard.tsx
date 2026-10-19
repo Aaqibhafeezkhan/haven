@@ -1,6 +1,7 @@
 import {
   Container,
   Download,
+  GitBranch,
   Globe,
   Network,
   Play,
@@ -14,6 +15,7 @@ import { ServiceDashboardDto } from '@/api/types';
 import { Row, Spacer, Stack } from '@/components/layout';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { RepositoryBoundChip } from '@/components/ui/chips/repositoryBoundChip';
 import { ServiceExposureChip } from '@/components/ui/chips/serviceExposureChip';
 import { ServiceTypeChip } from '@/components/ui/chips/serviceTypeChip';
 import { CodeSpan } from '@/components/ui/CodeSpan';
@@ -69,7 +71,8 @@ export function ServiceHeaderCard({
     !!registry?.containerName ||
     !!registry?.ipAddress ||
     (registry?.ports.length ?? 0) > 0 ||
-    domainsCount > 0;
+    domainsCount > 0 ||
+    !!service.repositoryBinding;
 
   return (
     <Card className={styles.headerCard} padding="var(--space-4)">
@@ -87,6 +90,9 @@ export function ServiceHeaderCard({
           <Row gap="2">
             <ServiceTypeChip serviceType={service.type} size="sm" />
             <ServiceExposureChip exposureMode={service.exposureMode} size="sm" />
+            {service.repositoryBinding && (
+              <RepositoryBoundChip binding={service.repositoryBinding} size="sm" />
+            )}
           </Row>
           <Spacer expand direction="horizontal" />
           <Row gap="2" wrap className={styles.actions}>
@@ -148,6 +154,15 @@ export function ServiceHeaderCard({
 
         {hasMeta && (
           <div className={styles.metaBar}>
+            {service.repositoryBinding && (
+              <div className={styles.metaItem}>
+                <GitBranch size={14} className={styles.metaIcon} />
+                <span className={styles.metaLabel}>{t('services:repositoryBound.source')}</span>
+                <CodeSpan copyable>
+                  {`${service.repositoryBinding.repository}@${service.repositoryBinding.branch}:${service.repositoryBinding.filePath}`}
+                </CodeSpan>
+              </div>
+            )}
             {startedRelative && (
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>{t('services:startedAt')}</span>

@@ -349,7 +349,18 @@
     "importManifestDescription": "Paste a service manifest to create the service in the selected environment.",
     "rawManifest": "Raw manifest",
     "rawManifestPlaceholder": "Paste the manifest contents here",
-    "importButton": "Import"
+    "importButton": "Import",
+    "bindToRepository": "Bind to Repository",
+    "bindToRepositoryDescription": "Create a service whose definition lives in a git repository.",
+    "bindToRepositoryHelp": "Haven reads the manifest from the repository and re-applies it on every deploy. The repository is never written to.",
+    "manifestFilePath": "Manifest file path",
+    "manifestFilePathHelp": "Path of the service manifest inside the repository.",
+    "manifestFilePathPlaceholder": "deploy/haven/api.yaml"
+  },
+  "repositoryBound": {
+    "chip": "Repo bound",
+    "tooltip": "Defined by {{filePath}} on {{branch}}. Synced from the repository on every deploy.",
+    "source": "Source"
   },
   "deployments": "Deployments",
   "containerName": "Container",

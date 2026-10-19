@@ -197,6 +197,10 @@ namespace Haven.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<string>("RepositoryBinding")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("repository_binding");
+
                     b.Property<string>("SourceConfigJson")
                         .HasColumnType("TEXT")
                         .HasColumnName("source_config");

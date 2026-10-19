@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import { Container, FileCode, FileText, LayoutTemplate } from 'lucide-react';
+import { Container, FileCode, FileText, GitBranch, LayoutTemplate } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -69,6 +69,8 @@ interface ServiceTypePickerProps {
   onPickTemplate: () => void;
   manifestSelected?: boolean;
   onPickManifest: () => void;
+  repositorySelected?: boolean;
+  onPickRepository: () => void;
 }
 
 export function ServiceTypePicker({
@@ -79,7 +81,9 @@ export function ServiceTypePicker({
   onPickTemplate,
   manifestSelected,
   onPickManifest,
-}:ServiceTypePickerProps) {
+  repositorySelected,
+  onPickRepository,
+}: ServiceTypePickerProps) {
   const { t } = useTranslation('services');
   const options = getOptions(t);
 
@@ -88,7 +92,9 @@ export function ServiceTypePicker({
       {options.map(opt => (
         <TypeCard
           key={opt.type}
-          selected={value === opt.type && !selectedTemplate && !manifestSelected}
+          selected={
+            value === opt.type && !selectedTemplate && !manifestSelected && !repositorySelected
+          }
           disabled={disabled}
           icon={opt.icon}
           label={opt.label}
@@ -117,6 +123,15 @@ export function ServiceTypePicker({
         label={t('createPage.importFromManifest')}
         description={t('createPage.importFromManifestDescription')}
         onClick={onPickManifest}
+      />
+
+      <TypeCard
+        selected={!!repositorySelected}
+        disabled={disabled}
+        icon={<GitBranch size={28} />}
+        label={t('createPage.bindToRepository')}
+        description={t('createPage.bindToRepositoryDescription')}
+        onClick={onPickRepository}
       />
     </Grid>
   );

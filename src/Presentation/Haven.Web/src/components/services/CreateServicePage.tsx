@@ -43,6 +43,7 @@ import { DomainsEditor } from './DomainsEditor';
 import { ExposureModePicker } from './ExposureModePicker';
 import type { PortMapping } from './PortMappingsEditor';
 import { PortMappingsEditor } from './PortMappingsEditor';
+import { RepositoryBindingFields } from './RepositoryBindingFields';
 import { ServiceTypePicker } from './ServiceTypePicker';
 import { TemplateInputField } from './TemplateInputField';
 import { TemplatePickerModal } from './TemplatePickerModal';
@@ -80,6 +81,11 @@ export function CreateServicePage() {
   );
   const [isImportMode, setIsImportMode] = useState(false);
   const [manifestText, setManifestText] = useState('');
+  const [isRepositoryMode, setIsRepositoryMode] = useState(false);
+  const [bindingRepository, setBindingRepository] = useState('');
+  const [bindingBranch, setBindingBranch] = useState('');
+  const [bindingFilePath, setBindingFilePath] = useState('');
+  const [bindingCredentialId, setBindingCredentialId] = useState<string | undefined>(undefined);
   const sourceMode: 'custom' | 'template' = selectedTemplateSummary ? 'template' : 'custom';
 
   // DockerImage fields
@@ -202,10 +208,12 @@ export function CreateServicePage() {
     setSelectedType(type);
     setSelectedTemplateSummary(null);
     setIsImportMode(false);
+    setIsRepositoryMode(false);
   };
 
   const handleSelectTemplate = (template: ServiceTemplateSummaryDto) => {
     setIsImportMode(false);
+    setIsRepositoryMode(false);
     setSelectedTemplateSummary(template);
     setTemplateInputValues({});
     if (!name.trim() || name === selectedTemplateSummary?.name) {
@@ -215,7 +223,57 @@ export function CreateServicePage() {
 
   const handleSelectManifest = () => {
     setSelectedTemplateSummary(null);
+    setIsRepositoryMode(false);
     setIsImportMode(true);
+  };
+
+  const handleSelectRepository = () => {
+    setSelectedTemplateSummary(null);
+    setIsImportMode(false);
+    setIsRepositoryMode(true);
+  };
+
+  const isRepositoryBindingValid =
+    !!selectedProjectId &&
+    !!selectedEnvironmentId &&
+    !!bindingRepository.trim() &&
+    !!bindingBranch.trim() &&
+    !!bindingFilePath.trim();
+
+  const handleImportFromRepository = async () => {
+    setError(null);
+    if (!isRepositoryBindingValid) {
+      setError(t('createPage.fillRequiredFields'));
+      return;
+    }
+
+    setIsLoading(true);
+    setStatus('creating');
+    try {
+      const serviceId = await servicesApi.importFromRepository(selectedEnvironmentId, {
+        gitCredentialId: bindingCredentialId,
+        repository: bindingRepository.trim(),
+        branch: bindingBranch.trim(),
+        filePath: bindingFilePath.trim(),
+      });
+      setCreatedServiceId(serviceId);
+      try {
+        const service = await servicesApi.getById(
+          selectedProjectId,
+          selectedEnvironmentId,
+          serviceId
+        );
+        setName(service.name);
+      } catch (err) {
+        console.error('Failed to load imported service', err);
+      }
+      setStatus('success');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('createPage.failedToCreate'));
+      setStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const isManifestValid = !!selectedProjectId && !!selectedEnvironmentId && !!manifestText.trim();
@@ -612,6 +670,8 @@ export function CreateServicePage() {
                   onPickTemplate={() => setIsTemplateModalOpen(true)}
                   manifestSelected={isImportMode}
                   onPickManifest={handleSelectManifest}
+                  repositorySelected={isRepositoryMode}
+                  onPickRepository={handleSelectRepository}
                 />
               </CardContent>
             </Card>
@@ -623,7 +683,49 @@ export function CreateServicePage() {
               selectedTemplateId={selectedTemplateSummary?.id}
             />
 
-            {isImportMode ? (
+            {isRepositoryMode ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('createPage.bindToRepository')}</CardTitle>
+                    <p className={styles.cardDescription}>{t('createPage.bindToRepositoryHelp')}</p>
+                  </CardHeader>
+
+                  <CardContent>
+                    <div className={styles.formSection}>
+                      {projectEnvSelects}
+
+                      <RepositoryBindingFields
+                        gitCredentialId={bindingCredentialId}
+                        onGitCredentialIdChange={setBindingCredentialId}
+                        credentials={credentials}
+                        repository={bindingRepository}
+                        onRepositoryChange={setBindingRepository}
+                        branch={bindingBranch}
+                        onBranchChange={setBindingBranch}
+                        filePath={bindingFilePath}
+                        onFilePathChange={setBindingFilePath}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className={styles.submitSection}>
+                  <Button variant="secondary" onClick={() => navigate(-1)} disabled={isLoading}>
+                    {t('createPage.cancel')}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleImportFromRepository}
+                    isLoading={isLoading}
+                    disabled={!isRepositoryBindingValid}
+                  >
+                    {t('createPage.importButton')}
+                  </Button>
+                </div>
+              </>
+            ) : isImportMode ? (
               <>
                 <Card>
                   <CardHeader>

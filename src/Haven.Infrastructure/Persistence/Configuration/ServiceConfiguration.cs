@@ -3,6 +3,7 @@ using Haven.Domain.Entities;
 using Haven.Domain.ValueObjects;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Haven.Infrastructure.Persistence.Configuration;
@@ -64,11 +65,24 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
             .HasColumnName("source_config")
             .HasColumnType("TEXT");
 
+        // Stored as JSON: repository URLs and file paths can contain any delimiter a flat string format would use.
         builder.Property(x => x.RepositoryBinding)
             .HasColumnName("repository_binding")
             .HasConversion(
-                v => v.ToString(),
-                v => RepositoryBinding.FromString(v))
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<RepositoryBinding>(v, (System.Text.Json.JsonSerializerOptions?)null),
+                new ValueComparer<RepositoryBinding?>(
+                    (a, b) => a == b,
+                    v => v == null ? 0 : v.GetHashCode(),
+                    v => v == null
+                        ? null
+                        : new RepositoryBinding
+                        {
+                            GitCredentialId = v.GitCredentialId,
+                            Repository = v.Repository,
+                            Branch = v.Branch,
+                            FilePath = v.FilePath
+                        }))
             .HasColumnType("TEXT");
 
         builder.Ignore(x => x.SourceConfig);

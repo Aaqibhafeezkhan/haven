@@ -62,6 +62,11 @@ export const servicesApi = {
   importFromManifest: (environmentId: string, rawManifest: string) =>
     apiClient.post<string>('/services/import-from-manifest', { environmentId, rawManifest }),
 
+  importFromRepository: (
+    environmentId: string,
+    binding: { gitCredentialId?: string; repository: string; branch: string; filePath: string }
+  ) => apiClient.post<string>('/services/import-from-repository', { environmentId, ...binding }),
+
   update: (projectId: string, environmentId: string, serviceId: string, body: UpdateServiceInput) =>
     apiClient.patch<void>(
       `/projects/${projectId}/environments/${environmentId}/services/${serviceId}`,

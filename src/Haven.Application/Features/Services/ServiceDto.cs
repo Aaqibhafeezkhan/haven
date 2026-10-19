@@ -16,6 +16,7 @@ public sealed class ServiceDto
     public ServiceDisplayStatus Status { get; set; }
     public ServiceHealth Health { get; set; }
     public ServiceSourceConfig? SourceConfig { get; set; }
+    public RepositoryBindingDto? RepositoryBinding { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public string WebhookUrl { get; set; }
