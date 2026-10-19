@@ -1,6 +1,8 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
 
+using Haven.Domain.Aggregates;
+using Haven.Domain.Enums;
 using Haven.Infrastructure.Persistence;
 using Haven.Infrastructure.Utils;
 
@@ -8,9 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-
-using Haven.Domain.Aggregates;
-using Haven.Domain.Enums;
 
 namespace Haven.Infrastructure.Deployment.Docker;
 

@@ -1,5 +1,5 @@
-using Haven.Application.Common.Interfaces;
 using Haven.Application.Common;
+using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Domain;

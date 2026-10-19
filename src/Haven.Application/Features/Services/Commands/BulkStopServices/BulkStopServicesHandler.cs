@@ -1,10 +1,10 @@
-using Haven.Domain.Enums;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
 using Haven.Application.Features.Services.Shared;
 using Haven.Domain.Aggregates;
+using Haven.Domain.Enums;
 using Haven.Domain.Exceptions;
 
 using Environment = Haven.Domain.Aggregates.Environment;

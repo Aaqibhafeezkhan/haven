@@ -40,7 +40,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
     public ICollection<HealthCheck> HealthChecks { get; set; } = [];
     public ICollection<CustomAction> CustomActions { get; set; } = [];
     public GitCredentials? GitCredentials { get; set; } = null;
-    
+
     /// <summary>\
     /// Gets the most recent deployment that is not in a terminal state.
     /// </summary>

@@ -1,5 +1,5 @@
-using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Sidecars.Queries.ListSidecars;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Enums;

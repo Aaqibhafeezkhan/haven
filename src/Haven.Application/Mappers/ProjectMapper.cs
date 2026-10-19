@@ -1,8 +1,8 @@
 using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Projects;
-using Haven.Application.Features.Services;
 using Haven.Application.Features.Projects.Queries.GetProjects;
 using Haven.Application.Features.Projects.Queries.GetProjectsDashboard;
+using Haven.Application.Features.Services;
 using Haven.Domain;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;

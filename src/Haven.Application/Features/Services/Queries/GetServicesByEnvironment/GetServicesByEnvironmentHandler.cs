@@ -1,6 +1,6 @@
-using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Messaging;
 using Haven.Domain.Aggregates;
 

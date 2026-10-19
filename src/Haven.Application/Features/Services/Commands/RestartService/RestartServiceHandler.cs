@@ -1,8 +1,8 @@
-using Haven.Domain.Enums;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Domain.Aggregates;
+using Haven.Domain.Enums;
 
 using Environment = Haven.Domain.Aggregates.Environment;
 

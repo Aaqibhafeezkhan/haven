@@ -1,5 +1,5 @@
-using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Networks.Queries.GetNetwork;
 using Haven.Domain;
 using Haven.Domain.Aggregates;

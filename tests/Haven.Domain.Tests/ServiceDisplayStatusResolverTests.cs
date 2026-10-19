@@ -14,8 +14,8 @@ public sealed class ServiceDisplayStatusResolverTests
     public void Resolve_ActiveDeployment_IsDeploying_WhateverTheRuntimeState(DeploymentStatus active)
     {
         foreach (var runtime in Enum.GetValues<ServiceRuntimeState>())
-        foreach (var health in Enum.GetValues<ServiceHealth>())
-            ServiceDisplayStatusResolver.Resolve(active, runtime, health).ShouldBe(ServiceDisplayStatus.Deploying);
+            foreach (var health in Enum.GetValues<ServiceHealth>())
+                ServiceDisplayStatusResolver.Resolve(active, runtime, health).ShouldBe(ServiceDisplayStatus.Deploying);
     }
 
     [TestCase(DeploymentStatus.Succeeded)]
@@ -56,7 +56,7 @@ public sealed class ServiceDisplayStatusResolverTests
     public void Resolve_CoversEveryRuntimeStateAndHealthCombination()
     {
         foreach (var runtime in Enum.GetValues<ServiceRuntimeState>())
-        foreach (var health in Enum.GetValues<ServiceHealth>())
-            Should.NotThrow(() => ServiceDisplayStatusResolver.Resolve(null, runtime, health));
+            foreach (var health in Enum.GetValues<ServiceHealth>())
+                Should.NotThrow(() => ServiceDisplayStatusResolver.Resolve(null, runtime, health));
     }
 }
