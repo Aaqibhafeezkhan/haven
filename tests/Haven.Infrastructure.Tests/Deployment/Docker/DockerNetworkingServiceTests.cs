@@ -211,7 +211,7 @@ public sealed class DockerNetworkingServiceTests
         var result = await _sut.CreateProjectEnvironmentNetworkAsync(project.Id, environmentId, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        subnets.ShouldBe(["10.240.0.0/24", "10.240.1.0/24"]);
+        subnets.ShouldBe(["10.240.5.0/24", "10.240.6.0/24"]);
     }
 
     [Test]
@@ -262,7 +262,7 @@ public sealed class DockerNetworkingServiceTests
         result.IsSuccess.ShouldBeTrue();
         var saved = await _db.Networks.SingleAsync();
         saved.DockerNetworkId.ShouldBe("fresh");
-        saved.Subnet.ShouldBe("10.240.0.0/24");
+        saved.Subnet.ShouldBe("10.240.5.0/24");
     }
 
     [Test]
@@ -314,7 +314,7 @@ public sealed class DockerNetworkingServiceTests
         var saved = await _db.Networks.SingleAsync();
         saved.DockerNetworkId.ShouldBe("new");
         saved.Subnet.ShouldBe("10.240.0.0/24");
-        saved.Gateway.ShouldBe("10.240.0.1");
+        saved.Gateway.ShouldBe("10.240.5.1");
     }
 
     [Test]
