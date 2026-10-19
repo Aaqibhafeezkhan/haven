@@ -36,7 +36,10 @@ public sealed class GetDashboardOverviewHandler(IProjectRepository repository, I
         var deploymentsLast24h = 0;
         var since = DateTime.UtcNow.AddHours(-24);
 
-        await foreach (var project in repository.GetAsync(cancellationToken))
+        // Materialize first: the streaming reader would otherwise stay open while the state reader queries on the same connection.
+        var projects = await repository.GetAsync(cancellationToken).ToListAsync(cancellationToken);
+
+        foreach (var project in projects)
         {
             totalProjects++;
             totalEnvironments += project.Environments.Count;
