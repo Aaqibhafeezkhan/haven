@@ -6,13 +6,16 @@ using Haven.Domain.Entities;
 
 namespace Haven.Infrastructure.Deployment;
 
-public class DeployWebhookService(IDeploymentJobEnqueuer jobEnqueuer, IServiceRepository repository) : IDeployWebhookService
+public class DeployWebhookService(IDeploymentJobEnqueuer jobEnqueuer, IServiceRepository repository, IDeploymentLogService deploymentLogService, IUnitOfWork unitOfWork) : IDeployWebhookService
 {
     public async Task<Result> TryEnqueueWithTokenAsync(string token, CancellationToken ct)
     {
         var service = await repository.GetByTokenAsync(token, ct);
         if (service?.Environment is null) return Error.NotFound;
 
+        await deploymentLogService.QueueDeploymentForServiceAsync(service.Id, ct);
+        service.AnnounceDeploymentStarted();
+        await unitOfWork.SaveChangesAsync(ct);
         jobEnqueuer.EnqueueDeployment(service.Environment!.ProjectId, service.EnvironmentId, service.Id);
         return Result.Success();
     }

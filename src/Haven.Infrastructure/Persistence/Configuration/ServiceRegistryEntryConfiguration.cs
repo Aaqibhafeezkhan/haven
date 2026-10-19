@@ -68,11 +68,13 @@ public class ServiceRegistryEntryConfiguration : IEntityTypeConfiguration<Servic
 
         builder.HasOne(p => p.Service)
             .WithMany()
-            .HasForeignKey(p => p.ServiceId);
+            .HasForeignKey(p => p.ServiceId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(p => p.Sidecar)
             .WithMany()
-            .HasForeignKey(p => p.SidecarId);
+            .HasForeignKey(p => p.SidecarId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Prevents duplicate registry entries for the same service/sidecar - EnsureServiceRegisteredAsync's
         // check-then-insert isn't atomic, so this is the final guarantee against a race producing two rows

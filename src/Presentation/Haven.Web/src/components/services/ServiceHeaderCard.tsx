@@ -52,12 +52,7 @@ export function ServiceHeaderCard({
   const { t } = useTranslation(['services', 'common']);
   const { t: tCommon } = useTranslation('common');
 
-  const health =
-    service.status !== 'Running'
-      ? service.status.toLowerCase()
-      : service.health !== 'Healthy'
-        ? service.health.toLowerCase()
-        : service.status.toLowerCase();
+  const health = service.status.toLowerCase();
 
   const registry = service.registry;
   const domainsCount = registry?.domains.length ?? 0;

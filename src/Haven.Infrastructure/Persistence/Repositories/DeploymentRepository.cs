@@ -32,12 +32,26 @@ public sealed class DeploymentRepository(HavenDbContext context) : IDeploymentRe
                         && d.Status != DeploymentStatus.Succeeded
                         && d.Status != DeploymentStatus.Failed
                         && d.Status != DeploymentStatus.Cancelled)
-            .OrderByDescending(d => d.StartedAt)
-            .Select(d => new { d.ServiceId, d.Status })
+            .Select(d => new { d.ServiceId, d.Status, d.StartedAt })
             .ToListAsync(ct);
 
-        // Most recent in-flight deployment wins when a service somehow has more than one.
-        return rows.GroupBy(r => r.ServiceId).ToDictionary(g => g.Key, g => g.First().Status);
+        // Ordered client-side (SQLite can't ORDER BY DateTimeOffset): the most recent in-flight deployment wins
+        // when a service somehow has more than one.
+        return rows
+            .GroupBy(r => r.ServiceId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.StartedAt).First().Status);
+    }
+
+    public async Task<Domain.Entities.Deployment?> FindActiveForServiceAsync(Guid serviceId, CancellationToken ct)
+    {
+        var active = await context.Deployments
+            .Where(d => d.ServiceId == serviceId
+                        && d.Status != DeploymentStatus.Succeeded
+                        && d.Status != DeploymentStatus.Failed
+                        && d.Status != DeploymentStatus.Cancelled)
+            .ToListAsync(ct);
+
+        return active.OrderByDescending(d => d.StartedAt).FirstOrDefault();
     }
 
     public async Task RemoveAsync(Guid deploymentId, CancellationToken ct)

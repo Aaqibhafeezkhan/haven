@@ -1,3 +1,4 @@
+using Haven.Domain.Enums;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
@@ -26,6 +27,7 @@ public sealed class RestartServiceHandler(
         if (service is null)
             return Error.NotFoundFor(nameof(Service), request.ServiceId);
 
+        service.SetDesiredState(DesiredState.Running);
         deploymentJobEnqueuer.EnqueueRestart(request.ProjectId, request.EnvironmentId, request.ServiceId);
         return Result.Success();
     }

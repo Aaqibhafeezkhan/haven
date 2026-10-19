@@ -16,6 +16,7 @@ public sealed class BulkDeployServicesHandlerTests
 {
     private IProjectRepository _projectRepository;
     private IDeploymentJobEnqueuer _deploymentJobEnqueuer;
+    private IDeploymentLogService _deploymentLogService;
     private BulkDeployServicesHandler _sut;
 
     [SetUp]
@@ -23,7 +24,8 @@ public sealed class BulkDeployServicesHandlerTests
     {
         _projectRepository = Substitute.For<IProjectRepository>();
         _deploymentJobEnqueuer = Substitute.For<IDeploymentJobEnqueuer>();
-        _sut = new BulkDeployServicesHandler(_projectRepository, _deploymentJobEnqueuer);
+        _deploymentLogService = Substitute.For<IDeploymentLogService>();
+        _sut = new BulkDeployServicesHandler(_projectRepository, _deploymentJobEnqueuer, _deploymentLogService);
     }
 
     [Test]

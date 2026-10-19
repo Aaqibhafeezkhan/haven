@@ -1,4 +1,4 @@
-export type DeploymentStatus = 'InProgress' | 'Succeeded' | 'Failed' | 'Cancelled';
+export type DeploymentStatus = 'Queued' | 'Building' | 'Starting' | 'Succeeded' | 'Failed' | 'Cancelled';
 export interface DeploymentDto {
   id: string;
   serviceId: string;

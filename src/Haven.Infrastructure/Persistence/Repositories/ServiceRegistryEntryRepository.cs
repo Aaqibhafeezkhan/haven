@@ -29,16 +29,17 @@ public class ServiceRegistryEntryRepository(HavenDbContext db) : IServiceRegistr
         return query.OrderByDescending(e => e.UpdatedAt).ToPagedResultAsync(pageNumber, pageSize, ct);
     }
 
-    public async Task<Dictionary<Guid, ServiceRegistryEntry>> GetByServiceIdsAsync(IReadOnlyCollection<Guid> serviceIds, CancellationToken ct = default)
+    public async Task<Dictionary<Guid, ServiceRegistryEntry>> GetByOwnerIdsAsync(IReadOnlyCollection<Guid> ownerIds, CancellationToken ct = default)
     {
-        if (serviceIds.Count == 0) return [];
+        if (ownerIds.Count == 0) return [];
 
         var entries = await db.ServiceRegistryEntries
             .AsNoTracking()
-            .Where(e => e.ServiceId != null && serviceIds.Contains(e.ServiceId.Value))
+            .Where(e => (e.ServiceId != null && ownerIds.Contains(e.ServiceId.Value))
+                        || (e.SidecarId != null && ownerIds.Contains(e.SidecarId.Value)))
             .ToListAsync(ct);
 
-        return entries.ToDictionary(e => e.ServiceId!.Value);
+        return entries.ToDictionary(e => e.OwnerId);
     }
 
     public async Task<ServiceRegistryEntry?> GetForServiceAsync(Guid serviceId, CancellationToken ct = default)

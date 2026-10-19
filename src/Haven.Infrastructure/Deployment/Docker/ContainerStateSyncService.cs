@@ -11,7 +11,6 @@ using Microsoft.Extensions.Logging;
 
 using Haven.Domain.Aggregates;
 using Haven.Domain.Enums;
-using ServiceStatus = Haven.Domain.Enums.ServiceStatus;
 
 namespace Haven.Infrastructure.Deployment.Docker;
 
@@ -178,6 +177,10 @@ public class ContainerStateSyncService : IHostedService
         }
 
         var allSidecars = await db.Sidecars.ToListAsync(cancellationToken);
+        var sidecarEntries = (await db.ServiceRegistryEntries
+                .Where(e => e.SidecarId != null)
+                .ToListAsync(cancellationToken))
+            .ToDictionary(e => e.SidecarId!.Value);
 
         foreach (var sidecar in allSidecars)
         {
@@ -188,14 +191,17 @@ public class ContainerStateSyncService : IHostedService
                 labelValue == containerIdLabel.Value
             ).ToList();
 
+            sidecarEntries.TryGetValue(sidecar.Id, out var sidecarEntry);
+            var recordedState = sidecarEntry?.RuntimeState ?? ServiceRuntimeState.NotDeployed;
+
             if (matchingContainers.Count == 0)
             {
-                if (sidecar.Status != ServiceStatus.Stopped)
+                if (sidecarEntry is not null && recordedState is not (ServiceRuntimeState.Stopped or ServiceRuntimeState.NotDeployed))
                 {
                     _logger.LogWarning(
-                        "Sidecar {SidecarName} is marked as {Status} but no container found. Marking as stopped.",
-                        sidecar.Name, sidecar.Status);
-                    sidecar.MarkStopped();
+                        "Sidecar {SidecarName} is recorded as {State} but no container found. Marking as stopped.",
+                        sidecar.Name, recordedState);
+                    sidecarEntry.ApplyRuntimeState(ServiceRuntimeState.Stopped, DateTime.UtcNow);
                 }
             }
             else
@@ -203,19 +209,28 @@ public class ContainerStateSyncService : IHostedService
                 var container = matchingContainers.First();
                 var isRunning = container.State == "running";
 
-                if (isRunning && sidecar.Status != ServiceStatus.Running)
+                if (isRunning && recordedState != ServiceRuntimeState.Running)
                 {
                     _logger.LogWarning(
-                        "Sidecar {SidecarName} is marked as {Status} but container is running. Marking as running.",
-                        sidecar.Name, sidecar.Status);
-                    sidecar.MarkDeployed();
+                        "Sidecar {SidecarName} is recorded as {State} but container is running. Marking as running.",
+                        sidecar.Name, recordedState);
+                    if (sidecarEntry is null)
+                    {
+                        sidecarEntry = ServiceRegistryEntry.CreateForSidecar(sidecar.Id);
+                        db.ServiceRegistryEntries.Add(sidecarEntry);
+                        sidecarEntries[sidecar.Id] = sidecarEntry;
+                    }
+
+                    sidecarEntry.ApplyRuntimeState(ServiceRuntimeState.Running, DateTime.UtcNow);
                 }
-                else if (!isRunning && sidecar.Status == ServiceStatus.Running)
+                else if (!isRunning && recordedState == ServiceRuntimeState.Running)
                 {
                     _logger.LogWarning(
-                        "Sidecar {SidecarName} is marked as running but container state is {ContainerState}. Marking as stopped.",
+                        "Sidecar {SidecarName} is recorded as running but container state is {ContainerState}. Marking as stopped.",
                         sidecar.Name, container.State);
-                    sidecar.MarkStopped();
+                    sidecarEntry!.ApplyRuntimeState(
+                        container.State == "restarting" ? ServiceRuntimeState.Restarting : ServiceRuntimeState.Stopped,
+                        DateTime.UtcNow);
                 }
 
                 if (matchingContainers.Count > 1)

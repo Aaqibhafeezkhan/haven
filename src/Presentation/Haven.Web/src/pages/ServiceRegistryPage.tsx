@@ -36,6 +36,7 @@ function statusVariant(status: string): 'success' | 'danger' | 'warning' | 'defa
     case 'Running':
       return 'success';
     case 'Stopped':
+    case 'Crashed':
       return 'danger';
     case 'Degraded':
       return 'warning';
@@ -165,7 +166,14 @@ export function ServiceRegistryPage() {
                     >
                       <TableCell>
                         <Row gap="5" align="center">
-                          <HealthIndicator useTooltip health={entry.status} />
+                          <HealthIndicator
+                            useTooltip
+                            health={
+                              entry.runtimeState === 'Running' && entry.health === 'Unhealthy'
+                                ? 'degraded'
+                                : entry.runtimeState.toLowerCase()
+                            }
+                          />
                           <Stack gap="1">
                             <span className={styles.containerName}>
                               {entry.containerName ?? '—'}

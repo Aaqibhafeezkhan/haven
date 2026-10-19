@@ -15,6 +15,7 @@ public sealed class DisableSidecarHandlerTests
 {
     private ISidecarRepository _sidecarRepository;
     private IDeploymentJobEnqueuer _deploymentJobEnqueuer;
+    private IServiceRegistryEntryRepository _registryEntryRepository;
     private DisableSidecarHandler _sut;
 
     [SetUp]
@@ -22,7 +23,8 @@ public sealed class DisableSidecarHandlerTests
     {
         _sidecarRepository = Substitute.For<ISidecarRepository>();
         _deploymentJobEnqueuer = Substitute.For<IDeploymentJobEnqueuer>();
-        _sut = new DisableSidecarHandler(_sidecarRepository, _deploymentJobEnqueuer);
+        _registryEntryRepository = Substitute.For<IServiceRegistryEntryRepository>();
+        _sut = new DisableSidecarHandler(_sidecarRepository, _registryEntryRepository, _deploymentJobEnqueuer);
     }
 
     [Test]
@@ -55,7 +57,7 @@ public sealed class DisableSidecarHandlerTests
     {
         var sidecar = Sidecar.Create("traefik", SidecarKind.Traefik);
         sidecar.Enable();
-        sidecar.MarkDeployed();
+        GivenRuntimeState(sidecar, ServiceRuntimeState.Running);
         var command = new DisableSidecarCommand { SidecarId = sidecar.Id };
         _sidecarRepository.GetByIdAsync(command.SidecarId, Arg.Any<CancellationToken>()).Returns(sidecar);
 
@@ -63,7 +65,6 @@ public sealed class DisableSidecarHandlerTests
 
         result.IsSuccess.ShouldBeTrue();
         sidecar.Enabled.ShouldBeFalse();
-        sidecar.Status.ShouldBe(ServiceStatus.Stopped);
         _deploymentJobEnqueuer.Received(1).EnqueueSidecarStop(sidecar.Id);
     }
 
@@ -80,5 +81,12 @@ public sealed class DisableSidecarHandlerTests
         result.IsSuccess.ShouldBeTrue();
         sidecar.Enabled.ShouldBeFalse();
         _deploymentJobEnqueuer.DidNotReceive().EnqueueSidecarStop(Arg.Any<Guid>());
+    }
+
+    private void GivenRuntimeState(Sidecar sidecar, ServiceRuntimeState state)
+    {
+        var entry = ServiceRegistryEntry.CreateForSidecar(sidecar.Id);
+        entry.ApplyRuntimeState(state, DateTime.UtcNow);
+        _registryEntryRepository.GetForSidecarAsync(sidecar.Id, Arg.Any<CancellationToken>()).Returns(entry);
     }
 }

@@ -47,8 +47,8 @@ public class ContainerHealthyEventHandler : INotificationHandler<ContainerHealth
                 return;
             }
 
-            await _recorder.ApplyRunningAsync(service.Id, cancellationToken);
-            await _recorder.ApplyHealthAsync(service.Id, ServiceHealth.Healthy, cancellationToken);
+            await _recorder.ApplyRunningAsync(service, cancellationToken);
+            await _recorder.ApplyHealthAsync(service, ServiceHealth.Healthy, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Service {ServiceId} reported healthy", notification.ServiceId);
             return;
@@ -61,14 +61,9 @@ public class ContainerHealthyEventHandler : INotificationHandler<ContainerHealth
             return;
         }
 
-        if (sidecar.Status == ServiceStatus.Running)
-        {
-            _logger.LogDebug("Sidecar {SidecarId} is already running", sidecar.Id);
-            return;
-        }
-
-        sidecar.MarkDeployed();
+        await _recorder.ApplyRunningAsync(sidecar, cancellationToken);
+        await _recorder.ApplyHealthAsync(sidecar, ServiceHealth.Healthy, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Sidecar {SidecarId} recovered from degraded state", sidecar.Id);
+        _logger.LogInformation("Sidecar {SidecarId} reported healthy", sidecar.Id);
     }
 }

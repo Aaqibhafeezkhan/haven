@@ -46,7 +46,7 @@ public class ContainerStartedEventHandler : INotificationHandler<ContainerStarte
 
             // A (re)start is always a fresh start, whether or not the entry already said Running.
             service.RecordDeployment();
-            await _recorder.ApplyRunningAsync(service.Id, cancellationToken);
+            await _recorder.ApplyRunningAsync(service, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Service {ServiceId} marked as running after container started", notification.ServiceId);
@@ -60,15 +60,8 @@ public class ContainerStartedEventHandler : INotificationHandler<ContainerStarte
             return;
         }
 
-        if (sidecar.Status == ServiceStatus.Running)
-        {
-            sidecar.RecordDeployment();
-            await _db.SaveChangesAsync(cancellationToken);
-            _logger.LogDebug("Sidecar {SidecarId} is already running; updated last deployed time", sidecar.Id);
-            return;
-        }
-
-        sidecar.MarkDeployed();
+        sidecar.RecordDeployment();
+        await _recorder.ApplyRunningAsync(sidecar, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Sidecar {SidecarId} marked as running after container started", sidecar.Id);

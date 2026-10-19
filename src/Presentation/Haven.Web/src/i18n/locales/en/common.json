@@ -114,6 +114,10 @@
     "deploymentpending": "Deployment Pending",
     "deploymentPending": "Deployment Pending",
     "unknown": "Unknown",
+    "notdeployed": "Not Deployed",
+    "starting": "Starting",
+    "restarting": "Restarting",
+    "crashed": "Crashed",
     "healthy": "Healthy",
     "unhealthy": "Unhealthy"
   },

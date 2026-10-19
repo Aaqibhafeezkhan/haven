@@ -7,12 +7,12 @@ public sealed class ServiceStateReader(
     IServiceRegistryEntryRepository registryRepository,
     IDeploymentRepository deploymentRepository) : IServiceStateReader
 {
-    public async Task<ServiceStateSnapshot> LoadAsync(IEnumerable<Guid> serviceIds, CancellationToken ct = default)
+    public async Task<ServiceStateSnapshot> LoadAsync(IEnumerable<Guid> ownerIds, CancellationToken ct = default)
     {
-        var ids = serviceIds.Distinct().ToList();
+        var ids = ownerIds.Distinct().ToList();
         if (ids.Count == 0) return ServiceStateSnapshot.Empty;
 
-        var entries = await registryRepository.GetByServiceIdsAsync(ids, ct);
+        var entries = await registryRepository.GetByOwnerIdsAsync(ids, ct);
         var active = await deploymentRepository.GetActiveStatusesAsync(ids, ct);
         return new ServiceStateSnapshot(entries, active);
     }

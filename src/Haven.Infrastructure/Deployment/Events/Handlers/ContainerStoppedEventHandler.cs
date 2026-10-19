@@ -44,7 +44,7 @@ public class ContainerStoppedEventHandler : INotificationHandler<ContainerStoppe
                 return;
             }
 
-            if (!await _recorder.ApplyStopAsync(service, ServiceRuntimeState.Stopped, cancellationToken))
+            if (!await _recorder.ApplyStopAsync(service, ServiceRuntimeState.Stopped, null, cancellationToken))
             {
                 _logger.LogInformation("Service {ServiceId} is already stopped or being deployed, skipping stop handler", notification.ServiceId);
                 return;
@@ -63,13 +63,12 @@ public class ContainerStoppedEventHandler : INotificationHandler<ContainerStoppe
             return;
         }
 
-        if (sidecar.Status is ServiceStatus.Stopped or ServiceStatus.Deploying)
+        if (!await _recorder.ApplyStopAsync(sidecar, ServiceRuntimeState.Stopped, null, cancellationToken))
         {
-            _logger.LogInformation("Sidecar {SidecarId} is already stopped or deploying, skipping stop handler", sidecar.Id);
+            _logger.LogInformation("Sidecar {SidecarId} is already stopped or restarting, skipping stop handler", sidecar.Id);
             return;
         }
 
-        sidecar.MarkStopped();
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Sidecar {SidecarId} marked as stopped", sidecar.Id);

@@ -10,7 +10,8 @@ namespace Haven.Application.Features.Services.Commands.DeployService;
 
 public sealed class DeployServiceHandler(
     IProjectRepository projectRepository,
-    IDeploymentJobEnqueuer deploymentJobEnqueuer)
+    IDeploymentJobEnqueuer deploymentJobEnqueuer,
+    IDeploymentLogService deploymentLogService)
     : Haven.Application.Common.Messaging.ICommandHandler<DeployServiceCommand>
 {
     public async ValueTask<Result> Handle(DeployServiceCommand request, CancellationToken cancellationToken)
@@ -27,6 +28,8 @@ public sealed class DeployServiceHandler(
         if (service is null)
             return Error.NotFoundFor(nameof(Service), request.ServiceId);
 
+        await deploymentLogService.QueueDeploymentForServiceAsync(service.Id, cancellationToken);
+        service.AnnounceDeploymentStarted();
         deploymentJobEnqueuer.EnqueueDeployment(request.ProjectId, request.EnvironmentId, request.ServiceId);
 
         return Result.Success();

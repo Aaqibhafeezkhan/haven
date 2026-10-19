@@ -73,3 +73,27 @@
   box-shadow: 0 0 8px var(--color-deployment-pending);
   animation: pulse 2s ease-in-out infinite;
 }
+
+
+.notdeployed.indicator {
+  background-color: var(--color-text-muted);
+  box-shadow: none;
+  opacity: 0.5;
+}
+
+.starting.indicator {
+  background-color: var(--color-deploying);
+  box-shadow: 0 0 8px var(--color-deploying);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.crashed.indicator {
+  background-color: var(--color-died);
+  box-shadow: 0 0 8px var(--color-died);
+}
+
+.restarting.indicator {
+  background-color: var(--color-deploying);
+  box-shadow: 0 0 8px var(--color-deploying);
+  animation: pulse 1.4s ease-in-out infinite;
+}

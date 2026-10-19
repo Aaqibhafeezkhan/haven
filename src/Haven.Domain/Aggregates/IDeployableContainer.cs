@@ -13,6 +13,7 @@ public interface IDeployableContainer
     Guid Id { get; }
     string Name { get; }
     string? Alias { get; }
+    DesiredState DesiredState { get; }
     ServiceSourceConfig? SourceConfig { get; }
     DateTime CreatedAt { get; }
     DateTime UpdatedAt { get; }

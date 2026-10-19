@@ -13,8 +13,8 @@ public static class ServiceDisplayStatusResolver
         ServiceRuntimeState? runtimeState,
         ServiceHealth? health)
     {
-        if (activeDeployment is { } deployment && !deployment.IsTerminal)
-            return deployment == DeploymentStatus.Starting ? ServiceDisplayStatus.Starting : ServiceDisplayStatus.Deploying;
+        if (activeDeployment is { IsTerminal: false })
+            return ServiceDisplayStatus.Deploying;
 
         return runtimeState switch
         {

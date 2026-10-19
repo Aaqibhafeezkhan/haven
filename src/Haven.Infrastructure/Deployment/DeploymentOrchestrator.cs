@@ -37,10 +37,11 @@ public class DeploymentOrchestrator(
 
         var tags = Tags(container);
 
+        // Services are marked by their Deployment row; sidecars have none, so flag the in-flight work on the entry.
         if (container is Service deployingService)
             deployingService.AnnounceDeploymentStarted();
-        else if (container is Sidecar deployingSidecar)
-            deployingSidecar.MarkDeploying();
+        else
+            await MarkTransitioningAsync(container, cancellationToken);
 
         // Deployment-log persistence only exists for Service today (Deployment.ServiceId is a
         // required FK); sidecars aren't logged there yet, so deploymentId stays null for them.
@@ -94,6 +95,10 @@ public class DeploymentOrchestrator(
             metrics.DeploymentDurationSeconds.Record(sw.Elapsed.TotalSeconds, WithResult(tags, "failure"));
             return deployResult;
         }
+
+        // The image is built and the container started; what's left is checking it stays up.
+        if (deployment is not null)
+            await logService.MarkDeploymentStartingAsync(deployment.Id, CancellationToken.None);
 
         if (!await TryMarkDeployedAsync(container, cancellationToken))
         {
@@ -272,7 +277,7 @@ public class DeploymentOrchestrator(
             ? await registry.EnsureServiceRegisteredAsync(container.Id, cancellationToken)
             : await registry.EnsureSidecarRegisteredAsync(container.Id, cancellationToken);
 
-        ApplyRunning(container, entry, ipAddress, ports, containerName);
+        ApplyRunning(entry, ipAddress, ports, containerName);
 
         try
         {
@@ -286,7 +291,7 @@ public class DeploymentOrchestrator(
                 ? await registry.EnsureServiceRegisteredAsync(container.Id, cancellationToken)
                 : await registry.EnsureSidecarRegisteredAsync(container.Id, cancellationToken);
 
-            ApplyRunning(container, winningEntry, ipAddress, ports, containerName);
+            ApplyRunning(winningEntry, ipAddress, ports, containerName);
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
     }
@@ -306,26 +311,22 @@ public class DeploymentOrchestrator(
     {
         await unitOfWork.ReloadAsync(container, cancellationToken);
 
+        var entry = await GetEntryAsync(container, cancellationToken);
+        if (entry is not null)
+        {
+            await unitOfWork.ReloadAsync(entry, cancellationToken);
+            if (entry.RuntimeState == ServiceRuntimeState.Crashed)
+                return false;
+        }
+
         switch (container)
         {
             case Service service:
-                var entry = await registry.GetForServiceAsync(service.Id, cancellationToken);
-                if (entry is not null)
-                {
-                    await unitOfWork.ReloadAsync(entry, cancellationToken);
-                    if (entry.RuntimeState == ServiceRuntimeState.Crashed)
-                        return false;
-                }
-
                 // Stamps the deployment time and the operator's intent even if a Docker event already recorded Running.
                 service.OnDeploymentSucceeded();
                 return true;
 
             case Sidecar sidecar:
-                if (sidecar.Status is ServiceStatus.Stopped)
-                    return false;
-
-                sidecar.MarkDeployed();
                 sidecar.RecordDeployment();
                 return true;
 
@@ -334,19 +335,16 @@ public class DeploymentOrchestrator(
         }
     }
 
+    private Task<ServiceRegistryEntry?> GetEntryAsync(IDeployableContainer container, CancellationToken ct) =>
+        container is Sidecar
+            ? registry.GetForSidecarAsync(container.Id, ct)
+            : registry.GetForServiceAsync(container.Id, ct);
+
     /// <summary>Marks a Start/Restart in progress so reactive stop events from the old container are ignored.</summary>
     private async Task MarkTransitioningAsync(IDeployableContainer container, CancellationToken ct)
     {
-        switch (container)
-        {
-            case Service service:
-                var entry = await registry.GetForServiceAsync(service.Id, ct);
-                entry?.ApplyRuntimeState(ServiceRuntimeState.Restarting, DateTime.UtcNow);
-                break;
-            case Sidecar sidecar:
-                sidecar.MarkDeploying();
-                break;
-        }
+        var entry = await GetEntryAsync(container, ct);
+        entry?.ApplyRuntimeState(ServiceRuntimeState.Restarting, DateTime.UtcNow);
     }
 
     /// <summary>An operator-requested stop: intent changes, and the observed state follows.</summary>
@@ -361,22 +359,11 @@ public class DeploymentOrchestrator(
     /// <summary>Records the container as no longer running without touching the operator's intent.</summary>
     private async Task MarkStoppedAfterFailureAsync(IDeployableContainer container, CancellationToken ct)
     {
-        switch (container)
-        {
-            case Service service:
-                var serviceEntry = await registry.GetForServiceAsync(service.Id, ct);
-                serviceEntry?.ApplyRuntimeState(ServiceRuntimeState.Stopped, DateTime.UtcNow);
-                break;
-            case Sidecar sidecar:
-                sidecar.MarkStopped();
-                var sidecarEntry = await registry.GetForSidecarAsync(sidecar.Id, ct);
-                sidecarEntry?.ApplyRuntimeState(ServiceRuntimeState.Stopped, DateTime.UtcNow);
-                break;
-        }
+        var entry = await GetEntryAsync(container, ct);
+        entry?.ApplyRuntimeState(ServiceRuntimeState.Stopped, DateTime.UtcNow);
     }
 
     private static void ApplyRunning(
-        IDeployableContainer container,
         ServiceRegistryEntry entry,
         string ipAddress,
         List<Domain.ValueObjects.PortMapping> ports,
@@ -384,21 +371,8 @@ public class DeploymentOrchestrator(
     {
         entry.UpdateNetwork(ipAddress, ports);
         entry.ContainerName = containerName;
-        entry.ApplyRuntimeState(RuntimeStateFor(container), DateTime.UtcNow);
+        entry.ApplyRuntimeState(ServiceRuntimeState.Running, DateTime.UtcNow);
     }
-
-    private static ServiceRuntimeState RuntimeStateFor(IDeployableContainer container) => container switch
-    {
-        Sidecar sidecar => sidecar.Status switch
-        {
-            ServiceStatus.Running => ServiceRuntimeState.Running,
-            ServiceStatus.Stopped => ServiceRuntimeState.Stopped,
-            ServiceStatus.Deploying => ServiceRuntimeState.Restarting,
-            ServiceStatus.DeploymentPending => ServiceRuntimeState.NotDeployed,
-            _ => ServiceRuntimeState.Unknown
-        },
-        _ => ServiceRuntimeState.Running
-    };
 
     private static TagList Tags(IDeployableContainer container) => container switch
     {

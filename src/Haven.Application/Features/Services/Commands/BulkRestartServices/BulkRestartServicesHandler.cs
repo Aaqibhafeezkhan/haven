@@ -1,3 +1,4 @@
+using Haven.Domain.Enums;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
@@ -39,6 +40,7 @@ public sealed class BulkRestartServicesHandler(
 
             try
             {
+                service.SetDesiredState(DesiredState.Running);
                 deploymentJobEnqueuer.EnqueueRestart(request.ProjectId, request.EnvironmentId, serviceId);
                 results.Add(new BulkServiceActionResult(serviceId, true, null));
             }

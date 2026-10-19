@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
@@ -5,12 +6,14 @@ using Haven.Domain.ValueObjects;
 
 namespace Haven.Application.Features.Sidecars.Queries.ListSidecars;
 
-public sealed class ListSidecarsHandler(ISidecarRepository sidecarRepository)
+public sealed class ListSidecarsHandler(ISidecarRepository sidecarRepository, IServiceStateReader stateReader)
     : IQueryHandler<ListSidecarsQuery, IReadOnlyList<SidecarDto>>
 {
     public async ValueTask<Result<IReadOnlyList<SidecarDto>>> Handle(ListSidecarsQuery query, CancellationToken cancellationToken)
     {
         var sidecars = await sidecarRepository.GetAllAsync(cancellationToken);
+
+        var state = await stateReader.LoadAsync(sidecars.Select(s => s.Id), cancellationToken);
 
         var items = sidecars
             .Select(s =>
@@ -22,8 +25,8 @@ public sealed class ListSidecarsHandler(ISidecarRepository sidecarRepository)
                     Name = s.Name,
                     Alias = s.Alias,
                     Kind = s.Kind,
-                    Status = s.Status,
-                    Health = s.Health,
+                    Status = state.GetDisplayStatus(s.Id),
+                    Health = state.GetHealth(s.Id),
                     Enabled = s.Enabled,
                     CreatedAt = s.CreatedAt,
                     UpdatedAt = s.UpdatedAt,

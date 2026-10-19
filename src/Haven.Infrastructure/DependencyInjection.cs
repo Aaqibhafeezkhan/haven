@@ -350,6 +350,8 @@ public static class DependencyInjection
         services.AddHostedService<RepositoryCleanupSchedulerService>();
         services.AddScoped<INetworkReconciliationService, NetworkReconciliationService>();
         services.AddHostedService<NetworkReconciliationScheduler>();
+        services.AddScoped<Haven.Infrastructure.Deployment.DesiredStateReconciler>();
+        services.AddHostedService<DesiredStateReconciliationScheduler>();
         services.AddHostedService<HavenVersionCheckScheduler>();
         services.AddScoped<IJobsService, JobsService>();
 
