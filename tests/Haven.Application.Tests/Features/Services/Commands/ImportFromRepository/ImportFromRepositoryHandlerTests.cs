@@ -121,7 +121,7 @@ public sealed class ImportFromRepositoryHandlerTests
         saved.Id.ShouldNotBe(manifestId);
         saved.Token.ShouldNotBe("original-token");
         saved.DesiredState.ShouldBe(DesiredState.Stopped);
-        saved.GitCredentialId.ShouldBeNull();
+        saved.GitCredentialId.ShouldBe(command.GitCredentialId);
     }
 
     [Test]

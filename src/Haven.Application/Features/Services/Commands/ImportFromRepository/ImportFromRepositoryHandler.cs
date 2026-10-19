@@ -54,7 +54,7 @@ public sealed class ImportFromRepositoryHandler(
         manifest.UpdatedAt = now;
         manifest.CustomActions = [];
         if (manifest.SourceConfig is not null)
-            manifest.SourceConfig.GitCredentialId = null;
+            manifest.SourceConfig.GitCredentialId = command.GitCredentialId;
         foreach (var volume in manifest.Volumes)
             volume.Id = Guid.CreateVersion7();
 
