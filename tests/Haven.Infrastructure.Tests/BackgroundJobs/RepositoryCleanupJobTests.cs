@@ -19,43 +19,28 @@ namespace Haven.Infrastructure.Tests.BackgroundJobs;
 public sealed class RepositoryCleanupJobTests
 {
     private IGitRepositoryPathProvider _pathProvider = null!;
-    private IGitService _gitService = null!;
     private IServiceRepository _serviceRepository = null!;
     private IOptionsMonitor<RepositoryCleanupOptions> _options = null!;
     private RepositoryCleanupOptions _optionsValue = null!;
     private RepositoryCleanupJob _sut = null!;
     private string _root = null!;
-    private string _servicesRoot = null!;
 
     [SetUp]
     public void Setup()
     {
         _root = Path.Combine(Path.GetTempPath(), "haven-tests", Guid.NewGuid().ToString("N"));
-        _servicesRoot = Path.Combine(_root, "services");
 
         _pathProvider = Substitute.For<IGitRepositoryPathProvider>();
         _pathProvider.GetRepositoryRootPath().Returns(_root);
 
-        _gitService = Substitute.For<IGitService>();
         _serviceRepository = Substitute.For<IServiceRepository>();
-        _options = Substitute.For<IOptionsMonitor<RepositoryCleanupOptions>>();
+        _serviceRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(_ => ToAsync());
 
-        _optionsValue = new RepositoryCleanupOptions
-        {
-            GracePeriodHours = 24,
-            DryRun = false
-        };
+        _options = Substitute.For<IOptionsMonitor<RepositoryCleanupOptions>>();
+        _optionsValue = new RepositoryCleanupOptions { GracePeriodHours = 24, DryRun = false };
         _options.CurrentValue.Returns(_ => _optionsValue);
 
-        _serviceRepository.FilterMissingIdsAsync(Arg.Any<List<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Guid>());
-
-        _sut = new RepositoryCleanupJob(
-            _pathProvider,
-            _gitService,
-            _serviceRepository,
-            _options,
-            Substitute.For<ILogger<RepositoryCleanupJob>>());
+        _sut = new RepositoryCleanupJob(_pathProvider, _serviceRepository, _options, Substitute.For<ILogger<RepositoryCleanupJob>>());
     }
 
     [TearDown]
@@ -65,122 +50,33 @@ public sealed class RepositoryCleanupJobTests
             Directory.Delete(_root, recursive: true);
     }
 
-    private string CreateServiceDirectory(Guid serviceId, DateTime? lastWriteUtc = null)
-    {
-        var dir = Path.Combine(_servicesRoot, serviceId.ToString());
-        Directory.CreateDirectory(dir);
-        if (lastWriteUtc.HasValue)
-            Directory.SetLastWriteTimeUtc(dir, lastWriteUtc.Value);
-        return dir;
-    }
-
     [Test]
-    public async Task ExecuteAsync_WhenServicesDirectoryDoesNotExist_ShouldNotThrowAndSkip()
+    public async Task ExecuteAsync_WhenNoRepositoryDirectoriesExist_ShouldNotLoadServices()
     {
         await Should.NotThrowAsync(() => _sut.ExecuteAsync());
 
-        await _serviceRepository.DidNotReceiveWithAnyArgs().FilterMissingIdsAsync(default!, default);
+        _serviceRepository.DidNotReceiveWithAnyArgs().GetAsync(default);
     }
 
     [Test]
-    public async Task ExecuteAsync_WhenNoDirectoriesUnderServices_ShouldNotCallFilterMissingIds()
+    public async Task ExecuteAsync_ShouldDeleteUnusedRepositoryPastGracePeriod()
     {
-        Directory.CreateDirectory(_servicesRoot);
+        var unused = CreateDirectory("repositories", "repo-unused", DateTime.UtcNow.AddDays(-5));
 
         await _sut.ExecuteAsync();
 
-        await _serviceRepository.DidNotReceiveWithAnyArgs().FilterMissingIdsAsync(default!, default);
+        Directory.Exists(unused).ShouldBeFalse();
     }
 
     [Test]
-    public async Task ExecuteAsync_WhenDirectoryNameIsNotAGuid_ShouldIgnoreItAndNotIncludeInFilterCall()
-    {
-        Directory.CreateDirectory(Path.Combine(_servicesRoot, "not-a-guid"));
-
-        await _sut.ExecuteAsync();
-
-        await _serviceRepository.DidNotReceiveWithAnyArgs().FilterMissingIdsAsync(default!, default);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_WhenAllDirectoriesExistInDb_ShouldNotCallDeleteServiceRepository()
-    {
-        CreateServiceDirectory(Guid.NewGuid(), DateTime.UtcNow.AddHours(-48));
-
-        await _sut.ExecuteAsync();
-
-        await _gitService.DidNotReceiveWithAnyArgs().DeleteServiceRepositoryAsync(default, default);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_WhenDirectoryIsMissingFromDbAndPastGracePeriod_ShouldCallDeleteServiceRepository()
-    {
-        var danglingId = Guid.NewGuid();
-        CreateServiceDirectory(danglingId, DateTime.UtcNow.AddHours(-48));
-
-        _serviceRepository.FilterMissingIdsAsync(Arg.Any<List<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Guid> { danglingId });
-
-        await _sut.ExecuteAsync();
-
-        await _gitService.Received(1).DeleteServiceRepositoryAsync(danglingId, Arg.Any<CancellationToken>());
-    }
-
-    [Test]
-    public async Task ExecuteAsync_WhenDirectoryIsMissingFromDbButWithinGracePeriod_ShouldNotCallDeleteServiceRepository()
-    {
-        var danglingId = Guid.NewGuid();
-        CreateServiceDirectory(danglingId, DateTime.UtcNow);
-
-        _serviceRepository.FilterMissingIdsAsync(Arg.Any<List<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Guid> { danglingId });
-
-        await _sut.ExecuteAsync();
-
-        await _gitService.DidNotReceiveWithAnyArgs().DeleteServiceRepositoryAsync(default, default);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_WhenDryRunEnabled_ShouldNotCallDeleteServiceRepository()
-    {
-        var danglingId = Guid.NewGuid();
-        CreateServiceDirectory(danglingId, DateTime.UtcNow.AddHours(-48));
-
-        _optionsValue.DryRun = true;
-        _serviceRepository.FilterMissingIdsAsync(Arg.Any<List<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Guid> { danglingId });
-
-        await _sut.ExecuteAsync();
-
-        await _gitService.DidNotReceiveWithAnyArgs().DeleteServiceRepositoryAsync(default, default);
-    }
-
-    [Test]
-    public async Task ExecuteAsync_WhenMultipleDanglingDirectoriesExist_ShouldDeleteEachPastGracePeriod()
-    {
-        var dangling1 = Guid.NewGuid();
-        var dangling2 = Guid.NewGuid();
-        CreateServiceDirectory(dangling1, DateTime.UtcNow.AddHours(-48));
-        CreateServiceDirectory(dangling2, DateTime.UtcNow.AddHours(-72));
-
-        _serviceRepository.FilterMissingIdsAsync(Arg.Any<List<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Guid> { dangling1, dangling2 });
-
-        await _sut.ExecuteAsync();
-
-        await _gitService.Received(1).DeleteServiceRepositoryAsync(dangling1, Arg.Any<CancellationToken>());
-        await _gitService.Received(1).DeleteServiceRepositoryAsync(dangling2, Arg.Any<CancellationToken>());
-    }
-
-    [Test]
-    public async Task ExecuteAsync_ShouldDeleteUnusedManifestRepositoriesAndKeepSharedOnes()
+    public async Task ExecuteAsync_ShouldKeepRepositoryUsedByAnyServiceBinding()
     {
         var binding = new RepositoryBinding { Repository = "https://github.com/org/repo", Branch = "main", FilePath = "a.yaml" };
-        var used = CreateManifestDirectory("repo-used", DateTime.UtcNow.AddDays(-5));
-        var unused = CreateManifestDirectory("repo-unused", DateTime.UtcNow.AddDays(-5));
-        _pathProvider.GetManifestRepositoryPath(binding).Returns(used);
+        var used = CreateDirectory("repositories", "repo-used", DateTime.UtcNow.AddDays(-5));
+        var unused = CreateDirectory("repositories", "repo-unused", DateTime.UtcNow.AddDays(-5));
+        _pathProvider.GetRepositoryPath(binding).Returns(used);
         _serviceRepository.GetAsync(Arg.Any<CancellationToken>())
-            .Returns(ToAsync(CreateBoundService(binding), CreateBoundService(binding)));
+            .Returns(_ => ToAsync(CreateService(binding: binding), CreateService(binding: binding)));
 
         await _sut.ExecuteAsync();
 
@@ -189,10 +85,28 @@ public sealed class RepositoryCleanupJobTests
     }
 
     [Test]
-    public async Task ExecuteAsync_ShouldKeepUnusedManifestRepositoryWithinGracePeriod()
+    public async Task ExecuteAsync_ShouldKeepRepositoryUsedByDockerfileGitSource()
     {
-        var recent = CreateManifestDirectory("repo-recent", DateTime.UtcNow);
-        _serviceRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(ToAsync());
+        var used = CreateDirectory("repositories", "repo-used", DateTime.UtcNow.AddDays(-5));
+        _pathProvider.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(used);
+        var service = CreateService(sourceConfig: new DockerfileConfig
+        {
+            Source = DockerfileSource.Git,
+            Repository = "https://github.com/org/repo",
+            Branch = "main",
+            FilePath = "Dockerfile"
+        });
+        _serviceRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(_ => ToAsync(service));
+
+        await _sut.ExecuteAsync();
+
+        Directory.Exists(used).ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task ExecuteAsync_ShouldKeepUnusedRepositoryWithinGracePeriod()
+    {
+        var recent = CreateDirectory("repositories", "repo-recent", DateTime.UtcNow);
 
         await _sut.ExecuteAsync();
 
@@ -200,29 +114,40 @@ public sealed class RepositoryCleanupJobTests
     }
 
     [Test]
-    public async Task ExecuteAsync_InDryRun_ShouldNotDeleteUnusedManifestRepositories()
+    public async Task ExecuteAsync_InDryRun_ShouldNotDeleteAnything()
     {
         _optionsValue.DryRun = true;
-        var unused = CreateManifestDirectory("repo-unused", DateTime.UtcNow.AddDays(-5));
-        _serviceRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(ToAsync());
+        var unused = CreateDirectory("repositories", "repo-unused", DateTime.UtcNow.AddDays(-5));
 
         await _sut.ExecuteAsync();
 
         Directory.Exists(unused).ShouldBeTrue();
     }
 
-    private string CreateManifestDirectory(string name, DateTime lastWriteUtc)
+    [Test]
+    public async Task ExecuteAsync_ShouldDeleteLegacyPerServiceClonesPastGracePeriod()
     {
-        var dir = Path.Combine(_root, "manifests", name);
+        var legacy = CreateDirectory("services", Guid.NewGuid().ToString(), DateTime.UtcNow.AddDays(-5));
+        var recentLegacy = CreateDirectory("services", Guid.NewGuid().ToString(), DateTime.UtcNow);
+
+        await _sut.ExecuteAsync();
+
+        Directory.Exists(legacy).ShouldBeFalse();
+        Directory.Exists(recentLegacy).ShouldBeTrue();
+    }
+
+    private string CreateDirectory(string parent, string name, DateTime lastWriteUtc)
+    {
+        var dir = Path.Combine(_root, parent, name);
         Directory.CreateDirectory(dir);
         Directory.SetLastWriteTimeUtc(dir, lastWriteUtc);
         return dir;
     }
 
-    private static Service CreateBoundService(RepositoryBinding binding)
+    private static Service CreateService(RepositoryBinding? binding = null, ServiceSourceConfig? sourceConfig = null)
     {
         var service = Service.Create(Guid.NewGuid(), "svc", ServiceType.DockerImage, ExposureMode.Internal,
-            sourceConfig: new DockerConfig { Image = "img" });
+            sourceConfig: sourceConfig ?? new DockerConfig { Image = "img" });
         service.RepositoryBinding = binding;
         return service;
     }

@@ -17,4 +17,10 @@ public sealed class DockerfileConfig : ServiceSourceConfig
     public List<string> Ports { get; set; } = [];
     public List<string> CommandArgs { get; set; } = [];
     public RestartPolicy RestartPolicy { get; set; } = RestartPolicy.UnlessStopped;
+
+    /// <summary>The git repository this Dockerfile is built from, or null for a raw-content source.</summary>
+    public RepositoryBinding? ToRepositoryBinding() =>
+        Source == DockerfileSource.Git
+            ? new RepositoryBinding { GitCredentialId = GitCredentialId, Repository = Repository, Branch = Branch, FilePath = FilePath }
+            : null;
 }

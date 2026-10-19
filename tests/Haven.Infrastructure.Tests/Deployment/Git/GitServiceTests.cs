@@ -43,9 +43,6 @@ public sealed class GitServiceTests
         _gitProviderFactory.Create(Arg.Any<GitProviderType>(), Arg.Any<GitCredentials?>())
             .Returns(_gitProvider);
 
-        _repositoryPathProvider.GetServiceRepositoryPath(Arg.Any<Guid>())
-            .Returns(x => Path.Combine(_tempRoot, "services", x[0].ToString()!));
-
         _sut = new GitService(_repositoryPathProvider, _credentialsRepository, _gitProviderFactory, new RepositoryLockProvider(), _logger);
     }
 
@@ -57,47 +54,69 @@ public sealed class GitServiceTests
     }
 
     [Test]
-    public async Task CloneServiceRepository_WhenSuccessful_ReturnsPath()
+    public async Task SyncRepository_WhenNotCloned_ClonesThenPullsBranchAndReturnsPath()
     {
-        var serviceId = Guid.NewGuid();
-        var repositoryUrl = "https://github.com/example/repo.git";
-        var expectedPath = Path.Combine(_tempRoot, "services", serviceId.ToString());
+        var binding = CreateBinding(branch: "develop");
+        var path = GivenClonePath(binding);
 
-        _repositoryPathProvider.GetServiceRepositoryPath(serviceId).Returns(expectedPath);
-        _repositoryPathProvider.RepositoryDirectoryExists(serviceId).Returns(false);
-        _gitProvider.CloneRepositoryAsync(repositoryUrl, expectedPath, Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
-
-        var result = await _sut.CloneServiceRepositoryAsync(serviceId, repositoryUrl);
+        var result = await _sut.SyncRepositoryAsync(binding);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBe(expectedPath);
+        result.Value.ShouldBe(path);
+        Received.InOrder(() =>
+        {
+            _gitProvider.CloneRepositoryAsync(binding.Repository!, path, Arg.Any<CancellationToken>());
+            _gitProvider.PullAsync(path, "develop", Arg.Any<CancellationToken>());
+        });
     }
 
     [Test]
-    public async Task CloneServiceRepository_WhenProviderThrows_ReturnsFailure()
+    public async Task SyncRepository_WhenAlreadyCloned_OnlyPulls()
     {
-        var serviceId = Guid.NewGuid();
-        var repositoryUrl = "https://github.com/example/repo.git";
+        var binding = CreateBinding();
+        var path = GivenClonePath(binding);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(Path.Combine(path, "marker"), "x");
 
-        _gitProvider.CloneRepositoryAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new Exception("Clone failed"));
+        var result = await _sut.SyncRepositoryAsync(binding);
 
-        var result = await _sut.CloneServiceRepositoryAsync(serviceId, repositoryUrl);
+        result.IsSuccess.ShouldBeTrue();
+        await _gitProvider.DidNotReceive().CloneRepositoryAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _gitProvider.Received(1).PullAsync(path, "main", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task SyncRepository_WhenCredentialIsMissing_ReturnsNotFound()
+    {
+        var binding = CreateBinding(credentialId: Guid.NewGuid());
+        GivenClonePath(binding);
+        _credentialsRepository.GetByIdAsync(binding.GitCredentialId!.Value, Arg.Any<CancellationToken>()).Returns((GitCredentials?)null);
+
+        var result = await _sut.SyncRepositoryAsync(binding);
+
+        result.IsFailure.ShouldBeTrue();
+        await _gitProvider.DidNotReceive().CloneRepositoryAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task SyncRepository_WhenRepositoryIsBlank_ReturnsValidationError()
+    {
+        var result = await _sut.SyncRepositoryAsync(new RepositoryBinding { Repository = " " });
 
         result.IsFailure.ShouldBeTrue();
     }
 
     [Test]
-    public async Task CloneServiceRepository_WhenProviderThrows_LogsError()
+    public async Task SyncRepository_WhenCloneThrows_ReturnsFailureAndLogsError()
     {
-        var serviceId = Guid.NewGuid();
-
+        var binding = CreateBinding();
+        GivenClonePath(binding);
         _gitProvider.CloneRepositoryAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("Clone failed"));
 
-        await _sut.CloneServiceRepositoryAsync(serviceId, "https://github.com/example/repo.git");
+        var result = await _sut.SyncRepositoryAsync(binding);
 
+        result.IsFailure.ShouldBeTrue();
         _logger.Received(1).Log(
             LogLevel.Error,
             Arg.Any<EventId>(),
@@ -107,44 +126,100 @@ public sealed class GitServiceTests
     }
 
     [Test]
-    public async Task PullServiceRepository_WhenRepositoryExists_ReturnsSuccess()
+    public async Task SyncRepository_WhenPullThrows_ReturnsFailure()
     {
-        var serviceId = Guid.NewGuid();
-        var branch = "main";
-
-        _repositoryPathProvider.RepositoryDirectoryExists(serviceId).Returns(true);
-        _gitProvider.PullAsync(Arg.Any<string>(), branch, Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
-
-        var result = await _sut.PullServiceRepositoryAsync(serviceId, branch);
-
-        result.IsSuccess.ShouldBeTrue();
-    }
-
-    [Test]
-    public async Task PullServiceRepository_WhenRepositoryDoesNotExist_ReturnsNotFound()
-    {
-        var serviceId = Guid.NewGuid();
-
-        _repositoryPathProvider.RepositoryDirectoryExists(serviceId).Returns(false);
-
-        var result = await _sut.PullServiceRepositoryAsync(serviceId, "main");
-
-        result.IsFailure.ShouldBeTrue();
-    }
-
-    [Test]
-    public async Task PullServiceRepository_WhenProviderThrows_ReturnsFailure()
-    {
-        var serviceId = Guid.NewGuid();
-
-        _repositoryPathProvider.RepositoryDirectoryExists(serviceId).Returns(true);
+        var binding = CreateBinding();
+        var path = GivenClonePath(binding);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(Path.Combine(path, "marker"), "x");
         _gitProvider.PullAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("Pull failed"));
 
-        var result = await _sut.PullServiceRepositoryAsync(serviceId, "main");
+        var result = await _sut.SyncRepositoryAsync(binding);
 
         result.IsFailure.ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task SyncRepository_WhenLeftoverEmptyDirectoryExists_ClonesAgain()
+    {
+        var binding = CreateBinding();
+        var path = GivenClonePath(binding);
+        Directory.CreateDirectory(path);
+
+        await _sut.SyncRepositoryAsync(binding);
+
+        await _gitProvider.Received(1).CloneRepositoryAsync(binding.Repository!, path, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task ReadBoundFile_ReturnsFileContentFromTheSharedClone()
+    {
+        var binding = CreateBinding();
+        var path = GivenClonePath(binding);
+        _gitProvider.CloneRepositoryAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Directory.CreateDirectory(path);
+                File.WriteAllText(Path.Combine(path, "haven.yaml"), "type: DockerImage");
+                return Task.CompletedTask;
+            });
+
+        var result = await _sut.ReadBoundFileAsync(binding);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe("type: DockerImage");
+    }
+
+    [Test]
+    public async Task ReadBoundFile_WhenPathEscapesRepository_ReturnsValidationError()
+    {
+        var binding = CreateBinding();
+        binding.FilePath = "../../secret";
+        var path = GivenClonePath(binding);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(Path.Combine(path, "marker"), "x");
+
+        var result = await _sut.ReadBoundFileAsync(binding);
+
+        result.IsFailure.ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task ReadBoundFile_WhenFileMissing_ReturnsNotFound()
+    {
+        var binding = CreateBinding();
+        var path = GivenClonePath(binding);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(Path.Combine(path, "marker"), "x");
+
+        var result = await _sut.ReadBoundFileAsync(binding);
+
+        result.IsFailure.ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task SyncRepository_ForTwoServicesSharingABinding_RunsGitOneAtATime()
+    {
+        var binding = CreateBinding();
+        var path = GivenClonePath(binding);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(Path.Combine(path, "marker"), "x");
+
+        var running = 0;
+        var maxRunning = 0;
+        _gitProvider.PullAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                var now = Interlocked.Increment(ref running);
+                maxRunning = Math.Max(maxRunning, now);
+                await Task.Delay(50);
+                Interlocked.Decrement(ref running);
+            });
+
+        await Task.WhenAll(_sut.SyncRepositoryAsync(binding), _sut.SyncRepositoryAsync(binding));
+
+        maxRunning.ShouldBe(1);
     }
 
     [Test]
@@ -176,83 +251,45 @@ public sealed class GitServiceTests
     }
 
     [Test]
-    public void GetServiceRepositoryPath_WhenRepositoryExists_ReturnsPath()
+    public void GetRepositoryPath_WhenRepositoryExists_ReturnsPath()
     {
-        var serviceId = Guid.NewGuid();
-        var expectedPath = Path.Combine(_tempRoot, "services", serviceId.ToString());
+        var binding = CreateBinding();
+        var path = GivenClonePath(binding);
+        _repositoryPathProvider.RepositoryDirectoryExists(binding).Returns(true);
 
-        _repositoryPathProvider.RepositoryDirectoryExists(serviceId).Returns(true);
-        _repositoryPathProvider.GetServiceRepositoryPath(serviceId).Returns(expectedPath);
-
-        var result = _sut.GetServiceRepositoryPath(serviceId);
-
-        result.ShouldBe(expectedPath);
+        _sut.GetRepositoryPath(binding).ShouldBe(path);
     }
 
     [Test]
-    public void GetServiceRepositoryPath_WhenRepositoryDoesNotExist_ReturnsNull()
+    public void GetRepositoryPath_WhenRepositoryDoesNotExist_ReturnsNull()
     {
-        var serviceId = Guid.NewGuid();
+        var binding = CreateBinding();
+        _repositoryPathProvider.RepositoryDirectoryExists(binding).Returns(false);
 
-        _repositoryPathProvider.RepositoryDirectoryExists(serviceId).Returns(false);
-
-        var result = _sut.GetServiceRepositoryPath(serviceId);
-
-        result.ShouldBeNull();
+        _sut.GetRepositoryPath(binding).ShouldBeNull();
     }
 
     [Test]
-    public void ServiceRepositoryExists_WhenRepositoryExists_ReturnsTrue()
+    public void RepositoryExists_ReflectsPathProvider()
     {
-        var serviceId = Guid.NewGuid();
+        var binding = CreateBinding();
+        _repositoryPathProvider.RepositoryDirectoryExists(binding).Returns(true);
 
-        _repositoryPathProvider.RepositoryDirectoryExists(serviceId).Returns(true);
-
-        var result = _sut.ServiceRepositoryExists(serviceId);
-
-        result.ShouldBeTrue();
+        _sut.RepositoryExists(binding).ShouldBeTrue();
     }
 
-    [Test]
-    public void ServiceRepositoryExists_WhenRepositoryDoesNotExist_ReturnsFalse()
+    private string GivenClonePath(RepositoryBinding binding)
     {
-        var serviceId = Guid.NewGuid();
-
-        _repositoryPathProvider.RepositoryDirectoryExists(serviceId).Returns(false);
-
-        var result = _sut.ServiceRepositoryExists(serviceId);
-
-        result.ShouldBeFalse();
+        var path = Path.Combine(_tempRoot, "repositories", Guid.NewGuid().ToString("N"));
+        _repositoryPathProvider.GetRepositoryPath(binding).Returns(path);
+        return path;
     }
 
-    [Test]
-    public async Task DeleteServiceRepository_WhenRepositoryExists_CompletesWithoutThrowing()
+    private static RepositoryBinding CreateBinding(string branch = "main", Guid? credentialId = null) => new()
     {
-        var serviceId = Guid.NewGuid();
-        var tempDir = Path.Combine(Path.GetTempPath(), $"haven-test-{Guid.NewGuid()}");
-        Directory.CreateDirectory(tempDir);
-        File.WriteAllText(Path.Combine(tempDir, "test.txt"), "content");
-
-        _repositoryPathProvider.GetServiceRepositoryPath(serviceId).Returns(tempDir);
-
-        try
-        {
-            await Should.NotThrowAsync(() => _sut.DeleteServiceRepositoryAsync(serviceId));
-        }
-        finally
-        {
-            if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
-        }
-    }
-
-    [Test]
-    public async Task DeleteServiceRepository_WhenRepositoryDoesNotExist_DoesNotThrow()
-    {
-        var serviceId = Guid.NewGuid();
-
-        _repositoryPathProvider.GetServiceRepositoryPath(serviceId).Returns("/nonexistent/path");
-
-        await Should.NotThrowAsync(() => _sut.DeleteServiceRepositoryAsync(serviceId));
-    }
+        Repository = "https://github.com/example/repo.git",
+        Branch = branch,
+        FilePath = "haven.yaml",
+        GitCredentialId = credentialId
+    };
 }
