@@ -29,6 +29,9 @@ public sealed class DockerNetworkingServiceTests
     private IDockerClient _client = null!;
     private HavenDbContext _db = null!;
     private ILogger<DockerNetworkingService> _logger = null!;
+    // Outside the default pool so the host's real interfaces (e.g. local Docker bridges) never affect allocation.
+    private const string TestPool = "10.250.0.0/15";
+
     private IOptionsMonitor<NetworkOptions> _networkOptions = null!;
     private DockerNetworkingService _sut = null!;
 
@@ -39,7 +42,7 @@ public sealed class DockerNetworkingServiceTests
         _db = TestDbContextFactory.CreateUnitDbContext();
         _logger = Substitute.For<ILogger<DockerNetworkingService>>();
         _networkOptions = Substitute.For<IOptionsMonitor<NetworkOptions>>();
-        _networkOptions.CurrentValue.Returns(new NetworkOptions());
+        _networkOptions.CurrentValue.Returns(new NetworkOptions { SubnetPool = TestPool });
         _sut = new DockerNetworkingService(_db, _logger, _client, _networkOptions, new NetworkLockProvider());
 
         // No container exists for the service in any of these tests.
@@ -172,7 +175,7 @@ public sealed class DockerNetworkingServiceTests
 
         _client.Networks.ListNetworksAsync(Arg.Any<NetworksListParameters>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<NetworksListParameters>().Filters is null
-                ? [new NetworkResponse { Name = "other", IPAM = new IPAM { Config = [new IPAMConfig { Subnet = "10.240.0.0/16" }] } }]
+                ? [new NetworkResponse { Name = "other", IPAM = new IPAM { Config = [new IPAMConfig { Subnet = "10.250.0.0/16" }] } }]
                 : []);
         NetworksCreateParameters? sent = null;
         _client.Networks.CreateNetworkAsync(Arg.Do<NetworksCreateParameters>(p => sent = p), Arg.Any<CancellationToken>())
@@ -182,10 +185,10 @@ public sealed class DockerNetworkingServiceTests
 
         result.IsSuccess.ShouldBeTrue();
         sent.ShouldNotBeNull();
-        sent.IPAM.Config.Single().Subnet.ShouldBe("10.241.0.0/24");
-        sent.IPAM.Config.Single().Gateway.ShouldBe("10.241.0.1");
+        sent.IPAM.Config.Single().Subnet.ShouldBe("10.251.0.0/24");
+        sent.IPAM.Config.Single().Gateway.ShouldBe("10.251.0.1");
         var saved = await _db.Networks.SingleAsync();
-        saved.Subnet.ShouldBe("10.241.0.0/24");
+        saved.Subnet.ShouldBe("10.251.0.0/24");
         saved.DockerNetworkId.ShouldBe("docker-1");
     }
 
@@ -211,7 +214,7 @@ public sealed class DockerNetworkingServiceTests
         var result = await _sut.CreateProjectEnvironmentNetworkAsync(project.Id, environmentId, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        subnets.ShouldBe(["10.240.5.0/24", "10.240.6.0/24"]);
+        subnets.ShouldBe(["10.250.0.0/24", "10.250.1.0/24"]);
     }
 
     [Test]
@@ -262,7 +265,7 @@ public sealed class DockerNetworkingServiceTests
         result.IsSuccess.ShouldBeTrue();
         var saved = await _db.Networks.SingleAsync();
         saved.DockerNetworkId.ShouldBe("fresh");
-        saved.Subnet.ShouldBe("10.240.5.0/24");
+        saved.Subnet.ShouldBe("10.250.0.0/24");
     }
 
     [Test]
@@ -313,8 +316,8 @@ public sealed class DockerNetworkingServiceTests
         await _client.Networks.Received(1).DeleteNetworkAsync("old", Arg.Any<CancellationToken>());
         var saved = await _db.Networks.SingleAsync();
         saved.DockerNetworkId.ShouldBe("new");
-        saved.Subnet.ShouldBe("10.240.5.0/24");
-        saved.Gateway.ShouldBe("10.240.5.1");
+        saved.Subnet.ShouldBe("10.250.0.0/24");
+        saved.Gateway.ShouldBe("10.250.0.1");
     }
 
     [Test]

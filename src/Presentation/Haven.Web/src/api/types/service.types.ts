@@ -153,7 +153,14 @@ export interface ServiceRegistryDomainDto {
 }
 export interface ServiceRegistryEntryDto {
   id: string;
-  serviceId: string;
+  serviceId?: string;
+  serviceName?: string;
+  sidecarId?: string;
+  sidecarName?: string;
+  environmentId?: string;
+  environmentName?: string;
+  projectId?: string;
+  projectName?: string;
   containerName?: string;
   ipAddress?: string;
   ports: PortMappingDto[];
@@ -167,10 +174,53 @@ export interface ServiceRegistryEntryDto {
   exposureMode: ExposureMode;
   domains: ServiceRegistryDomainDto[];
 }
+export type ServiceRegistrySortBy = 'name' | 'project' | 'status' | 'type' | 'exposure' | 'uptime';
+export type RegistryStatusFilter = 'Running' | 'Stopped' | 'Starting' | 'Unknown';
 export interface GetServiceRegistryParams {
   pageNumber?: number;
   pageSize?: number;
   search?: string;
+  status?: RegistryStatusFilter;
+  exposure?: ExposureMode;
+  type?: ServiceType;
+  projectId?: string;
+  environmentId?: string;
+  sortBy?: ServiceRegistrySortBy;
+  sortDescending?: boolean;
+}
+export interface ServiceRegistrySummaryDto {
+  total: number;
+  running: number;
+  stopped: number;
+  starting: number;
+  unknown: number;
+  domainCount: number;
+  exposedExternally: number;
+}
+export type ServiceRegistryDomainSortBy = 'hostname' | 'service' | 'tls' | 'created';
+export interface GetServiceRegistryDomainsParams {
+  pageNumber?: number;
+  pageSize?: number;
+  search?: string;
+  sortBy?: ServiceRegistryDomainSortBy;
+  sortDescending?: boolean;
+}
+export interface ServiceRegistryDomainListItemDto {
+  id: string;
+  hostname: string;
+  containerPort: number;
+  tlsMode: TlsMode;
+  hasCertificate: boolean;
+  certificateName?: string;
+  createdAt: string;
+  containerName?: string;
+  runtimeState: ServiceRuntimeState;
+  health: ServiceHealth;
+  serviceId?: string;
+  serviceName?: string;
+  sidecarName?: string;
+  environmentName?: string;
+  projectName?: string;
 }
 export interface DeployServiceInput {
   projectId: string;
