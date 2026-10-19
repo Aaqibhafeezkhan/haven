@@ -30,10 +30,11 @@ public static class DesiredStateDrift
             // Wanted up but down. NotDeployed is excluded: there is nothing to start until it has been deployed once.
             (DesiredState.Running, ServiceRuntimeState.Stopped or ServiceRuntimeState.Crashed) => DriftAction.Start,
 
-            // Wanted down but up.
-            (DesiredState.Stopped, ServiceRuntimeState.Running) => DriftAction.Stop,
+            // Wanted down but up, or stuck crashing/restarting. Stopping a crash-looping container is how the
+            // operator breaks the loop, and it is idempotent when the container is already gone.
+            (DesiredState.Stopped, ServiceRuntimeState.Running or ServiceRuntimeState.Crashed or ServiceRuntimeState.Restarting) => DriftAction.Stop,
 
-            // Restarting and Unknown are in flux or unobserved; the Docker events and the startup sync settle them.
+            // Unknown is unobserved, and a restart wanted up is still settling; Docker events and the startup sync resolve them.
             _ => DriftAction.None
         };
     }

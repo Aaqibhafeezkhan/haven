@@ -20,9 +20,9 @@ public sealed class DesiredStateDriftTests
     [TestCase(DesiredState.Running, ServiceRuntimeState.Unknown, DriftAction.None)]
     [TestCase(DesiredState.Stopped, ServiceRuntimeState.Running, DriftAction.Stop)]
     [TestCase(DesiredState.Stopped, ServiceRuntimeState.Stopped, DriftAction.None)]
-    [TestCase(DesiredState.Stopped, ServiceRuntimeState.Crashed, DriftAction.None)]
+    [TestCase(DesiredState.Stopped, ServiceRuntimeState.Crashed, DriftAction.Stop)]
     [TestCase(DesiredState.Stopped, ServiceRuntimeState.NotDeployed, DriftAction.None)]
-    [TestCase(DesiredState.Stopped, ServiceRuntimeState.Restarting, DriftAction.None)]
+    [TestCase(DesiredState.Stopped, ServiceRuntimeState.Restarting, DriftAction.Stop)]
     [TestCase(DesiredState.Stopped, ServiceRuntimeState.Unknown, DriftAction.None)]
     public void Decide_SettledState_ConvergesTowardDesired(DesiredState desired, ServiceRuntimeState runtime, DriftAction expected)
     {

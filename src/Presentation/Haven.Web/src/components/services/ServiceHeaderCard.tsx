@@ -57,6 +57,10 @@ export function ServiceHeaderCard({
   const registry = service.registry;
   const domainsCount = registry?.domains.length ?? 0;
   const isRunning = service.status === 'Running';
+  // Intent, not just observed state: a crashing or restarting service must still be stoppable.
+  const canControl =
+    service.desiredState === 'Running' ||
+    ['Running', 'Restarting', 'Crashed'].includes(service.runtimeState);
   const startedRelative =
     isRunning && registry?.startedAt ? formatRelative(registry.startedAt, tCommon) : null;
 
@@ -103,7 +107,7 @@ export function ServiceHeaderCard({
                 </Button>
               )}
             </Row>
-            {canDeployService && isRunning && (
+            {canDeployService && canControl && (
               <Row gap="2">
                 <Button
                   variant="secondary"
