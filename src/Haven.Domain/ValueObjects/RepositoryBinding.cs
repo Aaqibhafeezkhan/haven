@@ -15,35 +15,6 @@ public class RepositoryBinding : ValueObject
         yield return FilePath;
     }
 
-    public static RepositoryBinding FromString(string value)
-    {
-        if (!TryParse(value, out var repositoryBinding))
-            throw new ArgumentException($"Invalid repository binding string: {value}");
-
-        return repositoryBinding!;
-    }
-
-    public static bool TryParse(string value, out RepositoryBinding? repositoryBinding)
-    {
-        repositoryBinding = null;
-        if (string.IsNullOrEmpty(value))
-            return false;
-
-        var parts = value.Split(':');
-        if (parts.Length != 4)
-            return false;
-
-        repositoryBinding = new RepositoryBinding
-        {
-            GitCredentialId = Guid.TryParse(parts[0], out var guid) ? guid : null,
-            Repository = parts[1],
-            Branch = parts[2],
-            FilePath = parts[3]
-        };
-
-        return true;
-    }
-
     public override string ToString()
     {
         return $"{GitCredentialId}:{Repository}:{Branch}:{FilePath}";
