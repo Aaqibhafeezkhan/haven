@@ -42,7 +42,7 @@ public sealed class TraefikRoutingHealerTests
         var project = Project.Create("acme", alias: "acme");
         var environment = Environment.Create(project.Id, "prod", alias: "prod");
         _service = Service.Reconstitute(Guid.NewGuid(), environment.Id, "api", "api", ServiceType.DockerImage,
-            ExposureMode.None, ServiceStatus.Running, DateTime.UtcNow, DateTime.UtcNow, environment: environment);
+            ExposureMode.None, DesiredState.Running, DateTime.UtcNow, DateTime.UtcNow, environment: environment);
 
         _traefik = Sidecar.Create("traefik", SidecarKind.Traefik);
         _traefik.Enabled = true;

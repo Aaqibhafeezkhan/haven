@@ -1,5 +1,6 @@
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Domain.Entities;
+using Haven.Domain.Enums;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,24 @@ public sealed class DeploymentRepository(HavenDbContext context) : IDeploymentRe
             .Where(d => d.ServiceId == serviceId)
             .ToListAsync(ct);
         return [.. deployments.OrderByDescending(d => d.StartedAt)];
+    }
+
+    public async Task<Dictionary<Guid, DeploymentStatus>> GetActiveStatusesAsync(IReadOnlyCollection<Guid> serviceIds, CancellationToken ct)
+    {
+        if (serviceIds.Count == 0) return [];
+
+        var rows = await context.Deployments
+            .AsNoTracking()
+            .Where(d => serviceIds.Contains(d.ServiceId)
+                        && d.Status != DeploymentStatus.Succeeded
+                        && d.Status != DeploymentStatus.Failed
+                        && d.Status != DeploymentStatus.Cancelled)
+            .OrderByDescending(d => d.StartedAt)
+            .Select(d => new { d.ServiceId, d.Status })
+            .ToListAsync(ct);
+
+        // Most recent in-flight deployment wins when a service somehow has more than one.
+        return rows.GroupBy(r => r.ServiceId).ToDictionary(g => g.Key, g => g.First().Status);
     }
 
     public async Task RemoveAsync(Guid deploymentId, CancellationToken ct)

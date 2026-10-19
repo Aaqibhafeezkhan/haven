@@ -7,6 +7,7 @@ namespace Haven.Application.Common.Interfaces.Repositories;
 public interface IServiceRegistryEntryRepository : IRepository
 {
     Task<ServiceRegistryEntry?> GetForServiceAsync(Guid serviceId, CancellationToken ct = default);
+    Task<Dictionary<Guid, ServiceRegistryEntry>> GetByServiceIdsAsync(IReadOnlyCollection<Guid> serviceIds, CancellationToken ct = default);
     Task<ServiceRegistryEntry?> GetForSidecarAsync(Guid sidecarId, CancellationToken ct = default);
 
     /// <summary>Looks up the owning entry by one of its domains' id - domain ids are globally unique, so this needs no owner context.</summary>

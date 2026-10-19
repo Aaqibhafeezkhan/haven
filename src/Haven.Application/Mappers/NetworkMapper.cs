@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Networks;
 using Haven.Application.Features.Networks.Queries.ListNetworks;
 using Haven.Domain.Aggregates;
@@ -57,15 +58,16 @@ public static partial class NetworkMapper
             gateway: dto.Gateway);
     }
 
-    public static NetworkDto ToDto(this Network network)
+    public static NetworkDto ToDto(this Network network, ServiceStateSnapshot? state = null)
     {
+        state ??= ServiceStateSnapshot.Empty;
         var services = network.ServiceNetworks
             .Where(sn => sn.Service is not null)
             .Select(sn => new NetworkServiceDto
             {
                 Id = sn.Service!.Id,
                 Name = sn.Service.Name,
-                Status = sn.Service.Status.ToString(),
+                Status = state.GetDisplayStatus(sn.Service.Id).ToString(),
                 IpAddress = sn.IpAddress,
                 ProjectId = sn.Service.Environment?.Project?.Id,
                 ProjectName = sn.Service.Environment?.Project?.Name

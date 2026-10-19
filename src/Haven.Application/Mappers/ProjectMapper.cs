@@ -1,4 +1,6 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Projects;
+using Haven.Application.Features.Services;
 using Haven.Application.Features.Projects.Queries.GetProjects;
 using Haven.Application.Features.Projects.Queries.GetProjectsDashboard;
 using Haven.Domain;
@@ -27,13 +29,14 @@ public static partial class ProjectMapper
         return project.ToDtoPartial();
     }
 
-    public static ProjectDashboardDto ToDashboardDto(this Project project, IEnumerable<EnvironmentVariables>? projectEnvVars = null)
+    public static ProjectDashboardDto ToDashboardDto(this Project project, IEnumerable<EnvironmentVariables>? projectEnvVars = null, ServiceStateSnapshot? state = null)
     {
+        state ??= ServiceStateSnapshot.Empty;
         var environments = project.Environments
-            .Select(env => env.ToDashboardDto())
+            .Select(env => env.ToDashboardDto(project, state))
             .ToList();
 
-        var (total, running, stopped, degraded, deploymentPending, deploying, unknown) = project.GetServiceStatistics();
+        var statistics = ServiceStatisticsCalculator.Sum(environments.Select(e => e.ServiceStatistics));
         var allServices = project.Environments.SelectMany(e => e.Services).ToList();
         var lastDeployed = allServices
             .Where(s => s.LastDeployedAt.HasValue)
@@ -50,16 +53,7 @@ public static partial class ProjectMapper
             Alias = project.Alias,
             Description = project.Description,
             Environments = environments,
-            ServiceStatistics = new ServiceStatisticsDto
-            {
-                Total = total,
-                Running = running,
-                Stopped = stopped,
-                Degraded = degraded,
-                DeploymentPending = deploymentPending,
-                Deploying = deploying,
-                Unknown = unknown
-            },
+            ServiceStatistics = statistics,
             LastDeployedAt = lastDeployed == DateTime.MinValue ? null : lastDeployed,
             TotalEnvVars = projectEnvVars?.Count() ?? 0,
             EnvironmentVariables = envs

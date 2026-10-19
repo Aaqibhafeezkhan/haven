@@ -14,13 +14,15 @@ public class ContainerDiedEventHandler : INotificationHandler<ContainerDiedEvent
     private readonly HavenDbContext _db;
     private readonly IProjectRepository _repository;
     private readonly ISidecarRepository _sidecarRepository;
+    private readonly ServiceRuntimeStateRecorder _recorder;
     private readonly ILogger<ContainerDiedEventHandler> _logger;
 
-    public ContainerDiedEventHandler(HavenDbContext db, IProjectRepository repository, ISidecarRepository sidecarRepository, ILogger<ContainerDiedEventHandler> logger)
+    public ContainerDiedEventHandler(HavenDbContext db, IProjectRepository repository, ISidecarRepository sidecarRepository, ServiceRuntimeStateRecorder recorder, ILogger<ContainerDiedEventHandler> logger)
     {
         _db = db;
         _repository = repository;
         _sidecarRepository = sidecarRepository;
+        _recorder = recorder;
         _logger = logger;
     }
 
@@ -42,13 +44,12 @@ public class ContainerDiedEventHandler : INotificationHandler<ContainerDiedEvent
                 return;
             }
 
-            if (service.Status is ServiceStatus.Stopped or ServiceStatus.Deploying)
+            if (!await _recorder.ApplyStopAsync(service, ServiceRuntimeState.Crashed, cancellationToken))
             {
-                _logger.LogInformation("Service {ServiceId} is already stopped or deploying, skipping stop handler", notification.ServiceId);
+                _logger.LogInformation("Service {ServiceId} is already stopped or being deployed, skipping stop handler", notification.ServiceId);
                 return;
             }
 
-            project.StopService(service.EnvironmentId, service.Id);
             await _db.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Service {ServiceId} marked as stopped due to container crash", notification.ServiceId);

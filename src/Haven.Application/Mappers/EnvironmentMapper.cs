@@ -1,4 +1,6 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Features.Environments;
+using Haven.Application.Features.Services;
 using Haven.Application.Features.Projects.Queries.GetProjectsDashboard;
 using Haven.Domain;
 using Haven.Domain.Aggregates;
@@ -16,19 +18,22 @@ public static partial class EnvironmentMapper
 {
     [MapperIgnoreSource(nameof(Environment.Services))]
     [MapperIgnoreSource(nameof(Environment.ProjectId))]
+    [MapperIgnoreSource(nameof(Environment.DomainEvents))]
+    [MapperIgnoreSource(nameof(Environment.Project))]
     public static partial EnvironmentManifestDto ToManifest(this Environment environment);
 
     public static Environment ToEntity(this EnvironmentManifestDto dto, Project project)
         => Environment.Reconstitute(dto.Id, project.Id, dto.Name, dto.Alias, dto.Description, dto.NetworkName);
 
-    public static EnvironmentDashboardDto ToDashboardDto(this Environment environment, Project? project = null)
+    public static EnvironmentDashboardDto ToDashboardDto(this Environment environment, Project? project = null, ServiceStateSnapshot? state = null)
     {
-        var (total, running, stopped, degraded, deploymentPending, deploying, unknown) = environment.GetServiceStatistics();
+        state ??= ServiceStateSnapshot.Empty;
+        var statistics = ServiceStatisticsCalculator.Compute(environment.Services, state);
         var services = environment.Services
-            .Select(s => s.ToDashboardDto())
+            .Select(s => s.ToDashboardDto(state))
             .ToList();
 
-        var serviceStatusMap = environment.Services.ToDictionary(s => s.Name, s => s.Status);
+        var serviceStatusMap = environment.Services.ToDictionary(s => s.Name, s => state.GetDisplayStatus(s.Id));
 
         return new EnvironmentDashboardDto
         {
@@ -39,17 +44,8 @@ public static partial class EnvironmentMapper
             ProjectId = environment.ProjectId,
             ProjectName = project?.Name ?? string.Empty,
             NetworkName = environment.NetworkName,
-            ServiceStatistics = new ServiceStatisticsDto
-            {
-                Total = total,
-                Running = running,
-                Stopped = stopped,
-                Degraded = degraded,
-                DeploymentPending = deploymentPending,
-                Deploying = deploying,
-                Unknown = unknown
-            },
-            Status = environment.GetStatus(),
+            ServiceStatistics = statistics,
+            Status = ServiceStatisticsCalculator.GetEnvironmentStatus(statistics),
             Services = services,
             ServiceStatusMap = serviceStatusMap
         };

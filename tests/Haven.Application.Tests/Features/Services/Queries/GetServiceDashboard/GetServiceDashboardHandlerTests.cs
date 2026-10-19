@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Configuration;
@@ -23,6 +24,7 @@ public class GetServiceDashboardHandlerTests
     private IEnvironmentVariableService _environmentVariableService = null!;
     private IFeatureFlagRepository _featureFlagRepository = null!;
     private IServiceRegistryEntryRepository _serviceRegistryEntryRepository = null!;
+    private IServiceStateReader _stateReader = null!;
     private IComputedOutputResolver _computedOutputResolver = null!;
     private IOptionsMonitor<NetworkOptions> _networkOptions = null!;
     private GetServiceDashboardHandler _sut = null!;
@@ -35,6 +37,8 @@ public class GetServiceDashboardHandlerTests
         _featureFlagRepository = Substitute.For<IFeatureFlagRepository>();
         _serviceRegistryEntryRepository = Substitute.For<IServiceRegistryEntryRepository>();
         _computedOutputResolver = Substitute.For<IComputedOutputResolver>();
+        _stateReader = Substitute.For<IServiceStateReader>();
+        _stateReader.LoadAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>()).Returns(ServiceStateSnapshot.Empty);
         _networkOptions = Substitute.For<IOptionsMonitor<NetworkOptions>>();
         _networkOptions.CurrentValue.Returns(new NetworkOptions());
 
@@ -48,6 +52,7 @@ public class GetServiceDashboardHandlerTests
             _environmentVariableService,
             _featureFlagRepository,
             _serviceRegistryEntryRepository,
+            _stateReader,
             _computedOutputResolver,
             _networkOptions);
     }

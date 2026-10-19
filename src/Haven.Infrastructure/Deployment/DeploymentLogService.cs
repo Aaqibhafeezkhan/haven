@@ -5,6 +5,7 @@ using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Hubs;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Configuration;
+using Haven.Domain.Enums;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,7 @@ public class DeploymentLogService(
         var baseLogFilePath = instanceOptions.CurrentValue.DeploymentLogBasePath;
         var logFilePath = $"{baseLogFilePath}/{serviceId}_{DateTime.UtcNow:yyyyMMddHHmmss}.log";
         var deployment = Domain.Entities.Deployment.Create(serviceId, logFilePath);
+        deployment.StartBuilding();
 
         using var scope = scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IDeploymentRepository>();
@@ -61,6 +63,8 @@ public class DeploymentLogService(
         var deployment = await repository.FindByIdAsync(deploymentId, ct);
         if (deployment is null) return;
 
+        // The deploy services build and start in a single call, so Starting is never observed separately.
+        deployment.StartStarting();
         deployment.Complete();
         await unitOfWork.SaveChangesAsync(ct);
     }
@@ -75,6 +79,7 @@ public class DeploymentLogService(
         var deployment = await repository.FindByIdAsync(deploymentId, ct);
         if (deployment is null) return;
 
+        if (deployment.Status.IsTerminal) return;
         deployment.Fail();
         await unitOfWork.SaveChangesAsync(ct);
     }
@@ -89,6 +94,7 @@ public class DeploymentLogService(
         var deployment = await repository.FindByIdAsync(deploymentId, ct);
         if (deployment is null) return;
 
+        if (deployment.Status.IsTerminal) return;
         deployment.Cancel();
         await unitOfWork.SaveChangesAsync(ct);
     }

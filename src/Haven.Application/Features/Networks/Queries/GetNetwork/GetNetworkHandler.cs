@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
@@ -7,7 +8,7 @@ using Haven.Domain.Aggregates;
 
 namespace Haven.Application.Features.Networks.Queries.GetNetwork;
 
-public sealed class GetNetworkHandler(INetworkRepository networkRepository)
+public sealed class GetNetworkHandler(INetworkRepository networkRepository, IServiceStateReader stateReader)
     : IQueryHandler<GetNetworkQuery, NetworkDto>
 {
     public async ValueTask<Result<NetworkDto>> Handle(GetNetworkQuery query, CancellationToken cancellationToken)
@@ -16,6 +17,7 @@ public sealed class GetNetworkHandler(INetworkRepository networkRepository)
         if (network is null)
             return Error.NotFoundFor(nameof(Network), query.NetworkId);
 
-        return Result<NetworkDto>.Success(network.ToDto());
+        var state = await stateReader.LoadAsync(network.ServiceNetworks.Select(sn => sn.ServiceId), cancellationToken);
+        return Result<NetworkDto>.Success(network.ToDto(state));
     }
 }

@@ -39,7 +39,6 @@ public sealed class BulkDeployServicesHandler(
 
             try
             {
-                service.MarkDeploymentPending();
                 deploymentJobEnqueuer.EnqueueDeployment(request.ProjectId, request.EnvironmentId, serviceId);
                 results.Add(new BulkServiceActionResult(serviceId, true, null));
             }

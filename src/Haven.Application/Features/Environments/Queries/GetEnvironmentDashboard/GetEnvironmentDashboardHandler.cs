@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Repositories;
@@ -11,7 +12,8 @@ namespace Haven.Application.Features.Environments.Queries.GetEnvironmentDashboar
 public sealed class GetEnvironmentDashboardHandler(
     IProjectRepository projectRepository,
     IEnvironmentRepository environmentRepository,
-    IEnvironmentVariableService environmentVariableService)
+    IEnvironmentVariableService environmentVariableService,
+    IServiceStateReader stateReader)
     : IQueryHandler<GetEnvironmentDashboardQuery, EnvironmentDashboardDto>
 {
     public async ValueTask<Result<EnvironmentDashboardDto>> Handle(GetEnvironmentDashboardQuery query, CancellationToken cancellationToken)
@@ -26,7 +28,8 @@ public sealed class GetEnvironmentDashboardHandler(
 
         var envVars = await environmentVariableService.BuildVariablesForEnvironmentAsync(query.EnvironmentId, cancellationToken);
 
-        var dto = environment.ToDashboardDto(project);
+        var state = await stateReader.LoadAsync(environment.Services.Select(s => s.Id), cancellationToken);
+        var dto = environment.ToDashboardDto(project, state);
         dto.TotalEnvVars = envVars.Count();
         dto.EnvironmentVariables = envVars.Select(x => x.ToDto()).ToList();
 

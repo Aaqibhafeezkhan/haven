@@ -38,8 +38,20 @@ public class ServiceRegistryEntryConfiguration : IEntityTypeConfiguration<Servic
             .HasColumnType("TEXT")
             .HasDefaultValue(new List<PortMapping>());
 
-        builder.Property(p => p.Status)
-            .HasColumnName("status")
+        builder.Property(p => p.RuntimeState)
+            .HasColumnName("runtime_state")
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.Property(p => p.Health)
+            .HasColumnName("health")
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.Property(p => p.StateChangedAt)
+            .HasColumnName("state_changed_at")
             .IsRequired();
 
         builder.Property(p => p.RegisteredAt)

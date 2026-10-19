@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Features.Networks.Queries.GetNetwork;
 using Haven.Domain;
@@ -20,7 +21,9 @@ public sealed class GetNetworkHandlerTests
     public void Setup()
     {
         _networkRepository = Substitute.For<INetworkRepository>();
-        _sut = new GetNetworkHandler(_networkRepository);
+        var stateReader = Substitute.For<IServiceStateReader>();
+        stateReader.LoadAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>()).Returns(ServiceStateSnapshot.Empty);
+        _sut = new GetNetworkHandler(_networkRepository, stateReader);
     }
 
     [Test]

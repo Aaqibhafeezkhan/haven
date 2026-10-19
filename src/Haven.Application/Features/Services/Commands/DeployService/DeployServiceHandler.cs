@@ -27,7 +27,6 @@ public sealed class DeployServiceHandler(
         if (service is null)
             return Error.NotFoundFor(nameof(Service), request.ServiceId);
 
-        service.MarkDeploymentPending();
         deploymentJobEnqueuer.EnqueueDeployment(request.ProjectId, request.EnvironmentId, request.ServiceId);
 
         return Result.Success();

@@ -155,6 +155,24 @@ public sealed class Service : AggregateRoot, IDeployableContainer
     {
         EnsureOwnsDeployment(deployment);
         deployment.Complete();
+        OnDeploymentSucceeded();
+    }
+
+    /// <summary>
+    /// Signals that a deployment started when the <see cref="Deployment"/> row itself is persisted
+    /// elsewhere (the deployment log service owns its lifecycle and log file).
+    /// </summary>
+    public void AnnounceDeploymentStarted()
+    {
+        UpdatedAt = DateTime.UtcNow;
+        Raise(new ServiceDeployingEvent(Id, Name));
+    }
+
+    /// <summary>
+    /// Applies the service-level effects of a successful deployment: the operator now wants it running.
+    /// </summary>
+    public void OnDeploymentSucceeded()
+    {
         DesiredState = DesiredState.Running;
         var now = DateTime.UtcNow;
         UpdatedAt = now;

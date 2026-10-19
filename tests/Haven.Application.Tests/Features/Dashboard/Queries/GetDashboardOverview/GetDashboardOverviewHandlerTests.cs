@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Features.Dashboard.Queries.GetDashboardOverview;
 using Haven.Domain.Aggregates;
@@ -13,13 +14,19 @@ namespace Haven.Application.Tests.Features.Dashboard.Queries.GetDashboardOvervie
 public sealed class GetDashboardOverviewHandlerTests
 {
     private IProjectRepository _projectRepository;
+    private IServiceStateReader _stateReader;
+    private Dictionary<Guid, ServiceRegistryEntry> _entries;
     private GetDashboardOverviewHandler _sut;
 
     [SetUp]
     public void Setup()
     {
         _projectRepository = Substitute.For<IProjectRepository>();
-        _sut = new GetDashboardOverviewHandler(_projectRepository);
+        _stateReader = Substitute.For<IServiceStateReader>();
+        _entries = [];
+        _stateReader.LoadAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(new ServiceStateSnapshot(_entries, new Dictionary<Guid, DeploymentStatus>())));
+        _sut = new GetDashboardOverviewHandler(_projectRepository, _stateReader);
     }
 
     [Test]
@@ -44,7 +51,7 @@ public sealed class GetDashboardOverviewHandlerTests
         var healthyProject = Project.Create("healthy-project");
         var healthyEnv = healthyProject.AddEnvironment("prod");
         var healthyService = healthyEnv.AddService("api", ServiceType.DockerImage, ExposureMode.Internal);
-        healthyEnv.DeployService(healthyService.Id);
+        SetRunning(healthyService.Id);
 
         var stoppedProject = Project.Create("stopped-project");
         var stoppedEnv = stoppedProject.AddEnvironment("prod");
@@ -54,7 +61,7 @@ public sealed class GetDashboardOverviewHandlerTests
         var degradedEnv = degradedProject.AddEnvironment("prod");
         var runningService = degradedEnv.AddService("web", ServiceType.DockerImage, ExposureMode.Internal);
         degradedEnv.AddService("queue", ServiceType.DockerImage, ExposureMode.Internal);
-        degradedEnv.DeployService(runningService.Id);
+        SetRunning(runningService.Id);
 
         _projectRepository.GetAsync(Arg.Any<CancellationToken>())
             .Returns(ToAsyncEnumerable(healthyProject, stoppedProject, degradedProject));
@@ -79,11 +86,10 @@ public sealed class GetDashboardOverviewHandlerTests
         var project = Project.Create("test-project");
         var environment = project.AddEnvironment("prod");
         var unhealthyService = environment.AddService("api", ServiceType.DockerImage, ExposureMode.Internal);
-        environment.DeployService(unhealthyService.Id);
-        unhealthyService.Health = ServiceHealth.Unhealthy;
+        SetRunning(unhealthyService.Id, ServiceHealth.Unhealthy);
 
         var healthyService = environment.AddService("worker", ServiceType.DockerImage, ExposureMode.Internal);
-        environment.DeployService(healthyService.Id);
+        SetRunning(healthyService.Id);
 
         _projectRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable(project));
 
@@ -113,6 +119,14 @@ public sealed class GetDashboardOverviewHandlerTests
         result.Value.DeploymentsLast24h.ShouldBe(1);
         result.Value.LastDeployment.ShouldNotBeNull();
         result.Value.LastDeployment.ServiceName.ShouldBe("api");
+    }
+
+    private void SetRunning(Guid serviceId, ServiceHealth health = ServiceHealth.Healthy)
+    {
+        var entry = ServiceRegistryEntry.Create(serviceId);
+        entry.ApplyRuntimeState(ServiceRuntimeState.Running, DateTime.UtcNow);
+        entry.ApplyHealth(health);
+        _entries[serviceId] = entry;
     }
 
     private static async IAsyncEnumerable<Project> ToAsyncEnumerable(params Project[] projects)

@@ -86,7 +86,7 @@ public class CreateServiceIntegrationTests
         service.Name.ShouldBe(serviceName);
         service.Type.ShouldBe(ServiceType.DockerImage);
         service.ExposureMode.ShouldBe(ExposureMode.External);
-        service.Status.ShouldBe(ServiceStatus.Stopped);
+        service.DesiredState.ShouldBe(DesiredState.Stopped);
         service.EnvironmentId.ShouldBe(environmentId);
 
         // Assert - Domain event was raised

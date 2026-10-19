@@ -1,3 +1,4 @@
+using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
@@ -10,7 +11,8 @@ namespace Haven.Application.Features.Projects.Queries.GetProjectDashboard;
 
 public sealed class GetProjectDashboardHandler(
     IProjectRepository repository,
-    IEnvironmentVariableRepository environmentVariableRepository)
+    IEnvironmentVariableRepository environmentVariableRepository,
+    IServiceStateReader stateReader)
     : IQueryHandler<GetProjectDashboardQuery, ProjectDashboardDto>
 {
     public async ValueTask<Result<ProjectDashboardDto>> Handle(GetProjectDashboardQuery query, CancellationToken cancellationToken)
@@ -21,7 +23,8 @@ public sealed class GetProjectDashboardHandler(
 
         var projectEnvVars = await environmentVariableRepository.GetForProjectAsync(project.Id, cancellationToken);
 
-        var dto = project.ToDashboardDto(projectEnvVars);
+        var state = await stateReader.LoadAsync(project.Environments.SelectMany(e => e.Services).Select(s => s.Id), cancellationToken);
+        var dto = project.ToDashboardDto(projectEnvVars, state);
 
         foreach (var environment in dto.Environments)
         {

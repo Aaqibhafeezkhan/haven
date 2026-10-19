@@ -131,6 +131,7 @@ public static class DependencyInjection
         services.AddScoped<IGitCredentialsRepository, GitCredentialsRepository>();
         services.AddScoped<ISecretVariableRepository, SecretVariableRepository>();
         services.AddScoped<IServiceRegistryEntryRepository, ServiceRegistryEntryRepository>();
+        services.AddScoped<Haven.Infrastructure.Deployment.Events.ServiceRuntimeStateRecorder>();
         services.AddScoped<ISslCertificateRepository, SslCertificateRepository>();
         services.AddScoped<ITraefikDynamicConfigWriter, TraefikDynamicConfigWriter>();
         services.AddScoped<INotificationChannelConfigRepository, NotificationChannelConfigRepository>();
