@@ -21,6 +21,12 @@ public sealed class RepositoryCleanupJob(
             "Running repository cleanup (grace period: {GracePeriodHours}h, dry run: {DryRun})",
             current.GracePeriodHours, current.DryRun);
 
+        await CleanupServiceRepositoriesAsync(current);
+        await CleanupManifestRepositoriesAsync(current);
+    }
+
+    private async Task CleanupServiceRepositoriesAsync(RepositoryCleanupOptions current)
+    {
         var servicesRoot = Path.Combine(pathProvider.GetRepositoryRootPath(), "services");
         if (!Directory.Exists(servicesRoot))
         {
@@ -71,5 +77,60 @@ public sealed class RepositoryCleanupJob(
         }
 
         logger.LogInformation("Repository cleanup completed: {Count} dangling repository(ies) removed", deletedCount);
+    }
+
+    /// <summary>
+    /// Manifest clones are shared between services, so one is dangling only when no service's
+    /// binding resolves to it any more.
+    /// </summary>
+    private async Task CleanupManifestRepositoriesAsync(RepositoryCleanupOptions current)
+    {
+        var manifestsRoot = Path.Combine(pathProvider.GetRepositoryRootPath(), "manifests");
+        if (!Directory.Exists(manifestsRoot))
+            return;
+
+        var directories = Directory.GetDirectories(manifestsRoot);
+        if (directories.Length == 0)
+            return;
+
+        var inUse = new HashSet<string>(StringComparer.Ordinal);
+        await foreach (var service in serviceRepository.GetAsync(CancellationToken.None))
+        {
+            if (service.RepositoryBinding is { } binding)
+                inUse.Add(Path.GetFullPath(pathProvider.GetManifestRepositoryPath(binding)));
+        }
+
+        var cutoff = DateTime.UtcNow - TimeSpan.FromHours(current.GracePeriodHours);
+        var deletedCount = 0;
+
+        foreach (var dir in directories)
+        {
+            if (inUse.Contains(Path.GetFullPath(dir)))
+                continue;
+
+            if (Directory.GetLastWriteTimeUtc(dir) > cutoff)
+            {
+                logger.LogInformation("Skipping unused manifest repository '{Path}': within grace period", dir);
+                continue;
+            }
+
+            if (current.DryRun)
+            {
+                logger.LogInformation("[DryRun] Would delete unused manifest repository directory '{Path}'", dir);
+                continue;
+            }
+
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+                deletedCount++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to delete unused manifest repository '{Path}'", dir);
+            }
+        }
+
+        logger.LogInformation("Manifest repository cleanup completed: {Count} unused repository(ies) removed", deletedCount);
     }
 }

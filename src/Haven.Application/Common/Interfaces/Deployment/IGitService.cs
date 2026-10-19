@@ -26,13 +26,13 @@ public interface IGitService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Clones (or updates) the repository named by <paramref name="binding"/> into the service's manifest
+    /// Clones (or updates) the repository named by <paramref name="binding"/> into the manifest
     /// repository directory, using the binding's own git credential, and returns the content of the
-    /// bound file at the tip of the bound branch.
-    /// Storage: {root}/manifests/{serviceId}
+    /// bound file at the tip of the bound branch. Services with the same repository, branch and
+    /// credential share one clone; access to it is serialized.
+    /// Storage: {root}/manifests/{repoName}-{hash}
     /// </summary>
     Task<Result<string>> ReadBoundFileAsync(
-        Guid serviceId,
         RepositoryBinding binding,
         CancellationToken cancellationToken = default);
 

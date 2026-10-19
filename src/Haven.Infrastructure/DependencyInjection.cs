@@ -265,6 +265,7 @@ public static class DependencyInjection
         var gitRepositoryRootPath = Path.Combine(AppContext.BaseDirectory, "git-repositories");
         services.AddSingleton<IGitRepositoryPathProvider>(new GitRepositoryPathProvider(gitRepositoryRootPath));
         services.AddScoped<IGitProviderFactory, GitProviderFactory>();
+        services.AddSingleton<IRepositoryLockProvider, RepositoryLockProvider>();
         services.AddScoped<IGitService, GitService>();
         services.AddScoped<IGitHubOAuthService, GitHubOAuthService>();
         services.AddHttpClient("github-oauth");

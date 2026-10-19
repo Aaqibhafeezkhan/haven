@@ -25,7 +25,7 @@ public class RepositoryManifestSyncService(
         if (service.RepositoryBinding is not { } binding)
             return false;
 
-        var fileResult = await gitService.ReadBoundFileAsync(service.Id, binding, cancellationToken);
+        var fileResult = await gitService.ReadBoundFileAsync(binding, cancellationToken);
         if (fileResult.IsFailure)
         {
             logger.LogWarning("Could not read manifest '{FilePath}' from '{Repository}' for service '{Name}': {Error}",

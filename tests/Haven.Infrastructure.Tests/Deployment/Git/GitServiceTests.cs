@@ -46,7 +46,7 @@ public sealed class GitServiceTests
         _repositoryPathProvider.GetServiceRepositoryPath(Arg.Any<Guid>())
             .Returns(x => Path.Combine(_tempRoot, "services", x[0].ToString()!));
 
-        _sut = new GitService(_repositoryPathProvider, _credentialsRepository, _gitProviderFactory, _logger);
+        _sut = new GitService(_repositoryPathProvider, _credentialsRepository, _gitProviderFactory, new RepositoryLockProvider(), _logger);
     }
 
     [TearDown]

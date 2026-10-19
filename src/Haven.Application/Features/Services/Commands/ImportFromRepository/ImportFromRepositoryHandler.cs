@@ -31,11 +31,7 @@ public sealed class ImportFromRepositoryHandler(
             FilePath = command.FilePath.Trim()
         };
 
-        // The manifest clone is keyed by service id, so the id is fixed before the file is read and
-        // the first deploy reuses that clone.
-        var serviceId = Guid.CreateVersion7();
-
-        var fileResult = await gitService.ReadBoundFileAsync(serviceId, binding, cancellationToken);
+        var fileResult = await gitService.ReadBoundFileAsync(binding, cancellationToken);
         if (fileResult.IsFailure) return fileResult.Error;
 
         ServiceManifestDto manifest;
@@ -51,7 +47,7 @@ public sealed class ImportFromRepositoryHandler(
         // Only the declarative definition comes from the repo; identity, secrets, timestamps and
         // operator intent are Haven's own (see RepositoryManifestApplier).
         var now = DateTime.UtcNow;
-        manifest.Id = serviceId;
+        manifest.Id = Guid.CreateVersion7();
         manifest.DesiredState = DesiredState.Stopped;
         manifest.Status = null;
         manifest.CreatedAt = now;

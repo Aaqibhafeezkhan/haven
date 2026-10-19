@@ -35,7 +35,7 @@ public sealed class ImportFromRepositoryHandlerTests
         _environmentRepository = Substitute.For<IEnvironmentRepository>();
         _serviceRepository = Substitute.For<IServiceRepository>();
         _serviceRepository.CanCreateAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>()).Returns(Result.Success());
-        _gitService.ReadBoundFileAsync(Arg.Any<Guid>(), Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+        _gitService.ReadBoundFileAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
             .Returns(Yaml);
         _sut = new ImportFromRepositoryHandler(_gitService, _parser, _environmentRepository, _serviceRepository);
     }
@@ -50,7 +50,7 @@ public sealed class ImportFromRepositoryHandlerTests
         var result = await _sut.Handle(command, CancellationToken.None);
 
         result.Error.Code.ShouldBe("NOT_FOUND");
-        await _gitService.DidNotReceive().ReadBoundFileAsync(Arg.Any<Guid>(), Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>());
+        await _gitService.DidNotReceive().ReadBoundFileAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -58,7 +58,7 @@ public sealed class ImportFromRepositoryHandlerTests
     {
         var command = CreateCommand();
         SetupEnvironment(command);
-        _gitService.ReadBoundFileAsync(Arg.Any<Guid>(), Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+        _gitService.ReadBoundFileAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
             .Returns(Error.Failed);
 
         var result = await _sut.Handle(command, CancellationToken.None);
@@ -89,15 +89,17 @@ public sealed class ImportFromRepositoryHandlerTests
     }
 
     [Test]
-    public async Task Handle_ShouldReadTheFileUsingTheNewServiceId()
+    public async Task Handle_ShouldReadTheFileUsingTheCommandBinding()
     {
         var command = CreateCommand();
         SetupEnvironment(command);
         _parser.ParseAsync(Yaml, Arg.Any<CancellationToken>()).Returns(CreateManifest());
 
-        var result = await _sut.Handle(command, CancellationToken.None);
+        await _sut.Handle(command, CancellationToken.None);
 
-        await _gitService.Received(1).ReadBoundFileAsync(result.Value, Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>());
+        await _gitService.Received(1).ReadBoundFileAsync(
+            Arg.Is<RepositoryBinding>(b => b.Repository == command.Repository.Trim() && b.Branch == command.Branch.Trim()),
+            Arg.Any<CancellationToken>());
     }
 
     [Test]

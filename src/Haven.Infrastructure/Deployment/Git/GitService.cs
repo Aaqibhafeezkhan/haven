@@ -15,6 +15,7 @@ public class GitService(
     IGitRepositoryPathProvider repositoryPathProvider,
     IGitCredentialsRepository credentialsRepository,
     IGitProviderFactory gitProviderFactory,
+    IRepositoryLockProvider repositoryLocks,
     ILogger<GitService> logger) : IGitService
 {
     public async Task<Result<string>> CloneServiceRepositoryAsync(Guid serviceId, string repositoryUrl, CancellationToken cancellationToken = default)
@@ -77,14 +78,14 @@ public class GitService(
         }
     }
 
-    public async Task<Result<string>> ReadBoundFileAsync(Guid serviceId, RepositoryBinding binding, CancellationToken cancellationToken = default)
+    public async Task<Result<string>> ReadBoundFileAsync(RepositoryBinding binding, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(binding.Repository) || string.IsNullOrWhiteSpace(binding.FilePath))
             return Error.Validation("The repository binding requires a repository and a file path.");
 
         try
         {
-            var repositoryPath = repositoryPathProvider.GetManifestRepositoryPath(serviceId);
+            var repositoryPath = repositoryPathProvider.GetManifestRepositoryPath(binding);
             var branch = string.IsNullOrWhiteSpace(binding.Branch) ? "main" : binding.Branch;
 
             var credentials = binding.GitCredentialId is { } credentialId
@@ -94,6 +95,9 @@ public class GitService(
                 return Error.NotFoundFor("GitCredentials", binding.GitCredentialId.Value);
 
             var provider = gitProviderFactory.Create(credentials?.ProviderType ?? GitProviderType.Generic, credentials);
+
+            // The clone is shared between services, so fetching and reading must not interleave with another caller's.
+            using var _ = await repositoryLocks.AcquireAsync(repositoryPath, cancellationToken);
 
             if (!Directory.Exists(repositoryPath))
             {
@@ -119,7 +123,7 @@ public class GitService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to read bound file '{FilePath}' from '{Repository}' for service '{ServiceId}'", binding.FilePath, binding.Repository, serviceId);
+            logger.LogError(ex, "Failed to read bound file '{FilePath}' from '{Repository}'", binding.FilePath, binding.Repository);
             return Error.Failed;
         }
     }

@@ -1,3 +1,5 @@
+using Haven.Domain.ValueObjects;
+
 namespace Haven.Application.Common.Interfaces.Deployment;
 
 /// <summary>
@@ -21,12 +23,14 @@ public interface IGitRepositoryPathProvider
     string GetServiceRepositoryPath(Guid serviceId);
 
     /// <summary>
-    /// Gets the directory path where a repository-bound service's manifest repository is cloned.
+    /// Gets the directory path where the manifest repository of a <see cref="RepositoryBinding"/> is cloned.
     /// Kept apart from <see cref="GetServiceRepositoryPath"/> because the manifest repo and the
-    /// Dockerfile source repo of a service can differ.
-    /// Format: {root}/manifests/{serviceId}
+    /// Dockerfile source repo of a service can differ. The path is derived from the repository, branch
+    /// and git credential, so services bound to the same triple share one clone while a different
+    /// credential or branch never reuses it.
+    /// Format: {root}/manifests/{repoName}-{hash}
     /// </summary>
-    string GetManifestRepositoryPath(Guid serviceId);
+    string GetManifestRepositoryPath(RepositoryBinding binding);
 
     /// <summary>
     /// Ensures the directory structure exists for a service's repository.

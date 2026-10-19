@@ -42,7 +42,7 @@ public sealed class RepositoryManifestSyncServiceTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeFalse();
-        await _gitService.DidNotReceive().ReadBoundFileAsync(Arg.Any<Guid>(), Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>());
+        await _gitService.DidNotReceive().ReadBoundFileAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -193,7 +193,7 @@ public sealed class RepositoryManifestSyncServiceTests
     }
 
     [Test]
-    public async Task SyncAsync_ShouldReadFileUsingServiceIdAndBinding()
+    public async Task SyncAsync_ShouldReadFileUsingServiceBinding()
     {
         var service = CreateService();
         GivenFile(service, ValidYaml);
@@ -201,11 +201,11 @@ public sealed class RepositoryManifestSyncServiceTests
 
         await _sut.SyncAsync(service, CancellationToken.None);
 
-        await _gitService.Received(1).ReadBoundFileAsync(service.Id, service.RepositoryBinding!, Arg.Any<CancellationToken>());
+        await _gitService.Received(1).ReadBoundFileAsync(service.RepositoryBinding!, Arg.Any<CancellationToken>());
     }
 
     private void GivenFile(Service service, Result<string> file) =>
-        _gitService.ReadBoundFileAsync(service.Id, Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>()).Returns(file);
+        _gitService.ReadBoundFileAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>()).Returns(file);
 
     private void GivenParsed(ServiceManifestDto manifest) =>
         _parser.ParseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(manifest);

@@ -1,6 +1,9 @@
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Configuration;
+using Haven.Domain.Aggregates;
+using Haven.Domain.Enums;
+using Haven.Domain.ValueObjects;
 using Haven.Infrastructure.BackgroundJobs;
 
 using Microsoft.Extensions.Logging;
@@ -167,5 +170,67 @@ public sealed class RepositoryCleanupJobTests
 
         await _gitService.Received(1).DeleteServiceRepositoryAsync(dangling1, Arg.Any<CancellationToken>());
         await _gitService.Received(1).DeleteServiceRepositoryAsync(dangling2, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task ExecuteAsync_ShouldDeleteUnusedManifestRepositoriesAndKeepSharedOnes()
+    {
+        var binding = new RepositoryBinding { Repository = "https://github.com/org/repo", Branch = "main", FilePath = "a.yaml" };
+        var used = CreateManifestDirectory("repo-used", DateTime.UtcNow.AddDays(-5));
+        var unused = CreateManifestDirectory("repo-unused", DateTime.UtcNow.AddDays(-5));
+        _pathProvider.GetManifestRepositoryPath(binding).Returns(used);
+        _serviceRepository.GetAsync(Arg.Any<CancellationToken>())
+            .Returns(ToAsync(CreateBoundService(binding), CreateBoundService(binding)));
+
+        await _sut.ExecuteAsync();
+
+        Directory.Exists(used).ShouldBeTrue();
+        Directory.Exists(unused).ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task ExecuteAsync_ShouldKeepUnusedManifestRepositoryWithinGracePeriod()
+    {
+        var recent = CreateManifestDirectory("repo-recent", DateTime.UtcNow);
+        _serviceRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(ToAsync());
+
+        await _sut.ExecuteAsync();
+
+        Directory.Exists(recent).ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task ExecuteAsync_InDryRun_ShouldNotDeleteUnusedManifestRepositories()
+    {
+        _optionsValue.DryRun = true;
+        var unused = CreateManifestDirectory("repo-unused", DateTime.UtcNow.AddDays(-5));
+        _serviceRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(ToAsync());
+
+        await _sut.ExecuteAsync();
+
+        Directory.Exists(unused).ShouldBeTrue();
+    }
+
+    private string CreateManifestDirectory(string name, DateTime lastWriteUtc)
+    {
+        var dir = Path.Combine(_root, "manifests", name);
+        Directory.CreateDirectory(dir);
+        Directory.SetLastWriteTimeUtc(dir, lastWriteUtc);
+        return dir;
+    }
+
+    private static Service CreateBoundService(RepositoryBinding binding)
+    {
+        var service = Service.Create(Guid.NewGuid(), "svc", ServiceType.DockerImage, ExposureMode.Internal,
+            sourceConfig: new DockerConfig { Image = "img" });
+        service.RepositoryBinding = binding;
+        return service;
+    }
+
+    private static async IAsyncEnumerable<Service> ToAsync(params Service[] services)
+    {
+        foreach (var service in services)
+            yield return service;
+        await Task.CompletedTask;
     }
 }
