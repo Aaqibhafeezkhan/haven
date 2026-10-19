@@ -19,7 +19,7 @@ namespace Haven.Application.Tests.Features.Services.Commands.ImportFromRepositor
 [Category("Unit")]
 public sealed class ImportFromRepositoryHandlerTests
 {
-    private const string Yaml = "name: web";
+    private const string Yaml = "name: web\ntype: DockerImage\nexposureMode: Internal";
 
     private IGitService _gitService;
     private IManifestParser<ServiceManifestDto> _parser;
@@ -130,6 +130,35 @@ public sealed class ImportFromRepositoryHandlerTests
         var command = CreateCommand();
         SetupEnvironment(command);
         _parser.ParseAsync(Yaml, Arg.Any<CancellationToken>()).Returns<ServiceManifestDto>(_ => throw new InvalidOperationException("bad yaml"));
+
+        var result = await _sut.Handle(command, CancellationToken.None);
+
+        result.Error.Code.ShouldBe("VALIDATION");
+        await _serviceRepository.DidNotReceive().AddAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Handle_ShouldReturnValidation_AndNotAdd_WhenManifestOmitsRequiredKeys()
+    {
+        var command = CreateCommand();
+        SetupEnvironment(command);
+        _gitService.ReadBoundFileAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>()).Returns("name: web");
+
+        var result = await _sut.Handle(command, CancellationToken.None);
+
+        result.Error.Code.ShouldBe("VALIDATION");
+        result.Error.Message.ShouldContain("type");
+        await _serviceRepository.DidNotReceive().AddAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Handle_ShouldReturnValidation_AndNotAdd_WhenManifestHasNoName()
+    {
+        var command = CreateCommand();
+        SetupEnvironment(command);
+        var manifest = CreateManifest();
+        manifest.Name = "  ";
+        _parser.ParseAsync(Yaml, Arg.Any<CancellationToken>()).Returns(manifest);
 
         var result = await _sut.Handle(command, CancellationToken.None);
 

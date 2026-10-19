@@ -34,6 +34,9 @@ public sealed class ImportFromRepositoryHandler(
         var fileResult = await gitService.ReadBoundFileAsync(binding, cancellationToken);
         if (fileResult.IsFailure) return fileResult.Error;
 
+        var keysResult = RepositoryManifestRules.ValidateRequiredKeys(fileResult.Value);
+        if (keysResult.IsFailure) return keysResult.Error;
+
         ServiceManifestDto manifest;
         try
         {
@@ -43,6 +46,10 @@ public sealed class ImportFromRepositoryHandler(
         {
             return Error.Validation($"Invalid repository manifest YAML: {ex.Message}");
         }
+
+        // Unlike a sync, an import has no existing service to take the name from.
+        if (string.IsNullOrWhiteSpace(manifest.Name))
+            return Error.Validation("The repository manifest must declare a name.");
 
         // Only the declarative definition comes from the repo; identity, secrets, timestamps and
         // operator intent are Haven's own (see RepositoryManifestApplier).
