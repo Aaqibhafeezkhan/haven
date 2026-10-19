@@ -1,6 +1,7 @@
 using Haven.Application.Common;
 using Haven.Application.Common.Models;
 using Haven.Domain.Entities;
+using Haven.Domain.ValueObjects;
 
 namespace Haven.Application.Common.Interfaces.Deployment;
 
@@ -22,6 +23,17 @@ public interface IGitService
     Task<Result> PullServiceRepositoryAsync(
         Guid serviceId,
         string branch,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Clones (or updates) the repository named by <paramref name="binding"/> into the service's manifest
+    /// repository directory, using the binding's own git credential, and returns the content of the
+    /// bound file at the tip of the bound branch.
+    /// Storage: {root}/manifests/{serviceId}
+    /// </summary>
+    Task<Result<string>> ReadBoundFileAsync(
+        Guid serviceId,
+        RepositoryBinding binding,
         CancellationToken cancellationToken = default);
 
     /// <summary>

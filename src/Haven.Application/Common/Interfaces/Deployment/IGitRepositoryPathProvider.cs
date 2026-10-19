@@ -21,6 +21,14 @@ public interface IGitRepositoryPathProvider
     string GetServiceRepositoryPath(Guid serviceId);
 
     /// <summary>
+    /// Gets the directory path where a repository-bound service's manifest repository is cloned.
+    /// Kept apart from <see cref="GetServiceRepositoryPath"/> because the manifest repo and the
+    /// Dockerfile source repo of a service can differ.
+    /// Format: {root}/manifests/{serviceId}
+    /// </summary>
+    string GetManifestRepositoryPath(Guid serviceId);
+
+    /// <summary>
     /// Ensures the directory structure exists for a service's repository.
     /// </summary>
     Task EnsureRepositoryDirectoryExistsAsync(Guid serviceId, CancellationToken cancellationToken = default);

@@ -22,6 +22,7 @@ public class DeploymentOrchestrator(
     IServiceRegistry registry,
     IDeployServiceFactory deployServiceFactory,
     IDeploymentLogService logService,
+    IRepositoryManifestSyncService manifestSyncService,
     HavenMetrics metrics,
     ILogger<DeploymentOrchestrator> logger) : IDeploymentOrchestrator
 {
@@ -30,6 +31,18 @@ public class DeploymentOrchestrator(
         if (container is null) return Error.NotFound;
         if (container is Service serviceContainer && serviceContainer.Environment?.Project is null)
             return Error.NotFound;
+
+        // Repository-owned services take their definition from the repo, so reconcile before deploying.
+        if (container is Service { RepositoryBinding: not null } repositoryOwned)
+        {
+            var syncResult = await manifestSyncService.SyncAsync(repositoryOwned, cancellationToken);
+            if (syncResult.IsFailure)
+            {
+                logger.LogError("Skipping deploy of '{Name}' ({Id}): repository manifest sync failed: {Error}",
+                    container.Name, container.Id, syncResult.Error.Message);
+                return syncResult.Error;
+            }
+        }
 
         var deployService = deployServiceFactory.Create(container);
         if (deployService is null)

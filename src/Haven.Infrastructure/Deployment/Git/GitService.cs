@@ -5,6 +5,7 @@ using Haven.Application.Common.Models;
 using Haven.Domain;
 using Haven.Domain.Entities;
 using Haven.Domain.Enums;
+using Haven.Domain.ValueObjects;
 
 using Microsoft.Extensions.Logging;
 
@@ -72,6 +73,53 @@ public class GitService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to pull repository for service '{ServiceId}'", serviceId);
+            return Error.Failed;
+        }
+    }
+
+    public async Task<Result<string>> ReadBoundFileAsync(Guid serviceId, RepositoryBinding binding, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(binding.Repository) || string.IsNullOrWhiteSpace(binding.FilePath))
+            return Error.Validation("The repository binding requires a repository and a file path.");
+
+        try
+        {
+            var repositoryPath = repositoryPathProvider.GetManifestRepositoryPath(serviceId);
+            var branch = string.IsNullOrWhiteSpace(binding.Branch) ? "main" : binding.Branch;
+
+            var credentials = binding.GitCredentialId is { } credentialId
+                ? await credentialsRepository.GetByIdAsync(credentialId, cancellationToken)
+                : null;
+            if (binding.GitCredentialId is not null && credentials is null)
+                return Error.NotFoundFor("GitCredentials", binding.GitCredentialId.Value);
+
+            var provider = gitProviderFactory.Create(credentials?.ProviderType ?? GitProviderType.Generic, credentials);
+
+            if (!Directory.Exists(repositoryPath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(repositoryPath)!);
+                await provider.CloneRepositoryAsync(binding.Repository, repositoryPath, cancellationToken);
+            }
+
+            await provider.PullAsync(repositoryPath, branch, cancellationToken);
+
+            var fullPath = Path.GetFullPath(Path.Combine(repositoryPath, binding.FilePath));
+            var root = Path.GetFullPath(repositoryPath) + Path.DirectorySeparatorChar;
+            if (!fullPath.StartsWith(root, StringComparison.Ordinal))
+                return Error.Validation("The bound file path must stay inside the repository.");
+
+            if (!File.Exists(fullPath))
+                return Error.NotFoundFor("Repository file", binding.FilePath);
+
+            return await File.ReadAllTextAsync(fullPath, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to read bound file '{FilePath}' from '{Repository}' for service '{ServiceId}'", binding.FilePath, binding.Repository, serviceId);
             return Error.Failed;
         }
     }

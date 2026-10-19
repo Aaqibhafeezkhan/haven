@@ -243,6 +243,7 @@ public static class DependencyInjection
         services.AddScoped<IDeployWebhookService, DeployWebhookService>();
         services.AddScoped<IFeatureFlagService, FeatureFlagService>();
         services.AddScoped<IDeploymentOrchestrator, DeploymentOrchestrator>();
+        services.AddScoped<IRepositoryManifestSyncService, RepositoryManifestSyncService>();
         services.AddSingleton<IDeploymentLogService, DeploymentLogService>();
         services.AddSingleton<IDeploymentCancellationService, DeploymentCancellationService>();
         services.AddScoped<IBuildInfoService, BuildInfoService>();

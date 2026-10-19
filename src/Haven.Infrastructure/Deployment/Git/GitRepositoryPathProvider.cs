@@ -11,6 +11,9 @@ public sealed class GitRepositoryPathProvider(string baseRepositoryPath) : IGitR
     public string GetServiceRepositoryPath(Guid serviceId) =>
         Path.Combine(_baseRepositoryPath, "services", serviceId.ToString());
 
+    public string GetManifestRepositoryPath(Guid serviceId) =>
+        Path.Combine(_baseRepositoryPath, "manifests", serviceId.ToString());
+
     public async Task EnsureRepositoryDirectoryExistsAsync(Guid serviceId, CancellationToken cancellationToken = default)
     {
         var path = GetServiceRepositoryPath(serviceId);

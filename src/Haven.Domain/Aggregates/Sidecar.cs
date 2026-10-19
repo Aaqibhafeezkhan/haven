@@ -21,6 +21,9 @@ public sealed class Sidecar : AggregateRoot, IDeployableContainer
     public DateTime UpdatedAt { get; set; }
     public DateTime? LastDeployedAt { get; set; }
 
+    /// <summary>Sidecars are always managed by Haven directly; only services can be repository-owned.</summary>
+    public RepositoryBinding? RepositoryBinding => null;
+
     public string? SourceConfigJson { get; set; }
     public ServiceSourceConfig? SourceConfig
     {
