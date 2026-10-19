@@ -1,5 +1,6 @@
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;
+using Haven.Domain.ValueObjects;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -61,6 +62,13 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
 
         builder.Property(x => x.SourceConfigJson)
             .HasColumnName("source_config")
+            .HasColumnType("TEXT");
+
+        builder.Property(x => x.RepositoryBinding)
+            .HasColumnName("repository_binding")
+            .HasConversion(
+                v => v.ToString(),
+                v => RepositoryBinding.FromString(v))
             .HasColumnType("TEXT");
 
         builder.Ignore(x => x.SourceConfig);
