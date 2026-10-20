@@ -50,7 +50,14 @@ public static class RepositoryManifestApplier
                 sourceConfig = desired;
         }
 
-        return service.Update(default, manifest.Type, manifest.ExposureMode, default, sourceConfig);
+        var changed = service.Update(default, manifest.Type, manifest.ExposureMode, default, sourceConfig);
+
+        // The repo is the source of truth: a source config it no longer declares must not linger and
+        // contradict the (possibly changed) service type.
+        if (desired is null)
+            changed |= service.ClearSourceConfig();
+
+        return changed;
     }
 
     private static bool ApplyFeatureFlags(Service service, ServiceManifestDto manifest)

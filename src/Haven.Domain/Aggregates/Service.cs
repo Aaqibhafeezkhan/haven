@@ -138,6 +138,22 @@ public sealed class Service : AggregateRoot, IDeployableContainer
     }
 
     /// <summary>
+    /// Removes the source config. <see cref="Update"/> can't do this: <see cref="Optional{T}"/> treats null as
+    /// "not provided". Returns whether there was anything to remove.
+    /// </summary>
+    public bool ClearSourceConfig()
+    {
+        if (SourceConfigJson is null)
+            return false;
+
+        SourceConfigJson = null;
+        GitCredentialId = null;
+        UpdatedAt = DateTime.UtcNow;
+        Raise(new ServiceUpdatedEvent(Id, Name, Name));
+        return true;
+    }
+
+    /// <summary>
     /// Queues a new deployment. Throws if one is already in flight.
     /// </summary>
     public Deployment BeginDeployment(string logFile, string? triggeredBy = null)
