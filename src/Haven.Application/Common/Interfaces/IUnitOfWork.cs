@@ -21,9 +21,9 @@ public interface IUnitOfWork
     void Detach<TEntity>(TEntity entity) where TEntity : class;
 
     /// <summary>
-    /// Reverts every pending change in this unit of work (added entities are dropped, modified and
-    /// deleted ones restored to their loaded values) so a half-applied mutation can't be saved by a later
-    /// <see cref="SaveChangesAsync"/>.
+    /// Drops every pending change in this unit of work, including in-memory collection edits and undispatched
+    /// domain events, so a half-applied mutation can't be saved by a later <see cref="SaveChangesAsync"/>.
+    /// All tracked entities are detached; callers must not keep using them and should re-fetch what they need.
     /// </summary>
     void DiscardUnsavedChanges();
 }

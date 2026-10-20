@@ -70,22 +70,12 @@ public class HavenDbContext : DbContext, IUnitOfWork
     public void Detach<TEntity>(TEntity entity) where TEntity : class =>
         Entry(entity).State = EntityState.Detached;
 
+    // Clearing the tracker rather than resetting entry states: a half-applied change also lives in the
+    // aggregates' navigation collections and pending domain events, and a later save would find it there.
     public void DiscardUnsavedChanges()
     {
-        foreach (var entry in ChangeTracker.Entries().ToList())
-        {
-            switch (entry.State)
-            {
-                case EntityState.Added:
-                    entry.State = EntityState.Detached;
-                    break;
-                case EntityState.Modified:
-                case EntityState.Deleted:
-                    entry.CurrentValues.SetValues(entry.OriginalValues);
-                    entry.State = EntityState.Unchanged;
-                    break;
-            }
-        }
+        ChangeTracker.Clear();
+        _postSaveActions.Clear();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
