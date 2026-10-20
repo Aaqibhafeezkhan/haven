@@ -125,7 +125,8 @@ public sealed class DockerfileDeployServiceTests
             .Returns(new Dictionary<string, TemplateNamespaceResolver>());
 
         _sut = new DockerfileDeployService(
-            _logger, _client, _containerRuntime, _networkingServiceFactory, _gitService, _logService, _templateNamespaceProvider);
+            _logger, _client, _containerRuntime, _networkingServiceFactory, _gitService, _logService, _templateNamespaceProvider,
+            new Haven.Infrastructure.Deployment.Git.RepositoryLockProvider());
     }
 
     [TearDown]
@@ -211,17 +212,18 @@ public sealed class DockerfileDeployServiceTests
         Directory.CreateDirectory(repoPath);
         File.WriteAllText(Path.Combine(repoPath, "Dockerfile"), "FROM ubuntu:22.04");
 
-        _gitService.ServiceRepositoryExists(service.Id).Returns(false);
-        _gitService.CloneServiceRepositoryAsync(service.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _gitService.RepositoryExists(Arg.Any<RepositoryBinding>()).Returns(false);
+        _gitService.SyncRepositoryAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
             .Returns(Result<string>.Success(repoPath));
-        _gitService.GetServiceRepositoryPath(service.Id).Returns(repoPath);
+        _gitService.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(repoPath);
 
         try
         {
             await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
 
-            await _gitService.Received(1).CloneServiceRepositoryAsync(
-                service.Id, Arg.Any<string>(), Arg.Any<CancellationToken>());
+            await _gitService.Received(1).SyncRepositoryAsync(
+                Arg.Is<RepositoryBinding>(b => b.Repository == ((DockerfileConfig)service.SourceConfig!).Repository),
+                Arg.Any<CancellationToken>());
         }
         finally
         {
@@ -238,19 +240,17 @@ public sealed class DockerfileDeployServiceTests
         Directory.CreateDirectory(repoPath);
         File.WriteAllText(Path.Combine(repoPath, "Dockerfile"), "FROM ubuntu:22.04");
 
-        _gitService.ServiceRepositoryExists(service.Id).Returns(true);
-        _gitService.PullServiceRepositoryAsync(service.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Success());
-        _gitService.GetServiceRepositoryPath(service.Id).Returns(repoPath);
+        _gitService.RepositoryExists(Arg.Any<RepositoryBinding>()).Returns(true);
+        _gitService.SyncRepositoryAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+            .Returns(Result<string>.Success(repoPath));
+        _gitService.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(repoPath);
 
         try
         {
             await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
 
-            await _gitService.Received(1).PullServiceRepositoryAsync(
-                service.Id, Arg.Any<string>(), Arg.Any<CancellationToken>());
-            await _gitService.DidNotReceive().CloneServiceRepositoryAsync(
-                Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+            await _gitService.Received(1).SyncRepositoryAsync(
+                Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>());
         }
         finally
         {
@@ -267,10 +267,10 @@ public sealed class DockerfileDeployServiceTests
         Directory.CreateDirectory(repoPath);
         File.WriteAllText(Path.Combine(repoPath, "Dockerfile"), "FROM ubuntu:22.04");
 
-        _gitService.ServiceRepositoryExists(service.Id).Returns(true);
-        _gitService.PullServiceRepositoryAsync(service.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _gitService.RepositoryExists(Arg.Any<RepositoryBinding>()).Returns(true);
+        _gitService.SyncRepositoryAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
             .Returns(Error.Failed);
-        _gitService.GetServiceRepositoryPath(service.Id).Returns(repoPath);
+        _gitService.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(repoPath);
 
         try
         {
@@ -301,10 +301,10 @@ public sealed class DockerfileDeployServiceTests
         Directory.CreateDirectory(Path.Combine(repoPath, "A", "B", "C", "D"));
         File.WriteAllText(Path.Combine(repoPath, "A", "B", "C", "D", "Dockerfile"), "FROM ubuntu:22.04");
 
-        _gitService.ServiceRepositoryExists(service.Id).Returns(true);
-        _gitService.PullServiceRepositoryAsync(service.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Success());
-        _gitService.GetServiceRepositoryPath(service.Id).Returns(repoPath);
+        _gitService.RepositoryExists(Arg.Any<RepositoryBinding>()).Returns(true);
+        _gitService.SyncRepositoryAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+            .Returns(Result<string>.Success(repoPath));
+        _gitService.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(repoPath);
 
         try
         {
@@ -335,10 +335,10 @@ public sealed class DockerfileDeployServiceTests
         Directory.CreateDirectory(Path.Combine(repoPath, "docker"));
         File.WriteAllText(Path.Combine(repoPath, "docker", "Dockerfile"), "FROM ubuntu:22.04");
 
-        _gitService.ServiceRepositoryExists(service.Id).Returns(true);
-        _gitService.PullServiceRepositoryAsync(service.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Success());
-        _gitService.GetServiceRepositoryPath(service.Id).Returns(repoPath);
+        _gitService.RepositoryExists(Arg.Any<RepositoryBinding>()).Returns(true);
+        _gitService.SyncRepositoryAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+            .Returns(Result<string>.Success(repoPath));
+        _gitService.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(repoPath);
 
         try
         {
@@ -362,8 +362,8 @@ public sealed class DockerfileDeployServiceTests
     {
         var (service, _, _) = SetupValidServiceWithProject(ServiceType.Dockerfile, DockerfileSource.Git);
 
-        _gitService.ServiceRepositoryExists(service.Id).Returns(false);
-        _gitService.CloneServiceRepositoryAsync(service.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _gitService.RepositoryExists(Arg.Any<RepositoryBinding>()).Returns(false);
+        _gitService.SyncRepositoryAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
             .Returns(Error.Failed);
 
         var result = await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);

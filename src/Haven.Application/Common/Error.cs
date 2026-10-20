@@ -23,6 +23,8 @@ public sealed record Error(string Code, string Message)
 
     public static Error Validation(string message) => new("VALIDATION", message);
     public static Error InvalidOperation(string message) => new("INVALID_OPERATION", message);
+    public static Error RepositoryManaged(string what) =>
+        new("REPOSITORY_MANAGED", $"{what} is managed by the service's repository manifest and cannot be edited in Haven. Change it in the repository instead.");
 
     public static readonly Error InvalidSourceConfig = new("INVALID_SOURCE_CONFIG", "The source configuration is invalid.");
     public static readonly Error ManifestSyncFailed = new("MANIFEST_SYNC_FAILED", "Failed to sync from manifests.");

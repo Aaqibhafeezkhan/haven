@@ -5,6 +5,7 @@ using Haven.Application.Common.Models;
 using Haven.Domain;
 using Haven.Domain.Entities;
 using Haven.Domain.Enums;
+using Haven.Domain.ValueObjects;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,66 +15,103 @@ public class GitService(
     IGitRepositoryPathProvider repositoryPathProvider,
     IGitCredentialsRepository credentialsRepository,
     IGitProviderFactory gitProviderFactory,
+    IRepositoryLockProvider repositoryLocks,
     ILogger<GitService> logger) : IGitService
 {
-    public async Task<Result<string>> CloneServiceRepositoryAsync(Guid serviceId, string repositoryUrl, CancellationToken cancellationToken = default)
+    public async Task<Result<string>> SyncRepositoryAsync(RepositoryBinding binding, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(binding.Repository))
+            return Error.Validation("The repository binding requires a repository.");
+
         try
         {
-            var destinationPath = repositoryPathProvider.GetServiceRepositoryPath(serviceId);
+            var providerResult = await CreateProviderAsync(binding, cancellationToken);
+            if (providerResult.IsFailure)
+                return providerResult.Error;
 
-            // Ensure parent directory exists but NOT the destination itself
-            // LibGit2Sharp.Repository.Clone expects the destination directory to not exist
-            var parentPath = Path.GetDirectoryName(destinationPath);
-            if (!string.IsNullOrEmpty(parentPath) && !Directory.Exists(parentPath))
-            {
-                Directory.CreateDirectory(parentPath);
-            }
+            var repositoryPath = repositoryPathProvider.GetRepositoryPath(binding);
 
-            // Remove destination if it exists and is empty (from failed previous attempts)
-            if (Directory.Exists(destinationPath) && !Directory.EnumerateFileSystemEntries(destinationPath).Any())
-            {
-                Directory.Delete(destinationPath);
-            }
+            using var _ = await repositoryLocks.AcquireAsync(repositoryPath, cancellationToken);
+            await CloneOrPullAsync(providerResult.Value, binding, repositoryPath, cancellationToken);
 
-            var credentials = await credentialsRepository.GetByServiceIdAsync(serviceId, cancellationToken);
-            var provider = gitProviderFactory.Create(credentials?.ProviderType ?? GitProviderType.Generic, credentials);
-            await provider.CloneRepositoryAsync(repositoryUrl, destinationPath, cancellationToken);
-
-            logger.LogInformation("Repository cloned for service '{ServiceId}' to path '{Path}'", serviceId, destinationPath);
-            return destinationPath;
+            return repositoryPath;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to clone repository for service '{ServiceId}'", serviceId);
+            logger.LogError(ex, "Failed to sync repository '{Repository}' branch '{Branch}'", binding.Repository, binding.Branch);
             return Error.Failed;
         }
     }
 
-    public async Task<Result> PullServiceRepositoryAsync(Guid serviceId, string branch, CancellationToken cancellationToken = default)
+    public async Task<Result<string>> ReadBoundFileAsync(RepositoryBinding binding, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(binding.Repository) || string.IsNullOrWhiteSpace(binding.FilePath))
+            return Error.Validation("The repository binding requires a repository and a file path.");
+
         try
         {
-            var repositoryPath = repositoryPathProvider.GetServiceRepositoryPath(serviceId);
+            var providerResult = await CreateProviderAsync(binding, cancellationToken);
+            if (providerResult.IsFailure)
+                return providerResult.Error;
 
-            if (!repositoryPathProvider.RepositoryDirectoryExists(serviceId))
-            {
-                logger.LogWarning("Repository not found for service '{ServiceId}' at path '{Path}'", serviceId, repositoryPath);
-                return Error.NotFoundFor("Repository", serviceId);
-            }
+            var repositoryPath = repositoryPathProvider.GetRepositoryPath(binding);
 
-            var credentials = await credentialsRepository.GetByServiceIdAsync(serviceId, cancellationToken);
-            var provider = gitProviderFactory.Create(credentials?.ProviderType ?? GitProviderType.Generic, credentials);
-            await provider.PullAsync(repositoryPath, branch, cancellationToken);
+            // The clone is shared between services, so fetching and reading must not interleave with another caller's.
+            using var _ = await repositoryLocks.AcquireAsync(repositoryPath, cancellationToken);
+            await CloneOrPullAsync(providerResult.Value, binding, repositoryPath, cancellationToken);
 
-            logger.LogInformation("Repository pulled for service '{ServiceId}' branch '{Branch}'", serviceId, branch);
-            return Result.Success();
+            var fullPath = Path.GetFullPath(Path.Combine(repositoryPath, binding.FilePath));
+            var root = Path.GetFullPath(repositoryPath) + Path.DirectorySeparatorChar;
+            if (!fullPath.StartsWith(root, StringComparison.Ordinal))
+                return Error.Validation("The bound file path must stay inside the repository.");
+
+            if (!File.Exists(fullPath))
+                return Error.NotFoundFor("Repository file", binding.FilePath);
+
+            return await File.ReadAllTextAsync(fullPath, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to pull repository for service '{ServiceId}'", serviceId);
+            logger.LogError(ex, "Failed to read bound file '{FilePath}' from '{Repository}'", binding.FilePath, binding.Repository);
             return Error.Failed;
         }
+    }
+
+    private async Task<Result<IGitProvider>> CreateProviderAsync(RepositoryBinding binding, CancellationToken cancellationToken)
+    {
+        var credentials = binding.GitCredentialId is { } credentialId
+            ? await credentialsRepository.GetByIdAsync(credentialId, cancellationToken)
+            : null;
+        if (binding.GitCredentialId is not null && credentials is null)
+            return Error.NotFoundFor("GitCredentials", binding.GitCredentialId.Value);
+
+        return Result<IGitProvider>.Success(gitProviderFactory.Create(credentials?.ProviderType ?? GitProviderType.Generic, credentials));
+    }
+
+    private static async Task CloneOrPullAsync(IGitProvider provider, RepositoryBinding binding, string repositoryPath, CancellationToken cancellationToken)
+    {
+        var branch = string.IsNullOrWhiteSpace(binding.Branch) ? "main" : binding.Branch;
+
+        // LibGit2Sharp.Repository.Clone expects the destination directory to not exist; an empty one is
+        // left behind by a failed earlier attempt.
+        if (Directory.Exists(repositoryPath) && !Directory.EnumerateFileSystemEntries(repositoryPath).Any())
+            Directory.Delete(repositoryPath);
+
+        if (!Directory.Exists(repositoryPath))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(repositoryPath)!);
+            await provider.CloneRepositoryAsync(binding.Repository!, repositoryPath, cancellationToken);
+        }
+
+        await provider.PullAsync(repositoryPath, branch, cancellationToken);
     }
 
     public async Task<Result<IReadOnlyList<string>>> GetRemoteBranchesAsync(string repositoryUrl, GitCredentials? credentials = null, CancellationToken cancellationToken = default)
@@ -108,36 +146,9 @@ public class GitService(
         }
     }
 
-    public string? GetServiceRepositoryPath(Guid serviceId)
-    {
-        if (!repositoryPathProvider.RepositoryDirectoryExists(serviceId))
-            return null;
+    public string? GetRepositoryPath(RepositoryBinding binding) =>
+        repositoryPathProvider.RepositoryDirectoryExists(binding) ? repositoryPathProvider.GetRepositoryPath(binding) : null;
 
-        return repositoryPathProvider.GetServiceRepositoryPath(serviceId);
-    }
-
-    public bool ServiceRepositoryExists(Guid serviceId)
-    {
-        return repositoryPathProvider.RepositoryDirectoryExists(serviceId);
-    }
-
-    public async Task DeleteServiceRepositoryAsync(Guid serviceId, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var repositoryPath = repositoryPathProvider.GetServiceRepositoryPath(serviceId);
-
-            if (Directory.Exists(repositoryPath))
-            {
-                Directory.Delete(repositoryPath, recursive: true);
-                logger.LogInformation("Repository deleted for service '{ServiceId}'", serviceId);
-            }
-
-            await Task.CompletedTask;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to delete repository for service '{ServiceId}'", serviceId);
-        }
-    }
+    public bool RepositoryExists(RepositoryBinding binding) =>
+        repositoryPathProvider.RepositoryDirectoryExists(binding);
 }

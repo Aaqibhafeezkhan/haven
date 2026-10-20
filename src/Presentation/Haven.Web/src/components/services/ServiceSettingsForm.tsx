@@ -14,6 +14,7 @@ import styles from '@/styles/components/services/ServiceSettingsForm.module.css'
 
 import { servicesApi } from '../../api/services';
 import { useGitCredentials } from '../../hooks/useGitCredentials';
+import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { DangerZone } from '../ui/DangerZone';
@@ -165,6 +166,7 @@ export function ServiceSettingsForm({
     }
   }
 
+  const isRepositoryManaged = !!service.repositoryBinding;
   const isDirtyBasic = name !== service.name || exposureMode !== service.exposureMode;
 
   const handleSaveBasic = async () => {
@@ -173,7 +175,7 @@ export function ServiceSettingsForm({
       setBasicError(null);
       await servicesApi.update(projectId, environmentId, serviceId, {
         name: name.trim(),
-        exposureMode,
+        ...(isRepositoryManaged ? {} : { exposureMode }),
       });
       setBasicSuccess(true);
       setTimeout(() => setBasicSuccess(false), 3000);
@@ -270,6 +272,7 @@ export function ServiceSettingsForm({
   const gitCredentials = credentialsPage?.items ?? [];
 
   const isLoading = isSavingBasic || isSavingConfig || isDeleting;
+  const isConfigLocked = isLoading || isRepositoryManaged;
 
   return (
     <Stack gap="6">
@@ -306,7 +309,7 @@ export function ServiceSettingsForm({
               <ExposureModePicker
                 value={exposureMode}
                 onChange={setExposureMode}
-                disabled={isLoading}
+                disabled={isConfigLocked}
               />
             </FormGroup>
             <Row justify="flex-end">
@@ -329,6 +332,9 @@ export function ServiceSettingsForm({
         </CardHeader>
         <CardContent>
           <Stack gap="4">
+            {isRepositoryManaged && (
+              <Banner variant="info" description={t('services:repositoryManagedNotice')} />
+            )}
             {configError && (
               <Label variant="error" size="sm">
                 {configError}
@@ -341,31 +347,33 @@ export function ServiceSettingsForm({
                   onDockerImageChange={setDockerImage}
                   restartPolicy={restartPolicy}
                   onRestartPolicyChange={setRestartPolicy}
-                  disabled={isLoading}
+                  disabled={isConfigLocked}
                 />
                 {exposureMode !== 'None' && (
                   <PortMappingsEditor
                     portMappings={portMappings}
                     onChange={setPortMappings}
-                    disabled={isLoading}
+                    disabled={isConfigLocked}
                     showIpField={exposureMode === 'Custom'}
                   />
                 )}
                 <CommandArgsEditor
                   commandArgs={commandArgs}
                   onChange={setCommandArgs}
-                  disabled={isLoading}
+                  disabled={isConfigLocked}
                 />
-                <Row justify="flex-end">
-                  <Button
-                    variant="primary"
-                    onClick={handleSaveDockerImage}
-                    isLoading={isSavingConfig}
-                    disabled={isLoading}
-                  >
-                    {t('projects:save')}
-                  </Button>
-                </Row>
+                {!isRepositoryManaged && (
+                  <Row justify="flex-end">
+                    <Button
+                      variant="primary"
+                      onClick={handleSaveDockerImage}
+                      isLoading={isSavingConfig}
+                      disabled={isConfigLocked}
+                    >
+                      {t('projects:save')}
+                    </Button>
+                  </Row>
+                )}
               </>
             ) : service.type === 'Dockerfile' ? (
               <>
@@ -391,31 +399,33 @@ export function ServiceSettingsForm({
                   buildArgs={dockerfileForm.buildArgs}
                   onBuildArgsChange={v => setDockerfileForm(f => ({ ...f, buildArgs: v }))}
                   onRestartPolicyChange={v => setDockerfileForm(f => ({ ...f, restartPolicy: v }))}
-                  disabled={isLoading}
+                  disabled={isConfigLocked}
                 />
                 {exposureMode !== 'None' && (
                   <PortMappingsEditor
                     portMappings={portMappings}
                     onChange={setPortMappings}
-                    disabled={isLoading}
+                    disabled={isConfigLocked}
                     showIpField={exposureMode === 'Custom'}
                   />
                 )}
                 <CommandArgsEditor
                   commandArgs={commandArgs}
                   onChange={setCommandArgs}
-                  disabled={isLoading}
+                  disabled={isConfigLocked}
                 />
-                <Row justify="flex-end">
-                  <Button
-                    variant="primary"
-                    onClick={handleSaveDockerfile}
-                    isLoading={isSavingConfig}
-                    disabled={isLoading}
-                  >
-                    {t('projects:save')}
-                  </Button>
-                </Row>
+                {!isRepositoryManaged && (
+                  <Row justify="flex-end">
+                    <Button
+                      variant="primary"
+                      onClick={handleSaveDockerfile}
+                      isLoading={isSavingConfig}
+                      disabled={isConfigLocked}
+                    >
+                      {t('projects:save')}
+                    </Button>
+                  </Row>
+                )}
               </>
             ) : null}
           </Stack>

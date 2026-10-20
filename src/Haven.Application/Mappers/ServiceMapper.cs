@@ -23,6 +23,7 @@ public static partial class ServiceMapper
     [MapperIgnoreTarget(nameof(ServiceDto.RuntimeState))]
     [MapperIgnoreTarget(nameof(ServiceDto.Health))]
     [MapperIgnoreTarget(nameof(ServiceDto.SourceConfig))]
+    [MapperIgnoreTarget(nameof(ServiceDto.RepositoryBinding))]
     private static partial ServiceDto ToDtoPartial(this Service service);
 
     public static ServiceDto ToDto(this Service service, ServiceStateSnapshot? state = null)
@@ -34,6 +35,7 @@ public static partial class ServiceMapper
         partial.Health = state.GetHealth(service.Id);
         partial.WebhookUrl = $"/webhooks/deploy/{service.Token}";
         partial.SourceConfig = service.SourceConfig;
+        partial.RepositoryBinding = RepositoryBindingDto.From(service.RepositoryBinding);
 
         return partial;
     }
@@ -57,6 +59,7 @@ public static partial class ServiceMapper
             UpdatedAt = service.UpdatedAt,
             LastDeployedAt = service.LastDeployedAt,
             SourceConfig = service.SourceConfig,
+            RepositoryBinding = RepositoryBindingDto.From(service.RepositoryBinding),
             WebhookUrl = $"/webhooks/deploy/{service.Token}"
         };
     }

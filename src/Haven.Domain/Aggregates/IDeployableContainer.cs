@@ -18,6 +18,7 @@ public interface IDeployableContainer
     DateTime CreatedAt { get; }
     DateTime UpdatedAt { get; }
     DateTime? LastDeployedAt { get; }
+    RepositoryBinding? RepositoryBinding { get; }
 
     void RecordDeployment();
 }

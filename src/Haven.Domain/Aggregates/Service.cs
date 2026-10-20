@@ -23,6 +23,11 @@ public sealed class Service : AggregateRoot, IDeployableContainer
     public string Token { get; set; } = default!;
     public string? SourceConfigJson { get; set; }
     public Guid? GitCredentialId { get; set; } = null;
+    public RepositoryBinding? RepositoryBinding { get; set; } = null;
+
+    /// <summary>Whether the repository manifest, not the user, owns this service's declarative definition.</summary>
+    public bool IsRepositoryManaged => RepositoryBinding is not null;
+
     public ServiceSourceConfig? SourceConfig
     {
         get => SourceConfigJson is null ? null : JsonSerializer.Deserialize<ServiceSourceConfig>(SourceConfigJson);
@@ -133,6 +138,22 @@ public sealed class Service : AggregateRoot, IDeployableContainer
             Raise(new ServiceUpdatedEvent(Id, oldName, Name));
         }
         return hasChanges;
+    }
+
+    /// <summary>
+    /// Removes the source config. <see cref="Update"/> can't do this: <see cref="Optional{T}"/> treats null as
+    /// "not provided". Returns whether there was anything to remove.
+    /// </summary>
+    public bool ClearSourceConfig()
+    {
+        if (SourceConfigJson is null)
+            return false;
+
+        SourceConfigJson = null;
+        GitCredentialId = null;
+        UpdatedAt = DateTime.UtcNow;
+        Raise(new ServiceUpdatedEvent(Id, Name, Name));
+        return true;
     }
 
     /// <summary>

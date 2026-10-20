@@ -1,5 +1,6 @@
 using Haven.Application.Features.FeatureFlags;
 using Haven.Application.Features.ServiceRegistry.Queries.GetServiceRegistryEntries;
+using Haven.Application.Features.Services;
 using Haven.Application.Features.Services.Queries;
 using Haven.Domain;
 using Haven.Domain.Enums;
@@ -23,6 +24,7 @@ public sealed class ServiceDashboardDto
     public DateTime UpdatedAt { get; set; }
     public DateTime? LastDeployedAt { get; set; }
     public ServiceSourceConfig? SourceConfig { get; set; }
+    public RepositoryBindingDto? RepositoryBinding { get; set; }
     public string WebhookUrl { get; set; } = default!;
     public List<EnvironmentVariableDto> EnvironmentVariables { get; set; } = [];
     public List<FeatureFlagDto> FeatureFlags { get; set; } = [];

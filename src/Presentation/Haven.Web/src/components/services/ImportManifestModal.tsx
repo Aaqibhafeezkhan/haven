@@ -15,7 +15,12 @@ interface ImportManifestModalProps {
   error?: string;
 }
 
-export function ImportManifestModal({ isOpen, onClose, onImport, error }: ImportManifestModalProps) {
+export function ImportManifestModal({
+  isOpen,
+  onClose,
+  onImport,
+  error,
+}: ImportManifestModalProps) {
   const { t } = useTranslation('services');
   const [rawManifest, setRawManifest] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

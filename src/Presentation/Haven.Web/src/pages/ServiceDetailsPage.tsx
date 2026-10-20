@@ -121,7 +121,9 @@ export function ServiceDetailsPage() {
 
   useSubscribeToServiceUpdates(serviceStatusHub, serviceId, data => {
     if (data.serviceId === serviceId) {
-      setService(prev => (prev ? { ...prev, status: data.newStatus as ServiceDisplayStatus } : null));
+      setService(prev =>
+        prev ? { ...prev, status: data.newStatus as ServiceDisplayStatus } : null
+      );
     }
   });
 
@@ -290,6 +292,7 @@ export function ServiceDetailsPage() {
                 projectId={projectId}
                 environmentId={environmentId}
                 serviceId={serviceId}
+                readOnly={!!service.repositoryBinding}
               />
             ),
           },
@@ -321,6 +324,7 @@ export function ServiceDetailsPage() {
                 projectId={projectId}
                 environmentId={environmentId}
                 serviceId={serviceId}
+                readOnly={!!service.repositoryBinding}
               />
             ),
           },
@@ -388,6 +392,7 @@ export function ServiceDetailsPage() {
                 environmentId={environmentId}
                 serviceId={serviceId}
                 onApplied={handleServiceUpdated}
+                readOnly={!!service.repositoryBinding}
               />
             ),
           },

@@ -55,6 +55,7 @@ export interface ServiceDashboardDto {
   updatedAt: string;
   lastDeployedAt?: string;
   sourceConfig?: ServiceSourceConfig | DockerConfig;
+  repositoryBinding?: RepositoryBindingDto;
   webhookUrl: string;
   environmentVariables: EnvironmentVariableDto[];
   featureFlags: FeatureFlagDto[];
@@ -95,6 +96,13 @@ export interface DockerfileConfig {
 export interface ServiceSourceConfig {
   $type?: string;
 }
+export interface RepositoryBindingDto {
+  gitCredentialId?: string;
+  repository?: string;
+  branch?: string;
+  filePath?: string;
+}
+
 export interface ServiceDto {
   id: string;
   environmentId: string;
@@ -107,6 +115,7 @@ export interface ServiceDto {
   status: ServiceDisplayStatus;
   health: ServiceHealth;
   sourceConfig?: ServiceSourceConfig | DockerConfig;
+  repositoryBinding?: RepositoryBindingDto;
   createdAt: string;
   updatedAt: string;
   webhookUrl?: string;

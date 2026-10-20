@@ -243,6 +243,7 @@ public static class DependencyInjection
         services.AddScoped<IDeployWebhookService, DeployWebhookService>();
         services.AddScoped<IFeatureFlagService, FeatureFlagService>();
         services.AddScoped<IDeploymentOrchestrator, DeploymentOrchestrator>();
+        services.AddScoped<IRepositoryManifestSyncService, RepositoryManifestSyncService>();
         services.AddSingleton<IDeploymentLogService, DeploymentLogService>();
         services.AddSingleton<IDeploymentCancellationService, DeploymentCancellationService>();
         services.AddScoped<IBuildInfoService, BuildInfoService>();
@@ -264,6 +265,7 @@ public static class DependencyInjection
         var gitRepositoryRootPath = Path.Combine(AppContext.BaseDirectory, "git-repositories");
         services.AddSingleton<IGitRepositoryPathProvider>(new GitRepositoryPathProvider(gitRepositoryRootPath));
         services.AddScoped<IGitProviderFactory, GitProviderFactory>();
+        services.AddSingleton<IRepositoryLockProvider, RepositoryLockProvider>();
         services.AddScoped<IGitService, GitService>();
         services.AddScoped<IGitHubOAuthService, GitHubOAuthService>();
         services.AddHttpClient("github-oauth");

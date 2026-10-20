@@ -23,6 +23,9 @@ public sealed class UpdateFeatureFlagHandler(
         if (service is null)
             return Error.NotFoundFor(nameof(Service), flag.ServiceId);
 
+        if (service.IsRepositoryManaged)
+            return Error.RepositoryManaged("Feature flags");
+
         service.UpdateFeatureFlag(flag, command.Name, command.Type.ToOptional(), command.Key, command.Description, command.Value, command.ValueType.ToOptional());
 
         return Result.Success();

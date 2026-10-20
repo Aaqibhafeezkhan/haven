@@ -1,4 +1,9 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
+
 using Haven.Application.Common.Interfaces.Deployment;
+using Haven.Domain.ValueObjects;
 
 namespace Haven.Infrastructure.Deployment.Git;
 
@@ -8,23 +13,18 @@ public sealed class GitRepositoryPathProvider(string baseRepositoryPath) : IGitR
 
     public string GetRepositoryRootPath() => _baseRepositoryPath;
 
-    public string GetServiceRepositoryPath(Guid serviceId) =>
-        Path.Combine(_baseRepositoryPath, "services", serviceId.ToString());
-
-    public async Task EnsureRepositoryDirectoryExistsAsync(Guid serviceId, CancellationToken cancellationToken = default)
+    public string GetRepositoryPath(RepositoryBinding binding)
     {
-        var path = GetServiceRepositoryPath(serviceId);
-        if (!Directory.Exists(path))
-        {
-            Directory.CreateDirectory(path);
-        }
+        var repository = binding.NormalizedRepository();
+        var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(binding.CloneKey())));
 
-        await Task.CompletedTask;
+        var name = Regex.Replace(repository[(repository.LastIndexOfAny(['/', ':']) + 1)..], "[^a-z0-9-]+", "-").Trim('-');
+        if (name.Length > 40) name = name[..40];
+        if (name.Length == 0) name = "repo";
+
+        return Path.Combine(_baseRepositoryPath, "repositories", $"{name}-{hash[..16]}");
     }
 
-    public bool RepositoryDirectoryExists(Guid serviceId)
-    {
-        var path = GetServiceRepositoryPath(serviceId);
-        return Directory.Exists(path);
-    }
+    public bool RepositoryDirectoryExists(RepositoryBinding binding) =>
+        Directory.Exists(GetRepositoryPath(binding));
 }

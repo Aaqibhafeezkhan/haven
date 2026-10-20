@@ -21,6 +21,9 @@ public sealed class DeleteFeatureFlagHandler(
         if (service is null)
             return Error.NotFoundFor(nameof(Service), flag.ServiceId);
 
+        if (service.IsRepositoryManaged)
+            return Error.RepositoryManaged("Feature flags");
+
         service.RemoveFeatureFlag(flag);
         await featureFlagRepository.RemoveAsync(flag, cancellationToken);
         return Result.Success();

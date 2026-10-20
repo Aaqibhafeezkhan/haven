@@ -27,6 +27,7 @@ public class DockerfileDeployService : IDeployService
     private readonly IGitService _gitService;
     private readonly IDeploymentLogService _logService;
     private readonly IServiceTemplateNamespaceProvider _templateNamespaceProvider;
+    private readonly IRepositoryLockProvider _repositoryLocks;
 
     public DockerfileDeployService(
         ILogger<DockerfileDeployService> logger,
@@ -34,8 +35,11 @@ public class DockerfileDeployService : IDeployService
         IDockerContainerRuntime containerRuntime,
         INetworkingServiceFactory networkingServiceFactory,
         IGitService gitService,
-        IDeploymentLogService logService, IServiceTemplateNamespaceProvider templateNamespaceProvider)
+        IDeploymentLogService logService,
+        IServiceTemplateNamespaceProvider templateNamespaceProvider,
+        IRepositoryLockProvider repositoryLocks)
     {
+        _repositoryLocks = repositoryLocks;
         _logger = logger;
         _dockerClient = dockerClient;
         _containerRuntime = containerRuntime;
@@ -89,44 +93,31 @@ public class DockerfileDeployService : IDeployService
 
         if (dockerfileConfig.Source == DockerfileSource.Git)
         {
-            var repoExists = _gitService.ServiceRepositoryExists(service.Id);
-            if (!repoExists)
-            {
-                await _logService.AppendLogAsync(depId, $"Cloning repository '{dockerfileConfig.Repository}'...", cancellationToken);
-                var cloneResult = await _gitService.CloneServiceRepositoryAsync(
-                    service.Id,
-                    dockerfileConfig.Repository!,
-                    cancellationToken);
+            var binding = dockerfileConfig.ToRepositoryBinding()!;
+            var repoExists = _gitService.RepositoryExists(binding);
+            await _logService.AppendLogAsync(depId, repoExists
+                ? $"Pulling latest changes from '{dockerfileConfig.Branch ?? "main"}'..."
+                : $"Cloning repository '{dockerfileConfig.Repository}'...", cancellationToken);
 
-                if (cloneResult.IsFailure)
+            var syncResult = await _gitService.SyncRepositoryAsync(binding, cancellationToken);
+            if (syncResult.IsFailure)
+            {
+                if (!repoExists)
                 {
                     _logger.LogError("Failed to clone repository '{Repository}' for service '{ServiceName}'", dockerfileConfig.Repository, service.Name);
                     await _logService.AppendLogAsync(depId, $"Failed to clone repository '{dockerfileConfig.Repository}'.", cancellationToken);
-                    return cloneResult.Error;
+                    return syncResult.Error;
                 }
 
-                await _logService.AppendLogAsync(depId, "Repository cloned successfully.", cancellationToken);
+                _logger.LogWarning("Failed to pull latest changes for service '{ServiceName}', proceeding with existing code", service.Name);
+                await _logService.AppendLogAsync(depId, "Failed to pull latest changes, proceeding with existing code.", cancellationToken);
             }
             else
             {
-                await _logService.AppendLogAsync(depId, $"Pulling latest changes from '{dockerfileConfig.Branch ?? "main"}'...", cancellationToken);
-                var pullResult = await _gitService.PullServiceRepositoryAsync(
-                    service.Id,
-                    dockerfileConfig.Branch ?? "main",
-                    cancellationToken);
-
-                if (pullResult.IsFailure)
-                {
-                    _logger.LogWarning("Failed to pull latest changes for service '{ServiceName}', proceeding with existing code", service.Name);
-                    await _logService.AppendLogAsync(depId, "Failed to pull latest changes, proceeding with existing code.", cancellationToken);
-                }
-                else
-                {
-                    await _logService.AppendLogAsync(depId, "Repository updated successfully.", cancellationToken);
-                }
+                await _logService.AppendLogAsync(depId, repoExists ? "Repository updated successfully." : "Repository cloned successfully.", cancellationToken);
             }
 
-            var repoPath = _gitService.GetServiceRepositoryPath(service.Id);
+            var repoPath = _gitService.GetRepositoryPath(binding);
             if (string.IsNullOrWhiteSpace(repoPath))
                 return Error.Git.RepositoryNotFound;
 
@@ -143,7 +134,9 @@ public class DockerfileDeployService : IDeployService
             var dockerfileFullPath = Path.GetFullPath(Path.Combine(repoFullPath, dockerfileConfig.FilePath ?? "Dockerfile"));
             dockerfilePath = Path.GetRelativePath(contextFullPath, dockerfileFullPath).Replace('\\', '/');
 
-            buildContext = await DockerUtils.CreateTarArchiveFromDirectoryAsync(contextFullPath, cancellationToken);
+            // The clone is shared with other services, so snapshot it while no one else is pulling into it.
+            using (await _repositoryLocks.AcquireAsync(repoFullPath, cancellationToken))
+                buildContext = await DockerUtils.CreateTarArchiveFromDirectoryAsync(contextFullPath, cancellationToken);
         }
         else
         {

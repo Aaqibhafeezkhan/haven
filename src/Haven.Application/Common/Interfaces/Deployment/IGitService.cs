@@ -1,27 +1,28 @@
 using Haven.Application.Common;
 using Haven.Application.Common.Models;
 using Haven.Domain.Entities;
+using Haven.Domain.ValueObjects;
 
 namespace Haven.Application.Common.Interfaces.Deployment;
 
 public interface IGitService
 {
     /// <summary>
-    /// Clones a git repository for a service into its designated directory.
-    /// Returns the local repository path on success.
-    /// Storage: {root}/services/{serviceId}
+    /// Clones the repository named by <paramref name="binding"/> if it isn't on disk yet, then pulls
+    /// the bound branch, using the binding's own git credential. Returns the local clone path.
+    /// Services with the same repository, branch and credential share one clone; access to it is serialized.
+    /// Storage: {root}/repositories/{repoName}-{hash}
     /// </summary>
-    Task<Result<string>> CloneServiceRepositoryAsync(
-        Guid serviceId,
-        string repositoryUrl,
+    Task<Result<string>> SyncRepositoryAsync(
+        RepositoryBinding binding,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Pulls the latest changes from a remote branch for a service's repository.
+    /// Syncs the repository like <see cref="SyncRepositoryAsync"/> and returns the content of the
+    /// bound file at the tip of the bound branch.
     /// </summary>
-    Task<Result> PullServiceRepositoryAsync(
-        Guid serviceId,
-        string branch,
+    Task<Result<string>> ReadBoundFileAsync(
+        RepositoryBinding binding,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -42,19 +43,12 @@ public interface IGitService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets the local repository path for a service if it exists.
+    /// Gets the local clone path for a binding if it exists.
     /// </summary>
-    string? GetServiceRepositoryPath(Guid serviceId);
+    string? GetRepositoryPath(RepositoryBinding binding);
 
     /// <summary>
-    /// Checks if a service's repository has been cloned locally.
+    /// Checks if the repository of a binding has been cloned locally.
     /// </summary>
-    bool ServiceRepositoryExists(Guid serviceId);
-
-    /// <summary>
-    /// Deletes the local repository for a service.
-    /// </summary>
-    Task DeleteServiceRepositoryAsync(
-        Guid serviceId,
-        CancellationToken cancellationToken = default);
+    bool RepositoryExists(RepositoryBinding binding);
 }
