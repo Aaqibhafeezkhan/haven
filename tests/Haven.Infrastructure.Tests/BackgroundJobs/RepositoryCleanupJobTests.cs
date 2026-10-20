@@ -20,6 +20,8 @@ public sealed class RepositoryCleanupJobTests
 {
     private IGitRepositoryPathProvider _pathProvider = null!;
     private IServiceRepository _serviceRepository = null!;
+    private ISidecarRepository _sidecarRepository = null!;
+    private IRepositoryLockProvider _repositoryLocks = null!;
     private IOptionsMonitor<RepositoryCleanupOptions> _options = null!;
     private RepositoryCleanupOptions _optionsValue = null!;
     private RepositoryCleanupJob _sut = null!;
@@ -36,11 +38,18 @@ public sealed class RepositoryCleanupJobTests
         _serviceRepository = Substitute.For<IServiceRepository>();
         _serviceRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(_ => ToAsync());
 
+        _sidecarRepository = Substitute.For<ISidecarRepository>();
+        _sidecarRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Sidecar>());
+
+        _repositoryLocks = Substitute.For<IRepositoryLockProvider>();
+        _repositoryLocks.AcquireAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Substitute.For<IDisposable>()));
+
         _options = Substitute.For<IOptionsMonitor<RepositoryCleanupOptions>>();
         _optionsValue = new RepositoryCleanupOptions { GracePeriodHours = 24, DryRun = false };
         _options.CurrentValue.Returns(_ => _optionsValue);
 
-        _sut = new RepositoryCleanupJob(_pathProvider, _serviceRepository, _options, Substitute.For<ILogger<RepositoryCleanupJob>>());
+        _sut = new RepositoryCleanupJob(_pathProvider, _serviceRepository, _sidecarRepository, _repositoryLocks, _options, Substitute.For<ILogger<RepositoryCleanupJob>>());
     }
 
     [TearDown]
@@ -101,6 +110,35 @@ public sealed class RepositoryCleanupJobTests
         await _sut.ExecuteAsync();
 
         Directory.Exists(used).ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task ExecuteAsync_ShouldKeepRepositoryUsedBySidecarDockerfileGitSource()
+    {
+        var used = CreateDirectory("repositories", "repo-used", DateTime.UtcNow.AddDays(-5));
+        _pathProvider.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(used);
+        var sidecar = Sidecar.Create("side", SidecarKind.Custom, sourceConfig: new DockerfileConfig
+        {
+            Source = DockerfileSource.Git,
+            Repository = "https://github.com/org/repo",
+            Branch = "main",
+            FilePath = "Dockerfile"
+        });
+        _sidecarRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns(new[] { sidecar });
+
+        await _sut.ExecuteAsync();
+
+        Directory.Exists(used).ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task ExecuteAsync_ShouldTakeRepositoryLockBeforeDeleting()
+    {
+        var unused = CreateDirectory("repositories", "repo-unused", DateTime.UtcNow.AddDays(-5));
+
+        await _sut.ExecuteAsync();
+
+        await _repositoryLocks.Received(1).AcquireAsync(unused, Arg.Any<CancellationToken>());
     }
 
     [Test]

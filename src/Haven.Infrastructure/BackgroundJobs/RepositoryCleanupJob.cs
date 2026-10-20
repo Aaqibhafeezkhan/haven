@@ -10,12 +10,14 @@ using Microsoft.Extensions.Options;
 namespace Haven.Infrastructure.BackgroundJobs;
 
 /// <summary>
-/// Removes local git clones no service points at any more. Clones are shared between services, so one
-/// is dangling only when no service's repository binding or Dockerfile source resolves to it.
+/// Removes local git clones nothing points at any more. Clones are shared, so one is dangling only when
+/// no service's repository binding and no service's or sidecar's Dockerfile source resolves to it.
 /// </summary>
 public sealed class RepositoryCleanupJob(
     IGitRepositoryPathProvider pathProvider,
     IServiceRepository serviceRepository,
+    ISidecarRepository sidecarRepository,
+    IRepositoryLockProvider repositoryLocks,
     IOptionsMonitor<RepositoryCleanupOptions> options,
     ILogger<RepositoryCleanupJob> logger)
 {
@@ -50,6 +52,12 @@ public sealed class RepositoryCleanupJob(
                 inUse.Add(Path.GetFullPath(pathProvider.GetRepositoryPath(binding)));
         }
 
+        foreach (var sidecar in await sidecarRepository.GetAllAsync(CancellationToken.None))
+        {
+            if (DockerfileBindingOf(sidecar.SourceConfig) is { } binding)
+                inUse.Add(Path.GetFullPath(pathProvider.GetRepositoryPath(binding)));
+        }
+
         var cutoff = DateTime.UtcNow - TimeSpan.FromHours(current.GracePeriodHours);
         var deletedCount = 0;
 
@@ -75,6 +83,8 @@ public sealed class RepositoryCleanupJob(
 
             try
             {
+                // Same lock git operations take, so a clone is never deleted while a pull or build-context read is using it.
+                using var _ = await repositoryLocks.AcquireAsync(dir);
                 Directory.Delete(dir, recursive: true);
                 deletedCount++;
             }
@@ -91,7 +101,10 @@ public sealed class RepositoryCleanupJob(
     {
         if (service.RepositoryBinding is { } binding)
             yield return binding;
-        if ((service.SourceConfig as DockerfileConfig)?.ToRepositoryBinding() is { } source)
+        if (DockerfileBindingOf(service.SourceConfig) is { } source)
             yield return source;
     }
+
+    private static RepositoryBinding? DockerfileBindingOf(ServiceSourceConfig? sourceConfig) =>
+        (sourceConfig as DockerfileConfig)?.ToRepositoryBinding();
 }
