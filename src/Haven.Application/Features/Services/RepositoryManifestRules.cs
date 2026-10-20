@@ -1,6 +1,6 @@
-using YamlDotNet.Serialization;
-
 using Haven.Application.Common;
+
+using YamlDotNet.Serialization;
 
 namespace Haven.Application.Features.Services;
 

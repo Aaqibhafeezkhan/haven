@@ -24,7 +24,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
     public string? SourceConfigJson { get; set; }
     public Guid? GitCredentialId { get; set; } = null;
     public RepositoryBinding? RepositoryBinding { get; set; } = null;
-    
+
     public ServiceSourceConfig? SourceConfig
     {
         get => SourceConfigJson is null ? null : JsonSerializer.Deserialize<ServiceSourceConfig>(SourceConfigJson);
