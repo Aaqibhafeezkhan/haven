@@ -8,6 +8,7 @@ import styles from '@/styles/components/projects/ServiceCard.module.css';
 import { Row, Spacer } from '../layout';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Checkbox } from '../ui/Checkbox';
+import { RepositoryBoundChip } from '../ui/chips/repositoryBoundChip';
 import { ServiceExposureChip } from '../ui/chips/serviceExposureChip';
 import { ServiceTypeChip } from '../ui/chips/serviceTypeChip';
 import { HealthIndicator } from '../ui/HealthIndicator';
@@ -128,6 +129,9 @@ export function ServiceCard({
           <Spacer size="4" />
           <Row gap="2" full>
             <ServiceExposureChip exposureMode={service.exposureMode} />
+            {service.repositoryBinding && (
+              <RepositoryBoundChip binding={service.repositoryBinding} size="sm" />
+            )}
           </Row>
         </div>
       </CardHeader>

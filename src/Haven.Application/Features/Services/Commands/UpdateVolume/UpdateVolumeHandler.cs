@@ -16,6 +16,9 @@ public sealed class UpdateVolumeHandler(IServiceRepository serviceRepository)
         if (service is null)
             return Error.NotFoundFor(nameof(Service), command.ServiceId);
 
+        if (service.IsRepositoryManaged)
+            return Error.RepositoryManaged("Volumes");
+
         var volume = service.Volumes.FirstOrDefault(v => v.Id == command.VolumeId);
         if (volume is null)
             return Error.NotFoundFor(nameof(ServiceVolume), command.VolumeId);

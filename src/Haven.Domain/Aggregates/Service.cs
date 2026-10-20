@@ -25,6 +25,9 @@ public sealed class Service : AggregateRoot, IDeployableContainer
     public Guid? GitCredentialId { get; set; } = null;
     public RepositoryBinding? RepositoryBinding { get; set; } = null;
 
+    /// <summary>Whether the repository manifest, not the user, owns this service's declarative definition.</summary>
+    public bool IsRepositoryManaged => RepositoryBinding is not null;
+
     public ServiceSourceConfig? SourceConfig
     {
         get => SourceConfigJson is null ? null : JsonSerializer.Deserialize<ServiceSourceConfig>(SourceConfigJson);

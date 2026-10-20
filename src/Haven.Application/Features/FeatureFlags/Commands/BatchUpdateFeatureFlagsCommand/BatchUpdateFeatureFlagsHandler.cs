@@ -28,6 +28,9 @@ public sealed class BatchUpdateFeatureFlagsHandler(
             if (service is null)
                 return Error.NotFoundFor(nameof(Service), flag.ServiceId);
 
+            if (service.IsRepositoryManaged)
+                return Error.RepositoryManaged("Feature flags");
+
             service.UpdateFeatureFlag(flag, update.Name, update.Type.ToOptional(), update.Key, update.Description, update.Value, update.ValueType.ToOptional());
 
             updatedIds.Add(flag.Id);

@@ -10,6 +10,7 @@ import styles from '@/styles/components/services/FeatureFlagsEditor.module.css';
 import { featureFlagsApi } from '../../api/featureFlags';
 import { Row, Spacer, Stack } from '../layout';
 import { Badge } from '../ui/Badge';
+import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
 import { ErrorAlert } from '../ui/ErrorAlert';
 import { Input } from '../ui/Input';
@@ -22,6 +23,7 @@ interface FeatureFlagsEditorProps {
   projectId: string;
   environmentId: string;
   serviceId: string;
+  readOnly?: boolean;
 }
 
 type FlagEdits = Record<string, Partial<FeatureFlagDto>>;
@@ -75,6 +77,7 @@ export function FeatureFlagsEditor({
   projectId,
   environmentId,
   serviceId,
+  readOnly = false,
 }: FeatureFlagsEditorProps) {
   const { t } = useTranslation(['services', 'projects']);
 
@@ -196,6 +199,9 @@ export function FeatureFlagsEditor({
   return (
     <div className={styles.container}>
       {error && <ErrorAlert message={error} variant="block" />}
+      {readOnly && (
+        <Banner variant="info" description={t('services:repositoryManagedFeatureFlags')} />
+      )}
 
       <Row align="center" gap="2">
         <Label variant="primary" size="md" weight="semibold">
@@ -213,9 +219,11 @@ export function FeatureFlagsEditor({
             </Button>
           </>
         )}
-        <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={openAddModal}>
-          Add Flag
-        </Button>
+        {!readOnly && (
+          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={openAddModal}>
+            Add Flag
+          </Button>
+        )}
       </Row>
 
       {flags.length === 0 ? (
@@ -224,9 +232,11 @@ export function FeatureFlagsEditor({
           <Label variant="secondary" size="sm">
             {t('services:noFlags')}
           </Label>
-          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={openAddModal}>
-            Add your first flag
-          </Button>
+          {!readOnly && (
+            <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={openAddModal}>
+              Add your first flag
+            </Button>
+          )}
         </div>
       ) : (
         <Stack gap="1">
@@ -266,14 +276,14 @@ export function FeatureFlagsEditor({
                       value={name}
                       onChange={e => updateFlagField(flag.id, { name: e.target.value })}
                       placeholder="Name"
-                      disabled={isSaving}
+                      disabled={isSaving || readOnly}
                     />
                     <input
                       className={`${styles.inlineInput} ${styles.inlineInputMuted}`}
                       value={description ?? ''}
                       onChange={e => updateFlagField(flag.id, { description: e.target.value })}
                       placeholder="Description (optional)"
-                      disabled={isSaving}
+                      disabled={isSaving || readOnly}
                     />
                   </div>
 
@@ -282,7 +292,7 @@ export function FeatureFlagsEditor({
                     value={key ?? ''}
                     onChange={e => updateFlagField(flag.id, { key: e.target.value })}
                     placeholder="ENV_VAR_KEY"
-                    disabled={isSaving}
+                    disabled={isSaving || readOnly}
                   />
 
                   <select
@@ -293,7 +303,7 @@ export function FeatureFlagsEditor({
                         valueType: e.target.value as FeatureFlagValueType,
                       })
                     }
-                    disabled={isSaving}
+                    disabled={isSaving || readOnly}
                   >
                     <option value="String">String</option>
                     <option value="Bool">Boolean</option>
@@ -305,7 +315,7 @@ export function FeatureFlagsEditor({
                       <BoolSwitch
                         value={value === 'true'}
                         onChange={v => updateFlagField(flag.id, { value: String(v) })}
-                        disabled={isSaving}
+                        disabled={isSaving || readOnly}
                       />
                     ) : (
                       <input
@@ -314,19 +324,23 @@ export function FeatureFlagsEditor({
                         value={value}
                         onChange={e => updateFlagField(flag.id, { value: e.target.value })}
                         placeholder="Value"
-                        disabled={isSaving}
+                        disabled={isSaving || readOnly}
                       />
                     )}
                   </div>
 
-                  <button
-                    className={styles.deleteBtn}
-                    onClick={() => setDeleteTarget(flag)}
-                    disabled={isSaving}
-                    title="Delete flag"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {readOnly ? (
+                    <span />
+                  ) : (
+                    <button
+                      className={styles.deleteBtn}
+                      onClick={() => setDeleteTarget(flag)}
+                      disabled={isSaving}
+                      title="Delete flag"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             );

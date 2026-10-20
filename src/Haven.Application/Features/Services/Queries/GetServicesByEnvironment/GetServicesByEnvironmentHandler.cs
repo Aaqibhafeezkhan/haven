@@ -34,7 +34,8 @@ public sealed class GetServicesByEnvironmentHandler(
             {
                 DesiredState = s.DesiredState,
                 RuntimeState = state.GetRuntimeState(s.Id),
-                Health = state.GetHealth(s.Id)
+                Health = state.GetHealth(s.Id),
+                RepositoryBinding = RepositoryBindingDto.From(s.RepositoryBinding)
             })
             .ToList();
 

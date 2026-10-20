@@ -17,6 +17,9 @@ public sealed class CreateFeatureFlagHandler(
         if (service is null)
             return Error.NotFoundFor(nameof(Service), command.ServiceId);
 
+        if (service.IsRepositoryManaged)
+            return Error.RepositoryManaged("Feature flags");
+
         var flag = service.AddFeatureFlag(
             command.Name,
             command.Type,

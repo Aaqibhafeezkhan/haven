@@ -89,3 +89,27 @@
     display: none;
   }
 }
+
+.addPortButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.addPortButton:hover:disabled {
+  background: var(--color-bg);
+}
+
+.portInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-bg);
+}
+
+.portRemove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.portRemove:hover:disabled {
+  color: var(--color-text-secondary);
+}

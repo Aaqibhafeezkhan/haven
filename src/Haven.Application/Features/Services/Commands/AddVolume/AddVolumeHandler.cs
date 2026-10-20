@@ -15,6 +15,9 @@ public sealed class AddVolumeHandler(IServiceRepository serviceRepository)
         if (service is null)
             return Error.NotFoundFor(nameof(Service), command.ServiceId);
 
+        if (service.IsRepositoryManaged)
+            return Error.RepositoryManaged("Volumes");
+
         var volume = service.AddVolume(
             command.Type,
             command.Name,

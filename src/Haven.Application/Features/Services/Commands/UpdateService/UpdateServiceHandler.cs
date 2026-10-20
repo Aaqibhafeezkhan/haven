@@ -24,6 +24,10 @@ public sealed class UpdateServiceHandler(
         if (service is null)
             return Error.NotFoundFor("Service", request.ServiceId);
 
+        if (service.IsRepositoryManaged
+            && (request.Type.HasValue || request.ExposureMode.HasValue || request.DockerConfig.HasValue || request.DockerfileConfig.HasValue))
+            return Error.RepositoryManaged("The service type, exposure mode and source configuration");
+
         if (request.Name.HasValue && !string.Equals(request.Name.Value, service.Name, StringComparison.OrdinalIgnoreCase))
         {
             var nameConflict = environment.Services.Any(s =>

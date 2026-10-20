@@ -11,7 +11,7 @@ import styles from '@/styles/components/ui/CodeEditor.module.css';
 
 import { Button } from './Button';
 
-export const havenTheme =EditorView.theme({
+export const havenTheme = EditorView.theme({
   '&': {
     fontSize: '14px',
     fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
@@ -61,7 +61,7 @@ export const havenTheme =EditorView.theme({
   },
 });
 
-export const havenHighlightStyle =HighlightStyle.define([
+export const havenHighlightStyle = HighlightStyle.define([
   { tag: tags.propertyName, color: 'var(--color-teal-600)' },
   { tag: tags.string, color: 'var(--color-amber-600)' },
   { tag: tags.comment, color: 'var(--color-text-muted)', fontStyle: 'italic' },
@@ -83,6 +83,7 @@ interface CodeEditorProps {
   savedMessage?: string;
   loadingMessage?: string;
   errorMessage?: string;
+  readOnly?: boolean;
 }
 
 export function CodeEditor({
@@ -92,6 +93,7 @@ export function CodeEditor({
   savedMessage,
   loadingMessage,
   errorMessage,
+  readOnly = false,
 }: CodeEditorProps) {
   const { t } = useTranslation('common');
   const [loading, setLoading] = useState(true);
@@ -136,6 +138,8 @@ export function CodeEditor({
           yaml(),
           havenTheme,
           syntaxHighlighting(havenHighlightStyle),
+          EditorState.readOnly.of(readOnly),
+          EditorView.editable.of(!readOnly),
           EditorView.updateListener.of(update => {
             if (update.docChanged) setIsDirty(true);
           }),
@@ -149,7 +153,7 @@ export function CodeEditor({
       view.destroy();
       viewRef.current = null;
     };
-  }, [initialContent]);
+  }, [initialContent, readOnly]);
 
   const handleSave = async () => {
     if (!viewRef.current) return;
@@ -183,17 +187,19 @@ export function CodeEditor({
 
       <div ref={editorContainerRef} className={styles.editorWrapper} />
 
-      <div className={styles.footer}>
-        <Button
-          variant="primary"
-          icon={<Save size={18} />}
-          onClick={handleSave}
-          disabled={!isDirty || isSaving}
-          isLoading={isSaving}
-        >
-          {saveLabel ?? t('actions.save')}
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className={styles.footer}>
+          <Button
+            variant="primary"
+            icon={<Save size={18} />}
+            onClick={handleSave}
+            disabled={!isDirty || isSaving}
+            isLoading={isSaving}
+          >
+            {saveLabel ?? t('actions.save')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

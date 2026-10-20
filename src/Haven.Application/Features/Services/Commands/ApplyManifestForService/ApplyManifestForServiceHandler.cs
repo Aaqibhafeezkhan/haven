@@ -29,6 +29,9 @@ public sealed class ApplyManifestForServiceHandler(
         if (service is null)
             return Error.NotFoundFor("Service", request.ServiceId);
 
+        if (service.IsRepositoryManaged)
+            return Error.RepositoryManaged("The service definition");
+
         ServiceManifestDto manifest;
         try
         {

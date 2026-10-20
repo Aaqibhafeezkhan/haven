@@ -9,6 +9,7 @@ interface ServiceManifestEditorProps {
   environmentId: string;
   serviceId: string;
   onApplied?: () => void;
+  readOnly?: boolean;
 }
 
 export function ServiceManifestEditor({
@@ -16,6 +17,7 @@ export function ServiceManifestEditor({
   environmentId,
   serviceId,
   onApplied,
+  readOnly = false,
 }: ServiceManifestEditorProps) {
   const { t } = useTranslation('services');
 
@@ -40,6 +42,7 @@ export function ServiceManifestEditor({
       saveLabel={t('manifest.apply')}
       savedMessage={t('manifest.saved')}
       loadingMessage={t('manifest.loading')}
+      readOnly={readOnly}
     />
   );
 }

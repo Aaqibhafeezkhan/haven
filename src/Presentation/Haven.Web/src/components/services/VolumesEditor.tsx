@@ -15,6 +15,7 @@ import { volumesApi } from '../../api/volumes';
 import { Row, Spacer } from '../layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../layout/Table';
 import { Badge } from '../ui/Badge';
+import { Banner } from '../ui/Banner';
 import { Button } from '../ui/Button';
 import { ErrorAlert } from '../ui/ErrorAlert';
 import { Label } from '../ui/Label';
@@ -27,12 +28,18 @@ interface VolumesEditorProps {
   projectId: string;
   environmentId: string;
   serviceId: string;
+  readOnly?: boolean;
 }
 
 const badgeVariant = (type: VolumeType) =>
   type === 'Managed' ? 'primary' : type === 'HostPath' ? 'warning' : 'default';
 
-export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEditorProps) {
+export function VolumesEditor({
+  projectId,
+  environmentId,
+  serviceId,
+  readOnly = false,
+}: VolumesEditorProps) {
   const { t } = useTranslation('services');
 
   const [volumes, setVolumes] = useState<ServiceVolumeDto[]>([]);
@@ -112,6 +119,7 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
   return (
     <div className={styles.container}>
       {error && <ErrorAlert message={error} variant="block" />}
+      {readOnly && <Banner variant="info" description={t('repositoryManagedVolumes')} />}
 
       <Row align="center" gap="2">
         <Label variant="primary" size="md" weight="semibold">
@@ -119,14 +127,16 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
         </Label>
         {volumes.length > 0 && <Badge>{volumes.length}</Badge>}
         <Spacer expand direction="horizontal" />
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Plus size={14} />}
-          onClick={() => setIsAddOpen(true)}
-        >
-          {t('volumes.add')}
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Plus size={14} />}
+            onClick={() => setIsAddOpen(true)}
+          >
+            {t('volumes.add')}
+          </Button>
+        )}
       </Row>
 
       {volumes.length === 0 ? (
@@ -135,14 +145,16 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
           <Label variant="secondary" size="sm">
             {t('volumes.empty')}
           </Label>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Plus size={14} />}
-            onClick={() => setIsAddOpen(true)}
-          >
-            {t('volumes.addFirst')}
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Plus size={14} />}
+              onClick={() => setIsAddOpen(true)}
+            >
+              {t('volumes.addFirst')}
+            </Button>
+          )}
         </div>
       ) : (
         <div className={styles.tableWrap}>
@@ -183,7 +195,7 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
                 return (
                   <TableRow
                     key={volume.id}
-                    onRowClick={() => setEditTarget(volume)}
+                    onRowClick={readOnly ? undefined : () => setEditTarget(volume)}
                     actions={
                       <>
                         {isManaged && (
@@ -198,26 +210,30 @@ export function VolumesEditor({ projectId, environmentId, serviceId }: VolumesEd
                             <FolderOpen size={14} />
                           </button>
                         )}
-                        <button
-                          className={styles.iconBtn}
-                          onClick={e => {
-                            e.stopPropagation();
-                            setEditTarget(volume);
-                          }}
-                          title={t('volumes.edit')}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                          onClick={e => {
-                            e.stopPropagation();
-                            setDeleteTarget(volume);
-                          }}
-                          title={t('volumes.delete')}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {!readOnly && (
+                          <>
+                            <button
+                              className={styles.iconBtn}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setEditTarget(volume);
+                              }}
+                              title={t('volumes.edit')}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setDeleteTarget(volume);
+                              }}
+                              title={t('volumes.delete')}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </>
                     }
                   >
