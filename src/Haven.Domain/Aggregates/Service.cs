@@ -267,7 +267,7 @@ public sealed class Service : AggregateRoot, IDeployableContainer
 
     public void UpdateEnvironmentVariables()
     {
-        Raise(new EnvironmentVariablesUpdatedEvent(Id, EnvironmentVariableParentType.Environment));
+        Raise(new EnvironmentVariablesUpdatedEvent(Id, EnvironmentVariableParentType.Service));
     }
 
     public static Service Reconstitute(

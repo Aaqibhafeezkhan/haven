@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 
 using Haven.Application.Common.Interfaces.Hubs;
+using Haven.Presentation.Api.Development;
 using Haven.Presentation.Api.Hubs;
 using Haven.Presentation.Api.Services;
 
@@ -11,6 +12,7 @@ public static class DependencyInjection
     public static IServiceCollection AddPresentation(this IServiceCollection services)
     {
         services.AddSignalRServices();
+        services.AddDevelopmentSeeders();
 
         return services;
     }
