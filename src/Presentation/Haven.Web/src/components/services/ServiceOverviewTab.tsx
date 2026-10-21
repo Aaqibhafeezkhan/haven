@@ -242,7 +242,7 @@ export function ServiceOverviewTab({
                 {sourceConfig?.commandArgs && sourceConfig.commandArgs.length > 0 && (
                   <div className={styles.extraRow}>
                     <span className={styles.extraLabel}>{t('common:labels.commandArgs')}</span>
-                    <CodeSpan>{sourceConfig.commandArgs.join(' ')}</CodeSpan>
+                    <CodeSpan wrap>{sourceConfig.commandArgs.join(' ')}</CodeSpan>
                   </div>
                 )}
                 {sharedNetworks.length > 0 && (

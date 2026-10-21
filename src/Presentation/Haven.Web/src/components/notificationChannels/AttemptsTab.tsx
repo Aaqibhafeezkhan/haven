@@ -89,7 +89,7 @@ export function AttemptsTab() {
 
       {!isLoading && !error && data && data.items.length > 0 && (
         <>
-          <Table hoverable striped>
+          <Table>
             <TableHead>
               <TableRow isHeader hasActionsColumn>
                 <TableHeader>{t('attemptsTab.columns.channel')}</TableHeader>

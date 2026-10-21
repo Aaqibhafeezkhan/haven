@@ -222,3 +222,8 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+
+.tableContent {
+  padding: 0;
+  overflow-x: auto;
+}

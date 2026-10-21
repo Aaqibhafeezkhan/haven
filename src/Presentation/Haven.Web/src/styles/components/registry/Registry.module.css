@@ -115,24 +115,7 @@
   pointer-events: none;
 }
 
-/* Blend the table into the card, mirroring the projects table. */
-.thead {
-  background-color: var(--color-background-secondary);
-}
-
-.tbody {
-  background-color: transparent;
-}
-
-.row {
-  height: 64px;
-  box-shadow: inset 3px 0 0 transparent;
-  transition:
-    background-color 0.2s,
-    box-shadow 0.2s;
-}
-
-.row:hover,
+/* Keep the accent while a row's details are expanded. */
 .rowOpen {
   background-color: var(--color-background-secondary);
   box-shadow: inset 3px 0 0 var(--color-primary);

@@ -158,7 +158,7 @@ export function VolumesEditor({
         </div>
       ) : (
         <div className={styles.tableWrap}>
-          <Table compact padding="2">
+          <Table>
             <TableHead>
               <TableRow isHeader hasActionsColumn>
                 <TableHeader

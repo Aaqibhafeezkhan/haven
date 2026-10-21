@@ -7,6 +7,8 @@ import styles from '@/styles/components/ui/CodeSpan.module.css';
 interface CodeSpanProps extends HTMLAttributes<HTMLSpanElement> {
   icon?: ReactNode;
   copyable?: boolean;
+  /** Line-break long content instead of truncating it with an ellipsis. */
+  wrap?: boolean;
   onCopySuccess?: () => void;
   /**
    * When set, called to resolve the text to copy instead of the rendered `children`. Useful when
@@ -19,6 +21,7 @@ interface CodeSpanProps extends HTMLAttributes<HTMLSpanElement> {
 export function CodeSpan({
   icon,
   copyable = false,
+  wrap = false,
   onCopySuccess,
   onBeforeCopy,
   className,
@@ -62,7 +65,7 @@ export function CodeSpan({
 
   return (
     <span className={clsx(styles.codeSpan, className)} {...props}>
-      <code className={styles.content}>
+      <code className={clsx(styles.content, wrap && styles.wrap)}>
         {icon && <span className={styles.icon}>{icon}</span>}
         <span className={styles.text}>{children}</span>
         {copyable && (

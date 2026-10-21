@@ -168,7 +168,7 @@ export function CustomActionsEditor({
           </Button>
         </Stack>
       ) : (
-        <Table hoverable striped>
+        <Table>
           <TableHead>
             <TableRow isHeader hasActionsColumn>
               <TableHeader>{t('services:customActions.name')}</TableHeader>
