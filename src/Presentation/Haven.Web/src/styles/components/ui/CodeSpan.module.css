@@ -36,6 +36,18 @@
   white-space: nowrap;
 }
 
+.wrap {
+  align-items: flex-start;
+  line-height: 1.4;
+}
+
+.wrap .text {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .copyButton {
   display: inline-flex;
   align-items: center;
