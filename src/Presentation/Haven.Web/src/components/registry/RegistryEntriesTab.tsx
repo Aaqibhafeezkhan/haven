@@ -285,8 +285,8 @@ export function RegistryEntriesTab({ refreshTick }: Props) {
               )}
             </div>
           ) : (
-            <Table hoverable={false} striped={false}>
-              <TableHead className={styles.thead}>
+            <Table>
+              <TableHead>
                 <TableRow isHeader>
                   <TableHeader sortKey="name" {...sortProps}>
                     {t('table.name')}
@@ -308,14 +308,14 @@ export function RegistryEntriesTab({ refreshTick }: Props) {
                   <TableHeader>{null}</TableHeader>
                 </TableRow>
               </TableHead>
-              <TableBody className={styles.tbody}>
+              <TableBody>
                 {items.map(entry => {
                   const isOpen = expanded.has(entry.id);
                   const openable = canOpenService(entry.serviceId);
                   return (
                     <Fragment key={entry.id}>
                       <TableRow
-                        className={`${styles.row} ${isOpen ? styles.rowOpen : ''}`}
+                        className={isOpen ? styles.rowOpen : ''}
                         onRowClick={
                           openable ? () => navigate(`/services/${entry.serviceId}`) : undefined
                         }
@@ -324,7 +324,10 @@ export function RegistryEntriesTab({ refreshTick }: Props) {
                           <EntryName entry={entry} />
                         </TableCell>
                         <TableCell nowrap>
-                          <HealthIndicator showLabel health={registryHealth(entry.runtimeState, entry.health)} />
+                          <HealthIndicator
+                            showLabel
+                            health={registryHealth(entry.runtimeState, entry.health)}
+                          />
                         </TableCell>
                         <TableCell>
                           <ServiceTypeChip serviceType={entry.serviceType} />

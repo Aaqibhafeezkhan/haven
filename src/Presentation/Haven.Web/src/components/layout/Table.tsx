@@ -57,7 +57,7 @@ interface TableCellProps {
 
 export function Table({
   children,
-  striped = true,
+  striped = false,
   hoverable = true,
   bordered = false,
   compact = false,

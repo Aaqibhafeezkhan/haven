@@ -130,8 +130,8 @@ export function RegistryDomainsTab({ refreshTick }: Props) {
               )}
             </div>
           ) : (
-            <Table hoverable={false} striped={false}>
-              <TableHead className={styles.thead}>
+            <Table>
+              <TableHead>
                 <TableRow isHeader>
                   <TableHeader sortKey="hostname" {...sortProps}>
                     {t('domainsTab.hostname')}
@@ -146,7 +146,7 @@ export function RegistryDomainsTab({ refreshTick }: Props) {
                   <TableHeader>{t('domainsTab.port')}</TableHeader>
                 </TableRow>
               </TableHead>
-              <TableBody className={styles.tbody}>
+              <TableBody>
                 {items.map(d => {
                   const openable = canOpenService(d.serviceId);
                   const owner = d.serviceName ?? d.sidecarName ?? d.containerName ?? t('none');
@@ -156,7 +156,6 @@ export function RegistryDomainsTab({ refreshTick }: Props) {
                   return (
                     <TableRow
                       key={d.id}
-                      className={styles.row}
                       onRowClick={openable ? () => navigate(`/services/${d.serviceId}`) : undefined}
                     >
                       <TableCell>
@@ -186,7 +185,10 @@ export function RegistryDomainsTab({ refreshTick }: Props) {
                         </div>
                       </TableCell>
                       <TableCell nowrap>
-                        <HealthIndicator showLabel health={registryHealth(d.runtimeState, d.health)} />
+                        <HealthIndicator
+                          showLabel
+                          health={registryHealth(d.runtimeState, d.health)}
+                        />
                       </TableCell>
                       <TableCell nowrap>
                         <Row gap="2" align="center">

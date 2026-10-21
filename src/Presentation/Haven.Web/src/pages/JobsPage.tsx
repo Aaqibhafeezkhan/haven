@@ -126,7 +126,7 @@ export function JobsPage() {
             {jobs.length === 0 ? (
               <p className={styles.emptyState}>{t('empty')}</p>
             ) : (
-              <Table hoverable striped>
+              <Table>
                 <TableHead>
                   <TableRow isHeader>
                     <TableHeader>{t('table.name')}</TableHeader>

@@ -200,7 +200,7 @@ export function DashboardPage() {
                     <Spinner size="md" />
                   </div>
                 ) : projectsData?.items?.length ? (
-                  <Table className={styles.projectsTable}>
+                  <Table>
                     <TableHead>
                       <TableRow isHeader>
                         <TableHeader>{tCommon('labels.project')}</TableHeader>

@@ -106,7 +106,7 @@ function ServicesSubTable({
   return (
     <div className={styles.nestedTableWrapper}>
       {unassignError && <ErrorAlert message={unassignError} variant="block" />}
-      <Table compact hoverable padding="2" className={styles.nestedTable}>
+      <Table>
         <TableHead>
           <TableRow isHeader>
             <TableHeader>{t('table.serviceName')}</TableHeader>
@@ -194,8 +194,8 @@ function ProjectNetworksCard({
           <Chip content={group.networks.length} size="sm" />
         </Row>
       </CardHeader>
-      <CardContent>
-        <Table compact striped hoverable padding="2" className={styles.networksTable}>
+      <CardContent className={styles.tableContent}>
+        <Table>
           <TableHead>
             <TableRow isHeader>
               <TableHeader>{t('table.name')}</TableHeader>

@@ -11,9 +11,10 @@
   background-color: var(--color-surface);
 }
 
-/* Hover effect */
-.hoverable tbody tr:hover {
-  background-color: var(--color-surface-raised);
+/* Hover effect: tinted row with a primary accent bar */
+.hoverable .bodyRow:hover {
+  background-color: var(--color-background-secondary);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 /* Bordered style */
@@ -81,12 +82,12 @@
 
 /* Table sections */
 .thead {
-  background-color: var(--color-surface-raised);
+  background-color: var(--color-background-secondary);
   border-bottom: 2px solid var(--color-border-strong);
 }
 
 .tbody {
-  background-color: var(--color-bg);
+  background-color: transparent;
 }
 
 .headerRow {
@@ -94,7 +95,11 @@
 }
 
 .bodyRow {
-  transition: background-color 150ms ease-in-out;
+  height: 64px;
+  box-shadow: inset 3px 0 0 transparent;
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s;
   border-bottom: 1px solid var(--color-border);
 }
 
