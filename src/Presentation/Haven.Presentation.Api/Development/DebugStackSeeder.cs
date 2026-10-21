@@ -51,7 +51,7 @@ public class DebugStackSeeder : IDevelopmentSeeder
                             ]
                         },
 
-                        new("crash loop", "crash-loop", Image)
+                        new("crash loop", "crashlp", Image)
                         {
                             RestartPolicy = RestartPolicy.OnFailure,
                             Args = Script("echo \"[crash-loop] starting, will exit in ${LIFETIME_SECONDS:-10}s\"; sleep \"${LIFETIME_SECONDS:-10}\"; exit \"${EXIT_CODE:-1}\""),
@@ -77,7 +77,7 @@ public class DebugStackSeeder : IDevelopmentSeeder
                             Flags = [new("Log interval (s)", "LOG_INTERVAL_SECONDS", "1", FeatureFlagValueType.Number, "Seconds between log bursts")]
                         },
 
-                        new("flaky health", "flaky-health", Image)
+                        new("flaky health", "flaky", Image)
                         {
                             Args = Script("""
                                 sleep "${HEALTHY_AFTER_SECONDS:-10}"
@@ -103,7 +103,7 @@ public class DebugStackSeeder : IDevelopmentSeeder
                         },
 
                         // Slow-starting HTTP server with a probe-able endpoint. Verifies startup waits and HTTP checks.
-                        new("slow http", "slow-http", "busybox:latest")
+                        new("slow http", "slow", "busybox:latest")
                         {
                             Ports = ["8101:80"],
                             Exposure = ExposureMode.Internal,
@@ -119,7 +119,7 @@ public class DebugStackSeeder : IDevelopmentSeeder
                         },
 
                         // Burns CPU on N workers. Verifies resource/stat displays.
-                        new("cpu burner", "cpu-burner", Image)
+                        new("cpu burner", "cpu", Image)
                         {
                             Args = Script("""
                                 echo "[cpu-burner] burning ${CPU_WORKERS:-1} worker(s)"
@@ -133,7 +133,7 @@ public class DebugStackSeeder : IDevelopmentSeeder
                             Flags = [new("CPU workers", "CPU_WORKERS", "1", FeatureFlagValueType.Number, "Number of busy loops (0 still keeps it running idle)")]
                         },
 
-                        new("env dump", "env-dump", Image)
+                        new("env dump", "envdump", Image)
                         {
                             Env = new Dictionary<string, string> { ["PLAIN_VAR"] = "plain-value" },
                             Secrets = new Dictionary<string, string> { ["DEBUG_SECRET"] = "super-secret-value" },
@@ -141,7 +141,7 @@ public class DebugStackSeeder : IDevelopmentSeeder
                             Flags = [new("Greeting", "GREETING", "hello", FeatureFlagValueType.String, "Arbitrary string flag")]
                         },
 
-                        new("volume writer", "volume-writer", Image)
+                        new("volume writer", "volwrite", Image)
                         {
                             Args = Script("while true; do date -u +%FT%TZ >> /data/heartbeat.log; sleep \"${WRITE_INTERVAL_SECONDS:-10}\"; done"),
                             Volumes = [new(VolumeType.Managed, "debug data", "/data", BackupEnabled: true) { Files = [("heartbeat.log", "# seeded\n")] }],
