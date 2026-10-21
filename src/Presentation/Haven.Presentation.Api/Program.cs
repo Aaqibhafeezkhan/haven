@@ -9,6 +9,7 @@ using Haven.Domain;
 using Haven.Infrastructure.Extensions;
 using Haven.Presentation.Api;
 using Haven.Presentation.Api.Bootstrapping;
+using Haven.Presentation.Api.Development;
 using Haven.Presentation.Api.Middleware;
 using Haven.Presentation.Api.Serialization;
 
@@ -64,6 +65,7 @@ app.MapScalarApiReference(opt =>
 });
 
 await app.RunHavenStartupTasksAsync();
+await app.RunDevelopmentSeedersAsync(args);
 
 if (telemetryOptions.Enabled)
 {
