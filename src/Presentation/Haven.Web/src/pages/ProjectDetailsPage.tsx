@@ -178,7 +178,7 @@ export function ProjectDetailsPage() {
               <Spacer expand direction="horizontal" />
               {canUpdateProject && (
                 <Button
-                  variant="text"
+                  variant="ghost"
                   size="sm"
                   icon={<Settings size={16} />}
                   onClick={() => setIsConfigOpen(!isConfigOpen)}

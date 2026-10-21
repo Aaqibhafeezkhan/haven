@@ -267,26 +267,28 @@ export function EnvironmentDetailsPage() {
           <DegradedServicesChip count={environment.serviceStatistics.degraded} />
           <Spacer expand direction="horizontal" />
           <Row gap="2" wrap>
-            {canExportEnvironment && (
-              <Button
-                variant="text"
-                size="sm"
-                icon={<Download size={16} />}
-                onClick={() => setIsExportModalOpen(true)}
-              >
-                {t('environments:export.button')}
-              </Button>
-            )}
-            {canUpdateEnvironment && (
-              <Button
-                variant="text"
-                size="sm"
-                icon={<Settings size={16} />}
-                onClick={() => setIsConfigOpen(!isConfigOpen)}
-              >
-                {isConfigOpen ? t('common:labels.closeSettings') : t('common:labels.settings')}
-              </Button>
-            )}
+            <Row gap="1" className={styles.utilityActions}>
+              {canExportEnvironment && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Download size={16} />}
+                  onClick={() => setIsExportModalOpen(true)}
+                >
+                  {t('environments:export.button')}
+                </Button>
+              )}
+              {canUpdateEnvironment && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Settings size={16} />}
+                  onClick={() => setIsConfigOpen(!isConfigOpen)}
+                >
+                  {isConfigOpen ? t('common:labels.closeSettings') : t('common:labels.settings')}
+                </Button>
+              )}
+            </Row>
             {canDeployService && (
               <Button
                 variant="primary"

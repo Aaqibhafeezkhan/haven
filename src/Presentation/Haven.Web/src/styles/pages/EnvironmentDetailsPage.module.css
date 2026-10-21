@@ -200,3 +200,8 @@
   gap: var(--space-4);
 }
 
+
+.utilityActions {
+  padding-right: var(--space-2);
+  border-right: var(--border-thin);
+}
