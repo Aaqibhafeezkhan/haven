@@ -108,6 +108,18 @@
       "label": "Sidecar Detached",
       "description": "Triggered when a sidecar is detached from a network."
     },
+    "NetworkCreatedEvent": {
+      "label": "Network Created",
+      "description": "Triggered when a new network is created."
+    },
+    "NetworkDeletedEvent": {
+      "label": "Network Deleted",
+      "description": "Triggered when a network is deleted."
+    },
+    "NetworkRecreatedEvent": {
+      "label": "Network Recreated",
+      "description": "Triggered when a network is recreated, for example after its subnet changes."
+    },
     "User.UserCreatedEvent": {
       "label": "User Created",
       "description": "Triggered when a new user is created."
