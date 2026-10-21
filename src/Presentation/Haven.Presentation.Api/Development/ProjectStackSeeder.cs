@@ -28,13 +28,19 @@ public class ProjectStackSeeder : IDevelopmentSeeder
 {
     public int Order => 10;
 
-    public async Task SeedAsync(IServiceProvider services, CancellationToken cancellationToken)
+    public async Task SeedAsync(IServiceProvider services, CancellationToken cancellationToken) =>
+        await SeedStacksAsync(services, Stacks, services.GetRequiredService<ILoggerFactory>().CreateLogger<ProjectStackSeeder>(), cancellationToken);
+
+    /// <summary>
+    /// Seeds each stack whose project doesn't exist yet. Shared with other seeders that only
+    /// differ in the stacks they define.
+    /// </summary>
+    internal static async Task SeedStacksAsync(IServiceProvider services, IEnumerable<ProjectStack> stacks, ILogger logger, CancellationToken cancellationToken)
     {
         var mediator = services.GetRequiredService<IMediator>();
         var projects = services.GetRequiredService<IProjectRepository>();
-        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger<ProjectStackSeeder>();
 
-        foreach (var stack in Stacks)
+        foreach (var stack in stacks)
         {
             if (await projects.ExistsWithNameAsync(stack.Name, Guid.Empty, cancellationToken))
             {
@@ -115,7 +121,7 @@ public class ProjectStackSeeder : IDevelopmentSeeder
                 Image = def.Image,
                 Ports = [.. def.Ports],
                 CommandArgs = [.. def.Args],
-                RestartPolicy = RestartPolicy.UnlessStopped
+                RestartPolicy = def.RestartPolicy
             }
         }, ct);
 
@@ -229,7 +235,7 @@ public class ProjectStackSeeder : IDevelopmentSeeder
         </html>
         """;
 
-    private static readonly IReadOnlyDictionary<string, string> NoEnv = new Dictionary<string, string>();
+    internal static readonly IReadOnlyDictionary<string, string> NoEnv = new Dictionary<string, string>();
 
     private static IReadOnlyList<ProjectStack> Stacks =>
     [
@@ -338,7 +344,7 @@ public class ProjectStackSeeder : IDevelopmentSeeder
             ])
     ];
 
-    private sealed record ProjectStack(
+    internal sealed record ProjectStack(
         string Name,
         string Alias,
         string Description,
@@ -346,7 +352,7 @@ public class ProjectStackSeeder : IDevelopmentSeeder
         IReadOnlyDictionary<string, string> Secrets,
         IReadOnlyList<EnvironmentDef> Environments);
 
-    private sealed record EnvironmentDef(
+    internal sealed record EnvironmentDef(
         string Name,
         string Alias,
         string Description,
@@ -354,11 +360,12 @@ public class ProjectStackSeeder : IDevelopmentSeeder
         IReadOnlyDictionary<string, string> Secrets,
         IReadOnlyList<ServiceDef> Services);
 
-    private sealed record ServiceDef(string Name, string Alias, string Image)
+    internal sealed record ServiceDef(string Name, string Alias, string Image)
     {
         public IReadOnlyList<string> Ports { get; init; } = [];
         public IReadOnlyList<string> Args { get; init; } = [];
         public ExposureMode Exposure { get; init; } = ExposureMode.None;
+        public RestartPolicy RestartPolicy { get; init; } = RestartPolicy.UnlessStopped;
         public IReadOnlyDictionary<string, string> Env { get; init; } = NoEnv;
         public IReadOnlyDictionary<string, string> Secrets { get; init; } = NoEnv;
         public IReadOnlyList<VolumeDef> Volumes { get; init; } = [];
@@ -366,12 +373,12 @@ public class ProjectStackSeeder : IDevelopmentSeeder
         public IReadOnlyList<HealthCheckDef> HealthChecks { get; init; } = [];
     }
 
-    private sealed record VolumeDef(VolumeType Type, string Name, string Target, string? Source = null, bool ReadOnly = false, bool BackupEnabled = false)
+    internal sealed record VolumeDef(VolumeType Type, string Name, string Target, string? Source = null, bool ReadOnly = false, bool BackupEnabled = false)
     {
         public IReadOnlyList<(string Path, string Content)> Files { get; init; } = [];
     }
 
-    private sealed record FlagDef(string Name, string Key, string Value, FeatureFlagValueType ValueType, string? Description);
+    internal sealed record FlagDef(string Name, string Key, string Value, FeatureFlagValueType ValueType, string? Description);
 
-    private sealed record HealthCheckDef(string Name, HealthCheckKind Kind, string Config, string? Cron = null);
+    internal sealed record HealthCheckDef(string Name, HealthCheckKind Kind, string Config, string? Cron = null);
 }
