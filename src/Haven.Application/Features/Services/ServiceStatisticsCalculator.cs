@@ -27,11 +27,11 @@ public static class ServiceStatisticsCalculator
                     stats.Running++;
                     stats.Degraded++;
                     break;
+                case ServiceDisplayStatus.Queued:
+                    stats.DeploymentPending++;
+                    break;
                 case ServiceDisplayStatus.Deploying:
-                    if (snapshot.GetActiveDeployment(service.Id) == DeploymentStatus.Queued)
-                        stats.DeploymentPending++;
-                    else
-                        stats.Deploying++;
+                    stats.Deploying++;
                     break;
                 case ServiceDisplayStatus.Starting:
                     stats.Deploying++;

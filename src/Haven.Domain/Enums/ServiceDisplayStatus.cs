@@ -4,6 +4,7 @@ namespace Haven.Domain.Enums;
 public enum ServiceDisplayStatus
 {
     NotDeployed,
+    Queued,
     Deploying,
     Starting,
     Running,

@@ -51,6 +51,7 @@ export const getStatusColor = (status: string): 'success' | 'warning' | 'danger'
     case 'Crashed':
       return 'danger';
     case 'DeploymentPending':
+    case 'Queued':
     case 'Deploying':
     case 'Starting':
     case 'NotDeployed':

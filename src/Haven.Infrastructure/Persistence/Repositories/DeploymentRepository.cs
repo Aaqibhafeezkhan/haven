@@ -35,11 +35,12 @@ public sealed class DeploymentRepository(HavenDbContext context) : IDeploymentRe
             .Select(d => new { d.ServiceId, d.Status, d.StartedAt })
             .ToListAsync(ct);
 
-        // Ordered client-side (SQLite can't ORDER BY DateTimeOffset): the most recent in-flight deployment wins
-        // when a service somehow has more than one.
         return rows
             .GroupBy(r => r.ServiceId)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.StartedAt).First().Status);
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(r => r.Status == DeploymentStatus.Queued)
+                .ThenByDescending(r => r.StartedAt)
+                .First().Status);
     }
 
     public async Task<Domain.Entities.Deployment?> FindActiveForServiceAsync(Guid serviceId, CancellationToken ct)

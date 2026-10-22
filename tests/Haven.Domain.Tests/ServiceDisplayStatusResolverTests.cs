@@ -8,7 +8,6 @@ namespace Haven.Domain.Tests;
 [Category("Unit")]
 public sealed class ServiceDisplayStatusResolverTests
 {
-    [TestCase(DeploymentStatus.Queued)]
     [TestCase(DeploymentStatus.Building)]
     [TestCase(DeploymentStatus.Starting)]
     public void Resolve_ActiveDeployment_IsDeploying_WhateverTheRuntimeState(DeploymentStatus active)
@@ -16,6 +15,14 @@ public sealed class ServiceDisplayStatusResolverTests
         foreach (var runtime in Enum.GetValues<ServiceRuntimeState>())
             foreach (var health in Enum.GetValues<ServiceHealth>())
                 ServiceDisplayStatusResolver.Resolve(active, runtime, health).ShouldBe(ServiceDisplayStatus.Deploying);
+    }
+
+    [Test]
+    public void Resolve_QueuedDeployment_IsQueued_WhateverTheRuntimeState()
+    {
+        foreach (var runtime in Enum.GetValues<ServiceRuntimeState>())
+            foreach (var health in Enum.GetValues<ServiceHealth>())
+                ServiceDisplayStatusResolver.Resolve(DeploymentStatus.Queued, runtime, health).ShouldBe(ServiceDisplayStatus.Queued);
     }
 
     [TestCase(DeploymentStatus.Succeeded)]

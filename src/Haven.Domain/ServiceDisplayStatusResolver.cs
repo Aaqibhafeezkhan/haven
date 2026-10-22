@@ -13,6 +13,9 @@ public static class ServiceDisplayStatusResolver
         ServiceRuntimeState? runtimeState,
         ServiceHealth? health)
     {
+        if (activeDeployment == DeploymentStatus.Queued)
+            return ServiceDisplayStatus.Queued;
+
         if (activeDeployment is { IsTerminal: false })
             return ServiceDisplayStatus.Deploying;
 
