@@ -5,6 +5,7 @@ export type ServiceType = 'DockerImage' | 'Dockerfile' | 'Compose' | 'Process';
 /** Computed server-side from desired state, observed runtime state, health and any in-flight deployment. */
 export type ServiceDisplayStatus =
   | 'NotDeployed'
+  | 'Queued'
   | 'Deploying'
   | 'Starting'
   | 'Running'

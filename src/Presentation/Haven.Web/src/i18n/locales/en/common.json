@@ -110,6 +110,7 @@
     "running": "Running",
     "stopped": "Stopped",
     "degraded": "Degraded",
+    "queued": "Deployment Pending",
     "deploying": "Deploying",
     "deploymentpending": "Deployment Pending",
     "deploymentPending": "Deployment Pending",
