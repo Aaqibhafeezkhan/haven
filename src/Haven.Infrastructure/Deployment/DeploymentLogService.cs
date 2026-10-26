@@ -82,6 +82,23 @@ public class DeploymentLogService(
         await unitOfWork.SaveChangesAsync(ct);
     }
 
+    public async Task SetIdentifierAsync(
+        Guid deploymentId,
+        DeploymentIdentifierType type,
+        string identifier,
+        string? commitMessage,
+        CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IDeploymentRepository>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var deployment = await repository.FindByIdAsync(deploymentId, ct);
+        if (deployment is null || deployment.Status.IsTerminal) return;
+
+        deployment.SetIdentifier(type, identifier, commitMessage);
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
     public async Task AppendLogAsync(Guid deploymentId, string logEntry, CancellationToken ct)
     {
         var timestamp = DateTime.UtcNow;

@@ -539,9 +539,21 @@ namespace Haven.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("CommitMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("commit_message");
+
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finished_at");
+
+                    b.Property<string>("Identifier")
+                        .HasColumnType("text")
+                        .HasColumnName("identifier");
+
+                    b.Property<string>("IdentifierType")
+                        .HasColumnType("text")
+                        .HasColumnName("identifier_type");
 
                     b.Property<string>("LogFile")
                         .IsRequired()

@@ -47,6 +47,37 @@ public class GitService(
         }
     }
 
+    public async Task<Result<GitCommitInfo>> GetHeadCommitAsync(RepositoryBinding binding, CancellationToken cancellationToken = default)
+    {
+        if (!repositoryPathProvider.RepositoryDirectoryExists(binding))
+            return Error.NotFoundFor("Repository", binding.Repository ?? string.Empty);
+
+        try
+        {
+            var providerResult = await CreateProviderAsync(binding, cancellationToken);
+            if (providerResult.IsFailure)
+                return providerResult.Error;
+
+            var repositoryPath = repositoryPathProvider.GetRepositoryPath(binding);
+
+            using var _ = await repositoryLocks.AcquireAsync(repositoryPath, cancellationToken);
+            var commits = await providerResult.Value.GetCommitsAsync(repositoryPath, 1, cancellationToken);
+
+            return commits.Count > 0
+                ? Result<GitCommitInfo>.Success(commits[0])
+                : Error.NotFoundFor("Commit", binding.Repository ?? string.Empty);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to read HEAD commit of '{Repository}'", binding.Repository);
+            return Error.Failed;
+        }
+    }
+
     public async Task<Result<string>> ReadBoundFileAsync(RepositoryBinding binding, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(binding.Repository) || string.IsNullOrWhiteSpace(binding.FilePath))

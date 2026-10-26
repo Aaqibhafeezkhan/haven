@@ -12,6 +12,9 @@ public class Deployment : Entity
     public DeploymentStatus Status { get; set; }
     public string? TriggeredBy { get; set; }
     public string LogFile { get; set; }
+    public DeploymentIdentifierType? IdentifierType { get; set; }
+    public string? Identifier { get; set; }
+    public string? CommitMessage { get; set; }
 
     public Service? Service { get; set; }
 
@@ -61,6 +64,18 @@ public class Deployment : Entity
         EnsureNotTerminal(DeploymentStatus.Cancelled);
         FinishedAt = DateTimeOffset.UtcNow;
         Status = DeploymentStatus.Cancelled;
+    }
+
+    public void SetIdentifier(DeploymentIdentifierType type, string identifier, string? commitMessage = null)
+    {
+        if (string.IsNullOrWhiteSpace(identifier))
+            throw new ValidationException("Deployment identifier cannot be empty.");
+        if (Status.IsTerminal)
+            throw new ValidationException($"Deployment is already {Status} and its identifier cannot be changed.");
+
+        IdentifierType = type;
+        Identifier = identifier;
+        CommitMessage = commitMessage;
     }
 
     private void EnsureNotTerminal(DeploymentStatus target)

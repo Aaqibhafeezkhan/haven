@@ -366,6 +366,24 @@
     "source": "Source"
   },
   "deployments": "Deployments",
+  "deploymentsTab": {
+    "empty": "No deployments yet.",
+    "loadFailed": "Failed to load deployments",
+    "cancelFailed": "Failed to cancel deployment",
+    "cancel": "Cancel",
+    "startedAt": "Started {{date}}",
+    "by": "by {{user}}",
+    "waitingForLogs": "Waiting for log entries...",
+    "noLogs": "No logs found for this deployment.",
+    "noIdentifier": "No identifier recorded",
+    "currentlyDeployed": "Deployed version",
+    "identifierTypes": {
+      "Commit": "Commit",
+      "ImageDigest": "Image digest",
+      "ImageId": "Image ID"
+    },
+    "copyIdentifier": "Copy identifier"
+  },
   "containerName": "Container",
   "internalIp": "Internal IP",
   "startedAt": "Started",

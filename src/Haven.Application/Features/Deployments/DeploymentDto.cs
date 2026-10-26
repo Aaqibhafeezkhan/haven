@@ -11,4 +11,7 @@ public sealed class DeploymentDto
     public DateTimeOffset? FinishedAt { get; init; }
     public DeploymentStatus Status { get; init; }
     public string? TriggeredBy { get; init; }
+    public DeploymentIdentifierType? IdentifierType { get; init; }
+    public string? Identifier { get; init; }
+    public string? CommitMessage { get; init; }
 }

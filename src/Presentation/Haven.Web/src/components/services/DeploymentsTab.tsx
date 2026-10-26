@@ -1,10 +1,12 @@
 import { Square } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { servicesApi } from '@/api/services';
 import { DeploymentDto } from '@/api/types';
 import { DeploymentStatus } from '@/api/types';
 import { Row, Stack } from '@/components/layout';
+import { DeploymentIdentifier } from '@/components/services/DeploymentIdentifier';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -61,6 +63,7 @@ function DeploymentLogViewer({
   deploymentId: string;
   isActive: boolean;
 }) {
+  const { t } = useTranslation('services');
   const [historicLines, setHistoricLines] = useState<string[] | null>(null);
   const [liveEntries, setLiveEntries] = useState<DeploymentLogEntry[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -114,12 +117,12 @@ function DeploymentLogViewer({
       {!loadingLogs && isEmpty && isActive && (
         <div className={styles.logEmpty}>
           <Spinner />
-          <span>Waiting for log entries...</span>
+          <span>{t('deploymentsTab.waitingForLogs')}</span>
         </div>
       )}
       {!loadingLogs && isEmpty && !isActive && (
         <div className={styles.logEmpty}>
-          <span>No logs found for this deployment.</span>
+          <span>{t('deploymentsTab.noLogs')}</span>
         </div>
       )}
       {(historicLines ?? []).map((line, i) => (
@@ -141,6 +144,7 @@ function DeploymentLogViewer({
 }
 
 export function DeploymentsTab({ projectId, environmentId, serviceId }: DeploymentsTabProps) {
+  const { t } = useTranslation('services');
   const [deployments, setDeployments] = useState<DeploymentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +166,7 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
       })
       .catch(err => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load deployments');
+          setError(err instanceof Error ? err.message : t('deploymentsTab.loadFailed'));
           setLoading(false);
         }
       });
@@ -170,7 +174,7 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
     return () => {
       cancelled = true;
     };
-  }, [projectId, environmentId, serviceId, refreshCount]);
+  }, [projectId, environmentId, serviceId, refreshCount, t]);
 
   useSubscribeToServiceUpdates(
     serviceStatusHub,
@@ -183,7 +187,7 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
       setCancelling(true);
       await servicesApi.cancelDeployment(deploymentId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel deployment');
+      setError(err instanceof Error ? err.message : t('deploymentsTab.cancelFailed'));
     } finally {
       setCancelling(false);
     }
@@ -208,7 +212,7 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
   if (deployments.length === 0) {
     return (
       <div className={styles.center}>
-        <Label variant="secondary">No deployments yet.</Label>
+        <Label variant="secondary">{t('deploymentsTab.empty')}</Label>
       </div>
     );
   }
@@ -224,20 +228,18 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
             className={`${styles.deploymentRow} ${selectedId === deployment.id ? styles.selected : ''}`}
             onClick={() => setSelectedId(deployment.id)}
           >
-            <Stack gap="1">
-              <Row gap="2" align="center">
+            <Stack gap="2">
+              <Row gap="2" align="center" justify="space-between">
                 <Badge variant={statusVariant(deployment.status)}>{deployment.status}</Badge>
-                {deployment.triggeredBy && (
-                  <Label variant="secondary" size="xs">
-                    by {deployment.triggeredBy}
-                  </Label>
-                )}
+                <Label variant="secondary" size="xs">
+                  {formatDuration(deployment.startedAt, deployment.finishedAt ?? undefined)}
+                </Label>
               </Row>
+              <DeploymentIdentifier deployment={deployment} />
               <Label variant="secondary" size="xs">
                 {new Date(deployment.startedAt).toLocaleString()}
-              </Label>
-              <Label variant="secondary" size="xs">
-                {formatDuration(deployment.startedAt, deployment.finishedAt ?? undefined)}
+                {deployment.triggeredBy &&
+                  ` · ${t('deploymentsTab.by', { user: deployment.triggeredBy })}`}
               </Label>
             </Stack>
           </button>
@@ -248,16 +250,22 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
         {selected && (
           <Card padding="var(--space-4)" style={{ height: '100%' }}>
             <Stack gap="3" style={{ height: '100%' }}>
-              <Row gap="3" align="center">
-                <Badge variant={statusVariant(selected.status)}>{selected.status}</Badge>
-                <Label variant="secondary" size="sm">
-                  Started {new Date(selected.startedAt).toLocaleString()}
-                </Label>
-                {selected.finishedAt && (
-                  <Label variant="secondary" size="sm">
-                    · {formatDuration(selected.startedAt, selected.finishedAt)}
-                  </Label>
-                )}
+              <div className={styles.detailHeader}>
+                <Stack gap="2" style={{ minWidth: 0 }}>
+                  <Row gap="3" align="center">
+                    <Badge variant={statusVariant(selected.status)}>{selected.status}</Badge>
+                    <Label variant="secondary" size="sm">
+                      {t('deploymentsTab.startedAt', {
+                        date: new Date(selected.startedAt).toLocaleString(),
+                      })}
+                      {selected.finishedAt &&
+                        ` · ${formatDuration(selected.startedAt, selected.finishedAt)}`}
+                      {selected.triggeredBy &&
+                        ` · ${t('deploymentsTab.by', { user: selected.triggeredBy })}`}
+                    </Label>
+                  </Row>
+                  <DeploymentIdentifier deployment={selected} variant="full" />
+                </Stack>
                 {canDeploy && isDeploymentActive(selected.status) && (
                   <Button
                     variant="danger"
@@ -267,10 +275,10 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
                     isLoading={cancelling}
                     disabled={cancelling}
                   >
-                    Cancel
+                    {t('deploymentsTab.cancel')}
                   </Button>
                 )}
-              </Row>
+              </div>
               <DeploymentLogViewer
                 deploymentId={selected.id}
                 isActive={isDeploymentActive(selected.status)}

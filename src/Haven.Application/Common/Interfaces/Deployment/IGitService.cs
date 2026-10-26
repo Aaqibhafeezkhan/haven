@@ -18,6 +18,14 @@ public interface IGitService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the commit currently checked out in the local clone of <paramref name="binding"/>, without syncing.
+    /// Fails with NotFound if the repository hasn't been cloned or has no commits.
+    /// </summary>
+    Task<Result<GitCommitInfo>> GetHeadCommitAsync(
+        RepositoryBinding binding,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Syncs the repository like <see cref="SyncRepositoryAsync"/> and returns the content of the
     /// bound file at the tip of the bound branch.
     /// </summary>
