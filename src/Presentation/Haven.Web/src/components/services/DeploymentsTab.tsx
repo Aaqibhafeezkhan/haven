@@ -151,6 +151,7 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
+  const [, setTick] = useState(0);
   const canDeploy = usePermission('projects.manage_deploys');
 
   useEffect(() => {
@@ -175,6 +176,14 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
       cancelled = true;
     };
   }, [projectId, environmentId, serviceId, refreshCount, t]);
+
+  const hasActive = deployments.some(d => !d.finishedAt && isDeploymentActive(d.status));
+
+  useEffect(() => {
+    if (!hasActive) return;
+    const id = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasActive]);
 
   useSubscribeToServiceUpdates(
     serviceStatusHub,
@@ -258,8 +267,7 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
                       {t('deploymentsTab.startedAt', {
                         date: new Date(selected.startedAt).toLocaleString(),
                       })}
-                      {selected.finishedAt &&
-                        ` · ${formatDuration(selected.startedAt, selected.finishedAt)}`}
+                      {` · ${formatDuration(selected.startedAt, selected.finishedAt ?? undefined)}`}
                       {selected.triggeredBy &&
                         ` · ${t('deploymentsTab.by', { user: selected.triggeredBy })}`}
                     </Label>
