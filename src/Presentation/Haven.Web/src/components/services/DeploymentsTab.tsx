@@ -271,8 +271,8 @@ export function DeploymentsTab({ projectId, environmentId, serviceId }: Deployme
                       {selected.triggeredBy &&
                         ` · ${t('deploymentsTab.by', { user: selected.triggeredBy })}`}
                     </Label>
+                    <DeploymentIdentifier deployment={selected} variant="inline" />
                   </Row>
-                  <DeploymentIdentifier deployment={selected} variant="full" />
                 </Stack>
                 {canDeploy && isDeploymentActive(selected.status) && (
                   <Button

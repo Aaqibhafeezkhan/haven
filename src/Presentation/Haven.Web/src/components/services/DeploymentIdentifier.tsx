@@ -17,8 +17,11 @@ export function shortIdentifier({ identifierType, identifier }: IdentifierSource
 
 interface DeploymentIdentifierProps {
   deployment: IdentifierSource;
-  /** `compact` is for list rows (short, not copyable); `full` shows the whole value with copy. */
-  variant?: 'compact' | 'full';
+  /**
+   * `compact` is for list rows (short, not copyable); `inline` is a short copyable chip for meta
+   * rows, with the full value and commit message in the tooltip.
+   */
+  variant?: 'compact' | 'inline';
 }
 
 export function DeploymentIdentifier({
@@ -45,17 +48,15 @@ export function DeploymentIdentifier({
     );
   }
 
+  const identifier = deployment.identifier;
+  const message = isCommit ? deployment.commitMessage : undefined;
+
   return (
-    <div className={styles.full}>
-      <span className={styles.type}>
-        {t(`deploymentsTab.identifierTypes.${deployment.identifierType ?? 'ImageId'}`)}
-      </span>
-      <CodeSpan icon={icon} copyable wrap>
-        {deployment.identifier}
+    <span className={styles.compact} title={message ? `${identifier}\n${message}` : identifier}>
+      <CodeSpan icon={icon} copyable onBeforeCopy={async () => identifier}>
+        {shortIdentifier(deployment)}
       </CodeSpan>
-      {isCommit && deployment.commitMessage && (
-        <span className={styles.fullMessage}>{deployment.commitMessage}</span>
-      )}
-    </div>
+      {message && <span className={styles.message}>{message}</span>}
+    </span>
   );
 }

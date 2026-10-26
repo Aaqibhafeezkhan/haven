@@ -19,24 +19,3 @@
   color: var(--color-text-tertiary, var(--color-text-secondary));
   font-style: italic;
 }
-
-.full {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.type {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.fullMessage {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  word-break: break-word;
-}
