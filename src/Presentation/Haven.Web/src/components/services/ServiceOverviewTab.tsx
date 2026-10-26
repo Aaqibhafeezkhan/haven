@@ -10,14 +10,16 @@ import {
   Settings,
   Terminal,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DockerConfig, DockerfileConfig } from '@/api/types';
+import { servicesApi } from '@/api/services';
+import { DeploymentDto, DockerConfig, DockerfileConfig } from '@/api/types';
 import { ServiceDashboardDto } from '@/api/types';
 import { Grid, Row, Stack } from '@/components/layout';
 import { ComputedOutputsCard } from '@/components/services/ComputedOutputsCard';
 import { CustomActionsCard } from '@/components/services/CustomActionsCard';
+import { DeploymentIdentifier } from '@/components/services/DeploymentIdentifier';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -87,6 +89,23 @@ export function ServiceOverviewTab({
 
   const curlCommand = `curl -X POST '${webhookUrl}'`;
   const httpieCommand = `http POST ${webhookUrl}`;
+
+  const [deployed, setDeployed] = useState<DeploymentDto | undefined>();
+  useEffect(() => {
+    let cancelled = false;
+    servicesApi
+      .getDeployments(projectId, service.environmentId, service.id)
+      .then(data => {
+        if (!cancelled)
+          setDeployed((data ?? []).find(d => d.status === 'Succeeded' && d.identifier));
+      })
+      .catch(() => {
+        if (!cancelled) setDeployed(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, service.environmentId, service.id, service.status]);
 
   const { data: networks } = useNetworks();
   const sharedNetworks = (networks ?? []).filter(
@@ -195,6 +214,14 @@ export function ServiceOverviewTab({
                     <span className={styles.infoLabel}>{t('common:labels.status')}</span>
                     <HealthIndicator showLabel health={service.status.toLocaleLowerCase()} />
                   </div>
+                  {deployed && (
+                    <div className={styles.infoItem}>
+                      <span className={styles.infoLabel}>
+                        {t('services:deploymentsTab.currentlyDeployed')}
+                      </span>
+                      <DeploymentIdentifier deployment={deployed} />
+                    </div>
+                  )}
                   {dockerImageConfig && (
                     <div className={styles.infoItem}>
                       <span className={styles.infoLabel}>{t('common:labels.image')}</span>

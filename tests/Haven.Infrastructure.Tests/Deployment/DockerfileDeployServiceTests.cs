@@ -7,6 +7,7 @@ using Haven.Application.Common;
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Common.Models;
 using Haven.Application.Common.Templating;
 using Haven.Application.Configuration;
 using Haven.Domain;
@@ -202,6 +203,65 @@ public sealed class DockerfileDeployServiceTests
         var result = await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task DeployAsync_WithGitSource_RecordsHeadCommitAsIdentifier()
+    {
+        var (service, _, _) = SetupValidServiceWithProject(ServiceType.Dockerfile, DockerfileSource.Git);
+        var repoPath = Path.Combine(Path.GetTempPath(), $"haven-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(repoPath);
+        File.WriteAllText(Path.Combine(repoPath, "Dockerfile"), "FROM ubuntu:22.04");
+        var depId = Guid.NewGuid();
+
+        _gitService.RepositoryExists(Arg.Any<RepositoryBinding>()).Returns(true);
+        _gitService.SyncRepositoryAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+            .Returns(Result<string>.Success(repoPath));
+        _gitService.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(repoPath);
+        _gitService.GetHeadCommitAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+            .Returns(Result<GitCommitInfo>.Success(new GitCommitInfo("abc1234567", "feat: add thing", "me", DateTimeOffset.UtcNow)));
+
+        try
+        {
+            await _sut.DeployAsync(service, depId, CancellationToken.None);
+
+            await _logService.Received(1).SetIdentifierAsync(
+                depId, DeploymentIdentifierType.Commit, "abc1234567", "feat: add thing", Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            if (Directory.Exists(repoPath))
+                Directory.Delete(repoPath, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task DeployAsync_WithGitSource_WhenHeadCommitFails_DoesNotRecordIdentifier()
+    {
+        var (service, _, _) = SetupValidServiceWithProject(ServiceType.Dockerfile, DockerfileSource.Git);
+        var repoPath = Path.Combine(Path.GetTempPath(), $"haven-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(repoPath);
+        File.WriteAllText(Path.Combine(repoPath, "Dockerfile"), "FROM ubuntu:22.04");
+
+        _gitService.RepositoryExists(Arg.Any<RepositoryBinding>()).Returns(true);
+        _gitService.SyncRepositoryAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+            .Returns(Result<string>.Success(repoPath));
+        _gitService.GetRepositoryPath(Arg.Any<RepositoryBinding>()).Returns(repoPath);
+        _gitService.GetHeadCommitAsync(Arg.Any<RepositoryBinding>(), Arg.Any<CancellationToken>())
+            .Returns(Result<GitCommitInfo>.Failure(Error.Failed));
+
+        try
+        {
+            await _sut.DeployAsync(service, Guid.NewGuid(), CancellationToken.None);
+
+            await _logService.DidNotReceiveWithAnyArgs().SetIdentifierAsync(
+                default, default, default!, default, default);
+        }
+        finally
+        {
+            if (Directory.Exists(repoPath))
+                Directory.Delete(repoPath, recursive: true);
+        }
     }
 
     [Test]

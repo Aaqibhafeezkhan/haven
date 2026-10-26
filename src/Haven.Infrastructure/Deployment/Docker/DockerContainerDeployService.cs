@@ -93,6 +93,7 @@ public class DockerContainerDeployService : IDeployService
         }
 
         await _logService.AppendLogAsync(depId, $"Image '{dockerConfig.Image}' pulled successfully.", cancellationToken);
+        await RecordImageIdentifierAsync(dockerConfig.Image, depId, cancellationToken);
 
         // Only stop the old container now that the new image is fully pulled, to minimize downtime
         // and avoid marking the service as stopped before the replacement is ready to start.
@@ -222,4 +223,46 @@ public class DockerContainerDeployService : IDeployService
         await _containerRuntime.RemoveAllForOwnerAsync(service.Id, _networkingService, "cleaned up for deleted service", cancellationToken);
     }
 
+
+    private async Task RecordImageIdentifierAsync(string image, Guid deploymentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var inspect = await _dockerClient.Images.InspectImageAsync(image, cancellationToken);
+            var (type, identifier) = ResolveImageIdentifier(image, inspect);
+            if (identifier is null) return;
+
+            await _logService.SetIdentifierAsync(deploymentId, type, identifier, null, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to record the image identifier for deployment '{DeploymentId}'", deploymentId);
+        }
+    }
+
+    /// <summary>
+    /// Prefers the registry digest (verifiable on the registry) for the pulled repository, falling back
+    /// to the local image ID when the image has no repo digest (e.g. a locally built or loaded image).
+    /// </summary>
+    public static (DeploymentIdentifierType Type, string? Identifier) ResolveImageIdentifier(string image, ImageInspectResponse inspect)
+    {
+        var repository = ImageRepository(image);
+        var digests = inspect.RepoDigests ?? [];
+        var digest = digests.FirstOrDefault(d => d.StartsWith(repository + "@", StringComparison.Ordinal)) ?? digests.FirstOrDefault();
+
+        if (digest is not null && digest.Contains('@'))
+            return (DeploymentIdentifierType.ImageDigest, digest[(digest.IndexOf('@') + 1)..]);
+
+        return string.IsNullOrWhiteSpace(inspect.ID)
+            ? (DeploymentIdentifierType.ImageId, null)
+            : (DeploymentIdentifierType.ImageId, inspect.ID);
+    }
+
+    private static string ImageRepository(string image)
+    {
+        var withoutDigest = image.Split('@')[0];
+        var lastSlash = withoutDigest.LastIndexOf('/');
+        var colon = withoutDigest.LastIndexOf(':');
+        return colon > lastSlash ? withoutDigest[..colon] : withoutDigest;
+    }
 }

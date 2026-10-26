@@ -25,6 +25,9 @@ public sealed class GetDeploymentsForServiceHandler(
             FinishedAt = d.FinishedAt,
             Status = d.Status,
             TriggeredBy = d.TriggeredBy,
+            IdentifierType = d.IdentifierType,
+            Identifier = d.Identifier,
+            CommitMessage = d.CommitMessage,
         }).ToList();
 
         return Result<List<DeploymentDto>>.Success(dtos);

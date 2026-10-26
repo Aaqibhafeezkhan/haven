@@ -36,6 +36,16 @@ public class DeploymentConfiguration : IEntityTypeConfiguration<Domain.Entities.
             .HasColumnName("log_file")
             .IsRequired();
 
+        builder.Property(d => d.IdentifierType)
+            .HasColumnName("identifier_type")
+            .HasConversion<string>();
+
+        builder.Property(d => d.Identifier)
+            .HasColumnName("identifier");
+
+        builder.Property(d => d.CommitMessage)
+            .HasColumnName("commit_message");
+
         builder.HasOne(d => d.Service)
             .WithMany(s => s.Deployments)
             .HasForeignKey(d => d.ServiceId)

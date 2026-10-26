@@ -121,6 +121,8 @@ public class DockerfileDeployService : IDeployService
             if (string.IsNullOrWhiteSpace(repoPath))
                 return Error.Git.RepositoryNotFound;
 
+            await RecordCommitIdentifierAsync(binding, depId, cancellationToken);
+
             var repoFullPath = Path.GetFullPath(repoPath);
             var contextFullPath = repoFullPath;
 
@@ -188,6 +190,9 @@ public class DockerfileDeployService : IDeployService
 
         await _logService.AppendLogAsync(depId, "Image built successfully. Creating container...", cancellationToken);
 
+        if (dockerfileConfig.Source != DockerfileSource.Git)
+            await RecordImageIdentifierAsync(imageTag, depId, cancellationToken);
+
         // Only stop the old container now that the new image is fully built, to minimize downtime
         // and avoid marking the service as stopped before the replacement is ready to start.
         await _containerRuntime.RemoveAllForOwnerAsync(service.Id, _networkingService, "removed before redeploying", cancellationToken);
@@ -235,6 +240,40 @@ public class DockerfileDeployService : IDeployService
         await _containerRuntime.HealTraefikRoutingBestEffortAsync(service.Id, deployData.IpAddress?.ToString(), cancellationToken);
 
         return deployData;
+    }
+
+    private async Task RecordCommitIdentifierAsync(RepositoryBinding binding, Guid deploymentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var commit = await _gitService.GetHeadCommitAsync(binding, cancellationToken);
+            if (commit.IsFailure)
+            {
+                _logger.LogWarning("Could not determine the deployed commit for deployment '{DeploymentId}'", deploymentId);
+                return;
+            }
+
+            await _logService.SetIdentifierAsync(deploymentId, DeploymentIdentifierType.Commit, commit.Value.Sha, commit.Value.Message, cancellationToken);
+            await _logService.AppendLogAsync(deploymentId, $"Deploying commit {commit.Value.Sha[..Math.Min(7, commit.Value.Sha.Length)]}: {commit.Value.Message}", cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to record the deployed commit for deployment '{DeploymentId}'", deploymentId);
+        }
+    }
+
+    private async Task RecordImageIdentifierAsync(string imageTag, Guid deploymentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var image = await _dockerClient.Images.InspectImageAsync(imageTag, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(image.ID))
+                await _logService.SetIdentifierAsync(deploymentId, DeploymentIdentifierType.ImageId, image.ID, null, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to record the built image ID for deployment '{DeploymentId}'", deploymentId);
+        }
     }
 
     public async Task<Result> StopAsync(IDeployableContainer container, CancellationToken cancellationToken)

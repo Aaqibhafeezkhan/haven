@@ -1,0 +1,21 @@
+.compact {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.none {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  font-style: italic;
+}

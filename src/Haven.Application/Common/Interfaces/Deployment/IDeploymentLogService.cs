@@ -1,3 +1,5 @@
+using Haven.Domain.Enums;
+
 namespace Haven.Application.Common.Interfaces.Deployment;
 
 public interface IDeploymentLogService
@@ -9,6 +11,7 @@ public interface IDeploymentLogService
     /// </summary>
     Task<Domain.Entities.Deployment> QueueDeploymentForServiceAsync(Guid serviceId, CancellationToken ct);
     Task MarkDeploymentStartingAsync(Guid deploymentId, CancellationToken ct);
+    Task SetIdentifierAsync(Guid deploymentId, DeploymentIdentifierType type, string identifier, string? commitMessage, CancellationToken ct);
     Task AppendLogAsync(Guid deploymentId, string logEntry, CancellationToken ct);
     Task MarkDeploymentCompletedAsync(Guid deploymentId, CancellationToken ct);
     Task MarkDeploymentFailedAsync(Guid deploymentId, CancellationToken ct);
