@@ -91,6 +91,11 @@ public sealed class DockerContainerRuntime : IDockerContainerRuntime
 
         hostConfig.RestartPolicy = MapRestartPolicy(config.RestartPolicy);
 
+        hostConfig.Memory = config.MemoryLimit;
+        hostConfig.MemorySwap = config.MemorySwap;
+        hostConfig.MemoryReservation = config.MemoryReservation;
+        hostConfig.NanoCPUs = config.NanoCpus;
+
         param.HostConfig = hostConfig;
 
         if (envVars.Count > 0)

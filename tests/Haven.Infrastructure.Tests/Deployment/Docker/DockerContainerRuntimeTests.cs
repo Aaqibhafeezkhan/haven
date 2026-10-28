@@ -132,6 +132,36 @@ public sealed class DockerContainerRuntimeTests
     }
 
     [Test]
+    public void BuildContainerParameters_WithResourceLimits_SetsHostConfigLimits()
+    {
+        var config = new DockerConfig
+        {
+            MemoryLimit = 512 * 1024 * 1024,
+            MemorySwap = 1024 * 1024 * 1024,
+            MemoryReservation = 256 * 1024 * 1024,
+            NanoCpus = 1_500_000_000
+        };
+
+        var param = _sut.BuildContainerParameters("name", new Dictionary<string, string>(), "image", null, ExposureMode.None, config, [], []);
+
+        param.HostConfig.Memory.ShouldBe(512L * 1024 * 1024);
+        param.HostConfig.MemorySwap.ShouldBe(1024L * 1024 * 1024);
+        param.HostConfig.MemoryReservation.ShouldBe(256L * 1024 * 1024);
+        param.HostConfig.NanoCPUs.ShouldBe(1_500_000_000);
+    }
+
+    [Test]
+    public void BuildContainerParameters_WithDefaultConfig_LeavesLimitsUnset()
+    {
+        var param = _sut.BuildContainerParameters("name", new Dictionary<string, string>(), "image", null, ExposureMode.None, new DockerConfig(), [], []);
+
+        param.HostConfig.Memory.ShouldBe(0);
+        param.HostConfig.MemorySwap.ShouldBe(0);
+        param.HostConfig.MemoryReservation.ShouldBe(0);
+        param.HostConfig.NanoCPUs.ShouldBe(0);
+    }
+
+    [Test]
     public void BuildContainerParameters_WithCommandArgs_SetsCmd()
     {
         var param = _sut.BuildContainerParameters("name", new Dictionary<string, string>(), "image", null, ExposureMode.None, new DockerConfig(), [], ["--foo=bar", "--baz"]);

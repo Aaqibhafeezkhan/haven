@@ -214,11 +214,6 @@ public class DockerSidecarDeployService : IDeployService
         var param = _containerRuntime.BuildContainerParameters(name, labels, dockerConfig.Image, envs: null,
             exposureMode, dockerConfig, mounts, effectiveCommandArgs);
 
-        param.HostConfig.Memory = dockerConfig.MemoryLimit;
-        param.HostConfig.MemorySwap = dockerConfig.MemorySwap;
-        param.HostConfig.MemoryReservation = dockerConfig.MemoryReservation;
-        param.HostConfig.NanoCPUs = dockerConfig.NanoCpus;
-
         var systemNetworkDockerId = await ResolveSystemNetworkDockerIdAsync(cancellationToken);
         if (systemNetworkDockerId is not null)
         {
