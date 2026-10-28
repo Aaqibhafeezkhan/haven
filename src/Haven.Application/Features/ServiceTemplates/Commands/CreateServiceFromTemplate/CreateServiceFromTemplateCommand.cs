@@ -1,5 +1,6 @@
 using Haven.Application.Common;
 using Haven.Application.Common.Messaging;
+using Haven.Application.Features.Services;
 using Haven.Domain.Enums;
 
 namespace Haven.Application.Features.ServiceTemplates.Commands.CreateServiceFromTemplate;
@@ -15,4 +16,9 @@ public sealed class CreateServiceFromTemplateCommand : ICommand<Guid>, IMutatesM
     public Dictionary<string, string> InputValues { get; set; } = new();
     public ExposureMode ExposureMode { get; set; } = ExposureMode.None;
     public List<string> Ports { get; set; } = new();
+
+    /// <summary>
+    /// Replaces the template's default resource limits when set. Null keeps the template's defaults.
+    /// </summary>
+    public ServiceResourceLimits? ResourceLimits { get; set; }
 }

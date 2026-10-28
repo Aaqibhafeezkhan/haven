@@ -33,7 +33,8 @@ public sealed class GetServiceTemplateByIdHandler(IServiceTemplateRepository rep
                     Immutable = i.Immutable,
                     Options = i.Options
                 })
-                .ToList()
+                .ToList(),
+            ResourceLimits = template.Container?.Resources?.ToResourceLimits()
         };
 
         return Result<ServiceTemplateDto>.Success(dto);

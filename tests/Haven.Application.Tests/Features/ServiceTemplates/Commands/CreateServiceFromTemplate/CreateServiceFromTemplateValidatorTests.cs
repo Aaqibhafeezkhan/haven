@@ -1,5 +1,6 @@
 using FluentValidation.TestHelper;
 
+using Haven.Application.Features.Services;
 using Haven.Application.Features.ServiceTemplates.Commands.CreateServiceFromTemplate;
 using Haven.Domain.Enums;
 
@@ -149,6 +150,42 @@ public sealed class CreateServiceFromTemplateValidatorTests
         var result = _sut.TestValidate(command);
 
         result.ShouldHaveValidationErrorFor("Ports[0]");
+    }
+
+    [Test]
+    public void Validate_ShouldNotHaveError_WhenResourceLimitsAreOmitted()
+    {
+        var result = _sut.TestValidate(CreateCommand());
+
+        result.ShouldNotHaveValidationErrorFor(x => x.ResourceLimits);
+    }
+
+    [Test]
+    public void Validate_ShouldNotHaveError_WhenResourceLimitsAreValid()
+    {
+        var command = CreateCommand();
+        command.ResourceLimits = new ServiceResourceLimits
+        {
+            MemoryLimit = 512L * 1024 * 1024,
+            MemorySwap = 1024L * 1024 * 1024,
+            MemoryReservation = 256L * 1024 * 1024,
+            NanoCpus = 1_000_000_000
+        };
+
+        var result = _sut.TestValidate(command);
+
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Test]
+    public void Validate_ShouldHaveError_WhenResourceLimitsAreInvalid()
+    {
+        var command = CreateCommand();
+        command.ResourceLimits = new ServiceResourceLimits { MemoryLimit = 512L * 1024 * 1024, MemorySwap = 256L * 1024 * 1024 };
+
+        var result = _sut.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor("ResourceLimits.MemorySwap");
     }
 
     private static CreateServiceFromTemplateCommand CreateCommand() => new()

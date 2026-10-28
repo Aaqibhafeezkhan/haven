@@ -22,6 +22,7 @@ import {
   hasResourceLimitErrors,
   parseResourceLimits,
   type ResourceLimitsForm,
+  toResourceLimitsForm,
 } from '@/lib/resourceLimits';
 import styles from '@/styles/components/services/CreateServicePage.module.css';
 
@@ -105,6 +106,13 @@ export function CreateServicePage() {
   );
   const { limits: resourceLimits, errors: resourceLimitErrors } =
     parseResourceLimits(resourceLimitsForm);
+
+  // Prefill the limits with the template's own defaults whenever a different template is loaded.
+  const [syncedTemplateId, setSyncedTemplateId] = useState<string | undefined>();
+  if (selectedTemplate?.id !== syncedTemplateId) {
+    setSyncedTemplateId(selectedTemplate?.id);
+    setResourceLimitsForm(toResourceLimitsForm(selectedTemplate?.resourceLimits ?? undefined));
+  }
 
   // Dockerfile fields
   const [dockerfileSource, setDockerfileSource] = useState<DockerfileSource>('Git');
@@ -198,6 +206,7 @@ export function CreateServicePage() {
 
     if (sourceMode === 'template') {
       if (!selectedTemplate) return false;
+      if (hasResourceLimitErrors(resourceLimitErrors)) return false;
       return selectedTemplate.inputs.every(field => {
         if (field.defaultValue) return true;
         return !!templateInputValues[field.key]?.trim();
@@ -464,6 +473,7 @@ export function CreateServicePage() {
           inputValues: templateInputValues,
           exposureMode,
           ports: buildPorts(),
+          resourceLimits,
         }),
       async serviceId => {
         // The template already persisted its own resolved variables (and secrets); fetch
@@ -861,6 +871,14 @@ export function CreateServicePage() {
                                 />
                               ))}
                             </div>
+                          )}
+                          {selectedTemplate && (
+                            <ResourceLimitsFields
+                              value={resourceLimitsForm}
+                              onChange={setResourceLimitsForm}
+                              errors={resourceLimitErrors}
+                              disabled={isLoading}
+                            />
                           )}
                           {!selectedTemplateSummary && (
                             <p className={styles.cardDescription}>

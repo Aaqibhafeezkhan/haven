@@ -2,6 +2,7 @@ using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Interfaces.Services;
 using Haven.Application.Common.Messaging;
+using Haven.Application.Features.Services;
 using Haven.Application.Features.ServiceTemplates.Contracts;
 using Haven.Application.Features.ServiceTemplates.Services;
 using Haven.Domain.Aggregates;
@@ -56,7 +57,13 @@ public sealed class CreateServiceFromTemplateHandler(
         if (service.SourceConfig is DockerConfig dockerConfig)
         {
             dockerConfig.Ports = request.Ports;
+            request.ResourceLimits?.ApplyTo(dockerConfig);
             service.SourceConfig = dockerConfig;
+
+            // The template's own defaults are not covered by the command validator, so check the final limits.
+            var limitsValidation = new ResourceLimitsValidator().Validate(dockerConfig);
+            if (!limitsValidation.IsValid)
+                return Error.Validation(limitsValidation.Errors[0].ErrorMessage);
         }
         var resolvedVariables = instantiator.ResolveEnvironmentVariables(service, template, resolveResult.Value);
         var seedFiles = instantiator.ResolveManagedVolumeSeedFiles(service, template, resolveResult.Value);

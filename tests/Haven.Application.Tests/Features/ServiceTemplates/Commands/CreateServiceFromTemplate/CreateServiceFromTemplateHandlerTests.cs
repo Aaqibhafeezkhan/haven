@@ -1,6 +1,7 @@
 using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Interfaces.Services;
+using Haven.Application.Features.Services;
 using Haven.Application.Features.ServiceTemplates.Commands.CreateServiceFromTemplate;
 using Haven.Application.Features.ServiceTemplates.Contracts;
 using Haven.Application.Features.ServiceTemplates.Services;
@@ -208,6 +209,81 @@ public sealed class CreateServiceFromTemplateHandlerTests
         service.ExposureMode.ShouldBe(ExposureMode.External);
         service.SourceConfig.ShouldBeOfType<DockerConfig>();
         ((DockerConfig)service.SourceConfig!).Ports.ShouldBe(["8080:80"]);
+    }
+
+    [Test]
+    public async Task Handle_ShouldApplyTemplateDefaultResourceLimits_WhenCommandHasNone()
+    {
+        var command = CreateCommand();
+        var template = CreateTemplate();
+        template.Container.Resources = new ServiceTemplateResources { MemoryLimitMib = 256, Cpus = 0.5 };
+        var service = await HandleAndGetServiceAsync(command, template);
+
+        var dockerConfig = (DockerConfig)service.SourceConfig!;
+        dockerConfig.MemoryLimit.ShouldBe(256L * 1024 * 1024);
+        dockerConfig.NanoCpus.ShouldBe(500_000_000);
+    }
+
+    [Test]
+    public async Task Handle_ShouldReplaceTemplateDefaultsWithRequestedResourceLimits()
+    {
+        var command = CreateCommand();
+        command.ResourceLimits = new ServiceResourceLimits { MemoryLimit = 1024L * 1024 * 1024 };
+        var template = CreateTemplate();
+        template.Container.Resources = new ServiceTemplateResources { MemoryLimitMib = 256, Cpus = 0.5 };
+        var service = await HandleAndGetServiceAsync(command, template);
+
+        var dockerConfig = (DockerConfig)service.SourceConfig!;
+        dockerConfig.MemoryLimit.ShouldBe(1024L * 1024 * 1024);
+        dockerConfig.NanoCpus.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task Handle_ShouldClearTemplateDefaults_WhenRequestedLimitsAreAllZero()
+    {
+        var command = CreateCommand();
+        command.ResourceLimits = new ServiceResourceLimits();
+        var template = CreateTemplate();
+        template.Container.Resources = new ServiceTemplateResources { MemoryLimitMib = 256 };
+        var service = await HandleAndGetServiceAsync(command, template);
+
+        ((DockerConfig)service.SourceConfig!).MemoryLimit.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task Handle_ShouldReturnFailureAndNotPersist_WhenTemplateDefaultLimitsAreInvalid()
+    {
+        var command = CreateCommand();
+        var template = CreateTemplate();
+        template.Container.Resources = new ServiceTemplateResources { MemoryLimitMib = 1 };
+        _templateRepository.GetByIdAsync(command.TemplateId, Arg.Any<CancellationToken>())
+            .Returns(template);
+        var project = Project.Create("test-project");
+        var environment = project.AddEnvironment("staging");
+        command.EnvironmentId = environment.Id;
+        _projectRepository.GetByIdAsync(command.ProjectId, Arg.Any<CancellationToken>())
+            .Returns(project);
+
+        var result = await _sut.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        await _serviceRepository.DidNotReceive().AddAsync(Arg.Any<Service>(), Arg.Any<CancellationToken>());
+    }
+
+    private async Task<Service> HandleAndGetServiceAsync(CreateServiceFromTemplateCommand command, ServiceTemplate template)
+    {
+        _templateRepository.GetByIdAsync(command.TemplateId, Arg.Any<CancellationToken>())
+            .Returns(template);
+        var project = Project.Create("test-project");
+        var environment = project.AddEnvironment("staging");
+        command.EnvironmentId = environment.Id;
+        _projectRepository.GetByIdAsync(command.ProjectId, Arg.Any<CancellationToken>())
+            .Returns(project);
+
+        var result = await _sut.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        return environment.Services.First(s => s.Id == result.Value);
     }
 
     [Test]
