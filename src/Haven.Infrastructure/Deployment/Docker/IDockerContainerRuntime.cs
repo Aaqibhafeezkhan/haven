@@ -6,6 +6,7 @@ using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;
 using Haven.Domain.Enums;
+using Haven.Domain.ValueObjects;
 
 using RestartPolicy = Haven.Domain.Enums.RestartPolicy;
 
@@ -23,7 +24,7 @@ public interface IDockerContainerRuntime
     /// <summary>
     /// Builds the <see cref="CreateContainerParameters"/> for a container: name/labels/image,
     /// environment variables (plus <c>LISTEN_ADDRESS</c> when <paramref name="exposureMode"/>
-    /// requires one), port bindings parsed from <paramref name="ports"/>, volume mounts, and an
+    /// requires one), port bindings parsed from <paramref name="config"/>'s ports, its restart policy, volume mounts, and an
     /// optional <c>Cmd</c> override built from <paramref name="commandArgs"/> (falls back to the
     /// image's default <c>CMD</c> when empty).
     /// </summary>
@@ -33,9 +34,8 @@ public interface IDockerContainerRuntime
         string image,
         IEnumerable<EnvironmentVariables>? envs,
         ExposureMode exposureMode,
-        IReadOnlyList<string> ports,
+        DockerBasedSourceConfig config,
         IList<Mount> mounts,
-        RestartPolicy restartPolicy,
         IReadOnlyList<string> commandArgs);
 
     /// <summary>Creates a container from <paramref name="parameters"/> and starts it. Returns the new container id.</summary>
@@ -99,9 +99,8 @@ public interface IDockerContainerRuntime
     Task<(CreateContainerParameters Param, string? EnvironmentNetworkName)> BuildServiceContainerParametersAsync(
         Service service,
         string image,
-        IReadOnlyList<string> ports,
+        DockerBasedSourceConfig config,
         IReadOnlyList<string> commandArgs,
-        RestartPolicy restartPolicy,
         bool ensureNamedVolumesReady,
         INetworkingService networkingService,
         CancellationToken cancellationToken);

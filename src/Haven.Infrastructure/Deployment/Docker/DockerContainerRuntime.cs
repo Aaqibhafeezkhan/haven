@@ -12,6 +12,7 @@ using Haven.Application.Configuration;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Entities;
 using Haven.Domain.Enums;
+using Haven.Domain.ValueObjects;
 using Haven.Infrastructure.Utils;
 
 using Microsoft.Extensions.Logging;
@@ -61,9 +62,8 @@ public sealed class DockerContainerRuntime : IDockerContainerRuntime
         string image,
         IEnumerable<EnvironmentVariables>? envs,
         ExposureMode exposureMode,
-        IReadOnlyList<string> ports,
+        DockerBasedSourceConfig config,
         IList<Mount> mounts,
-        Haven.Domain.Enums.RestartPolicy restartPolicy,
         IReadOnlyList<string> commandArgs)
     {
         var envVars = DockerUtils.BuildEnvironmentVariableStrings(envs);
@@ -75,9 +75,9 @@ public sealed class DockerContainerRuntime : IDockerContainerRuntime
         {
             envVars.Add($"LISTEN_ADDRESS={listenAddress}");
 
-            if (ports.Count > 0)
+            if (config.Ports.Count > 0)
             {
-                var bindings = DockerUtils.BuildPortBindings(ports, exposureMode, listenAddress);
+                var bindings = DockerUtils.BuildPortBindings(config.Ports, exposureMode, listenAddress);
                 foreach (var warning in bindings.Warnings)
                     _logger.LogWarning("{Warning}", warning);
 
@@ -89,7 +89,8 @@ public sealed class DockerContainerRuntime : IDockerContainerRuntime
         if (mounts.Count > 0)
             hostConfig.Mounts = mounts;
 
-        hostConfig.RestartPolicy = MapRestartPolicy(restartPolicy);
+        hostConfig.RestartPolicy = MapRestartPolicy(config.RestartPolicy);
+
         param.HostConfig = hostConfig;
 
         if (envVars.Count > 0)
@@ -332,9 +333,8 @@ public sealed class DockerContainerRuntime : IDockerContainerRuntime
         BuildServiceContainerParametersAsync(
             Service service,
             string image,
-            IReadOnlyList<string> ports,
+            DockerBasedSourceConfig config,
             IReadOnlyList<string> commandArgs,
-            Haven.Domain.Enums.RestartPolicy restartPolicy,
             bool ensureNamedVolumesReady,
             INetworkingService networkingService,
             CancellationToken cancellationToken)
@@ -350,15 +350,15 @@ public sealed class DockerContainerRuntime : IDockerContainerRuntime
 
         _logger.LogDebug(
             "Building container parameters for service '{ServiceName}': ExposureMode={ExposureMode}, PortCount={PortCount}, MountCount={MountCount}",
-            service.Name, service.ExposureMode, ports.Count, mounts.Count);
+            service.Name, service.ExposureMode, config.Ports.Count, mounts.Count);
 
         var name = DockerUtils.BuildContainerName(service.Environment?.Project?.Alias, service.Environment?.Alias,
             service.Alias, service.Name, service.Id);
         var labels = DockerUtils.BuildContainerLabels(service);
         await _traefikLabelMerger.MergeAsync(service, name, labels, cancellationToken);
 
-        var param = BuildContainerParameters(name, labels, image, envs, service.ExposureMode, ports, mounts,
-            restartPolicy, commandArgs);
+        var param = BuildContainerParameters(name, labels, image, envs, service.ExposureMode, config, mounts,
+            commandArgs);
 
         var (environmentNetworkDockerId, environmentNetworkName) =
             await ResolveEnvironmentNetworkDockerIdAsync(service, networkingService, cancellationToken);
