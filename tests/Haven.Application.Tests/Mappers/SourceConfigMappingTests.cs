@@ -38,7 +38,12 @@ public class SourceConfigMappingTests
     {
         var manifest = new ServiceSourceConfigManifest
         {
-            Type = "docker", Image = "nginx", MemoryLimit = 100, MemorySwap = 200, MemoryReservation = 50, NanoCpus = 3
+            Type = "docker",
+            Image = "nginx",
+            MemoryLimit = 100,
+            MemorySwap = 200,
+            MemoryReservation = 50,
+            NanoCpus = 3
         };
 
         var config = manifest.ToDockerConfig();
@@ -54,7 +59,11 @@ public class SourceConfigMappingTests
     {
         var manifest = new ServiceSourceConfigManifest
         {
-            Type = "dockerfile", MemoryLimit = 100, MemorySwap = 200, MemoryReservation = 50, NanoCpus = 3
+            Type = "dockerfile",
+            MemoryLimit = 100,
+            MemorySwap = 200,
+            MemoryReservation = 50,
+            NanoCpus = 3
         };
 
         var config = manifest.ToDockerfileConfig();
