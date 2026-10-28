@@ -2,7 +2,7 @@ using Haven.Domain.Enums;
 
 namespace Haven.Domain.ValueObjects;
 
-public sealed class DockerfileConfig : ServiceSourceConfig
+public sealed class DockerfileConfig : DockerBasedSourceConfig
 {
     public DockerfileSource Source { get; set; }
 
@@ -14,9 +14,6 @@ public sealed class DockerfileConfig : ServiceSourceConfig
 
     public string? Content { get; set; }
     public Dictionary<string, string> BuildArgs { get; set; } = [];
-    public List<string> Ports { get; set; } = [];
-    public List<string> CommandArgs { get; set; } = [];
-    public RestartPolicy RestartPolicy { get; set; } = RestartPolicy.UnlessStopped;
 
     /// <summary>The git repository this Dockerfile is built from, or null for a raw-content source.</summary>
     public RepositoryBinding? ToRepositoryBinding() =>
