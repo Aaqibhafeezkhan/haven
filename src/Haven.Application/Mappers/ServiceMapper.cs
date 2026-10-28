@@ -119,26 +119,13 @@ public static partial class ServiceMapper
 
     public static ServiceSourceConfigManifest? ToManifest(this ServiceSourceConfig? config)
     {
-        var result = config switch
+        return config switch
         {
             DockerConfig docker => docker.ToManifest(),
             DockerfileConfig dockerfile => dockerfile.ToManifest(),
             null => null,
             _ => throw new InvalidOperationException($"Unknown source config type: {config.GetType().Name}")
         };
-        
-        if (config is DockerBasedSourceConfig dockerBased)
-        {
-            result!.Ports = [.. dockerBased.Ports];
-            result.CommandArgs = [.. dockerBased.CommandArgs];
-            result.RestartPolicy = dockerBased.RestartPolicy;
-            result.MemoryLimit = dockerBased.MemoryLimit;
-            result.MemorySwap = dockerBased.MemorySwap;
-            result.MemoryReservation = dockerBased.MemoryReservation;
-            result.NanoCpus = dockerBased.NanoCpus;
-        }
-
-        return result;
     }
 
     private static ServiceSourceConfigManifest ToManifest(this DockerConfig docker) => new()
@@ -147,7 +134,11 @@ public static partial class ServiceMapper
         Image = docker.Image,
         Ports = [.. docker.Ports],
         CommandArgs = [.. docker.CommandArgs],
-        RestartPolicy = docker.RestartPolicy
+        RestartPolicy = docker.RestartPolicy,
+        MemoryLimit = docker.MemoryLimit,
+        MemorySwap = docker.MemorySwap,
+        MemoryReservation = docker.MemoryReservation,
+        NanoCpus = docker.NanoCpus
     };
 
     private static ServiceSourceConfigManifest ToManifest(this DockerfileConfig dockerfile) => new()
@@ -163,7 +154,11 @@ public static partial class ServiceMapper
         Ports = [.. dockerfile.Ports],
         CommandArgs = [.. dockerfile.CommandArgs],
         RestartPolicy = dockerfile.RestartPolicy,
-        BuildArgs = new Dictionary<string, string>(dockerfile.BuildArgs ?? [])
+        BuildArgs = new Dictionary<string, string>(dockerfile.BuildArgs ?? []),
+        MemoryLimit = dockerfile.MemoryLimit,
+        MemorySwap = dockerfile.MemorySwap,
+        MemoryReservation = dockerfile.MemoryReservation,
+        NanoCpus = dockerfile.NanoCpus
     };
 
     public static ServiceSourceConfig? ToDomain(this ServiceSourceConfigManifest? manifest, ServiceType serviceType)
@@ -182,17 +177,6 @@ public static partial class ServiceMapper
             _ => null
         };
 
-        if (config is DockerBasedSourceConfig dockerBased)
-        {
-            dockerBased.Ports = [.. manifest?.Ports ?? []];
-            dockerBased.CommandArgs = [.. manifest?.CommandArgs ?? []];
-            dockerBased.RestartPolicy = manifest?.RestartPolicy ?? RestartPolicy.UnlessStopped;
-            dockerBased.MemoryLimit = manifest?.MemoryLimit ?? 0;
-            dockerBased.MemorySwap = manifest?.MemorySwap ?? 0;
-            dockerBased.MemoryReservation = manifest?.MemoryReservation ?? 0;
-            dockerBased.NanoCpus = manifest?.NanoCpus ?? 0;
-        }
-
         return config;
     }
 
@@ -201,7 +185,11 @@ public static partial class ServiceMapper
         Image = manifest.Image ?? string.Empty,
         Ports = [.. manifest.Ports ?? []],
         CommandArgs = [.. manifest.CommandArgs ?? []],
-        RestartPolicy = manifest.RestartPolicy
+        RestartPolicy = manifest.RestartPolicy,
+        MemoryLimit = manifest.MemoryLimit,
+        MemorySwap = manifest.MemorySwap,
+        MemoryReservation = manifest.MemoryReservation,
+        NanoCpus = manifest.NanoCpus
     };
 
     public static DockerfileConfig ToDockerfileConfig(this ServiceSourceConfigManifest manifest) => new()
@@ -216,6 +204,10 @@ public static partial class ServiceMapper
         Ports = [.. manifest.Ports ?? []],
         CommandArgs = [.. manifest.CommandArgs ?? []],
         RestartPolicy = manifest.RestartPolicy,
-        BuildArgs = new Dictionary<string, string>(manifest.BuildArgs ?? [])
+        BuildArgs = new Dictionary<string, string>(manifest.BuildArgs ?? []),
+        MemoryLimit = manifest.MemoryLimit,
+        MemorySwap = manifest.MemorySwap,
+        MemoryReservation = manifest.MemoryReservation,
+        NanoCpus = manifest.NanoCpus
     };
 }

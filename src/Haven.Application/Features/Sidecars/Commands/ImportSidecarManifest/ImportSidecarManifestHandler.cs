@@ -4,7 +4,6 @@ using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
 using Haven.Application.Mappers;
 using Haven.Domain.Aggregates;
-using Haven.Domain.Enums;
 
 namespace Haven.Application.Features.Sidecars.Commands.ImportSidecarManifest;
 
@@ -40,7 +39,7 @@ public sealed class ImportSidecarManifestHandler(
 
         var manifest = await sidecarManifestParser.ParseAsync(yaml, cancellationToken);
 
-        sidecar.Update(manifest.Name, manifest.Alias, manifest.SourceConfig.ToDomain(Enum.Parse<ServiceType>(manifest.SourceConfig.Type)));
+        sidecar.Update(manifest.Name, manifest.Alias, manifest.SourceConfig.ToDomain());
 
         return Result.Success();
     }

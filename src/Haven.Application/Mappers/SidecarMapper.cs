@@ -40,6 +40,13 @@ public static partial class SidecarMapper
             enabled: false,
             createdAt: now,
             updatedAt: now,
-            sourceConfig: dto.SourceConfig.ToDomain(Enum.Parse<ServiceType>(dto.SourceConfig!.Type)));
+            sourceConfig: dto.SourceConfig.ToDomain());
     }
+
+    public static ServiceSourceConfig? ToDomain(this ServiceSourceConfigManifest? manifest) => manifest?.Type switch
+    {
+        "docker" => manifest.ToDockerConfig(),
+        "dockerfile" => manifest.ToDockerfileConfig(),
+        _ => null
+    };
 }

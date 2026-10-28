@@ -1,9 +1,11 @@
 using Haven.Application.Common.Interfaces;
 using Haven.Application.Common.Interfaces.Repositories;
+using Haven.Application.Features.Services;
 using Haven.Application.Features.Sidecars;
 using Haven.Application.Features.Sidecars.Commands.ImportSidecarManifest;
 using Haven.Domain.Aggregates;
 using Haven.Domain.Enums;
+using Haven.Domain.ValueObjects;
 
 using NSubstitute;
 
@@ -94,5 +96,34 @@ public sealed class ImportSidecarManifestHandlerTests
         result.IsSuccess.ShouldBeTrue();
         sidecar.Alias.ShouldBe("pasted-alias");
         await _sidecarSerializer.DidNotReceive().ReadManifestAsync(Arg.Any<Sidecar>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Handle_ShouldApplyDockerSourceConfigWithResourceLimits_WhenManifestHasDockerType()
+    {
+        var sidecar = Sidecar.Create("traefik", SidecarKind.Traefik);
+        var command = new ImportSidecarManifestCommand { SidecarId = sidecar.Id, ManifestYaml = "yaml" };
+        _sidecarRepository.GetByIdAsync(command.SidecarId, Arg.Any<CancellationToken>()).Returns(sidecar);
+        _sidecarManifestParser.ParseAsync("yaml", Arg.Any<CancellationToken>())
+            .Returns(new SidecarManifestDto
+            {
+                Name = "traefik",
+                Kind = "Traefik",
+                SourceConfig = new ServiceSourceConfigManifest
+                {
+                    Type = "docker",
+                    Image = "traefik:v3",
+                    MemoryLimit = 512 * 1024 * 1024,
+                    NanoCpus = 1_000_000_000
+                }
+            });
+
+        var result = await _sut.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        var config = sidecar.SourceConfig.ShouldBeOfType<DockerConfig>();
+        config.Image.ShouldBe("traefik:v3");
+        config.MemoryLimit.ShouldBe(512 * 1024 * 1024);
+        config.NanoCpus.ShouldBe(1_000_000_000);
     }
 }
