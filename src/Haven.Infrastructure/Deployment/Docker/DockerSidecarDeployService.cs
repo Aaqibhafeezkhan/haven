@@ -212,7 +212,12 @@ public class DockerSidecarDeployService : IDeployService
         }
 
         var param = _containerRuntime.BuildContainerParameters(name, labels, dockerConfig.Image, envs: null,
-            exposureMode, dockerConfig, mounts, effectiveCommandArgs);
+            exposureMode, dockerConfig.Ports, mounts, dockerConfig.RestartPolicy, effectiveCommandArgs);
+
+        param.HostConfig.Memory = (long) dockerConfig.MemoryLimit;
+        param.HostConfig.MemorySwap = (long) dockerConfig.MemorySwap;
+        param.HostConfig.MemoryReservation = (long) dockerConfig.MemoryReservation;
+        param.HostConfig.NanoCPUs = (long) dockerConfig.NanoCpus;
 
         var systemNetworkDockerId = await ResolveSystemNetworkDockerIdAsync(cancellationToken);
         if (systemNetworkDockerId is not null)
