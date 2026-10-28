@@ -33,10 +33,8 @@ public static class DataGen
 
         if (type == typeof(string))
             value = GenerateRandomString(10);
-        else if (type == typeof(int))
-            value = GenerateRandomNumber(1, 100);
-        else if (type == typeof(double))
-            value = GenerateRandomNumber(1.0, 100.0);
+        else if (IsNumeric(type))
+            value = Convert.ChangeType(Random.Shared.Next(1, 101), type);
         else if (type == typeof(bool))
             value = new Random().Next(0, 2) == 0;
         else if (type == typeof(Guid))
@@ -54,6 +52,9 @@ public static class DataGen
 
         return true;
     }
+
+    private static bool IsNumeric(Type type)
+        => !type.IsEnum && Type.GetTypeCode(type) is >= TypeCode.SByte and <= TypeCode.Decimal;
 
     private static bool TryGenerateCollection(Type type, int depth, out object? value)
     {
@@ -170,7 +171,6 @@ public static class DataGen
     {
         var random = new Random();
         var range = max - min;
-        var randomValue = (T)(object)random.NextDouble() * range + min;
-        return randomValue;
+        return T.CreateChecked(random.NextDouble() * double.CreateChecked(range)) + min;
     }
 }

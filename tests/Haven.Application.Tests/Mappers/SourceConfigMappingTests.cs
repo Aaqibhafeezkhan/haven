@@ -1,4 +1,5 @@
 using Haven.Application.Mappers;
+using Haven.Domain.Enums;
 using Haven.Domain.ValueObjects;
 using Haven.Testing.Common;
 
@@ -15,9 +16,9 @@ public class SourceConfigMappingTests
     {
         var config = DataGen.GenerateRandomizedObject(new DockerConfig());
         var manifest = config.ToManifest();
-        var deserialized = manifest.ToDomain();
+        var deserialized = manifest.ToDomain(ServiceType.DockerImage);
 
-        config.ShouldBeEquivalentTo(deserialized);
+        deserialized.ShouldBeEquivalentTo(config);
     }
 
     [Test]
@@ -25,7 +26,7 @@ public class SourceConfigMappingTests
     {
         var config = DataGen.GenerateRandomizedObject(new DockerfileConfig());
         var manifest = config.ToManifest();
-        var deserialized = manifest.ToDomain();
+        var deserialized = manifest.ToDomain(ServiceType.Dockerfile);
 
         config.ShouldBeEquivalentTo(deserialized);
     }

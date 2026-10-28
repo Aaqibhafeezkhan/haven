@@ -117,15 +117,31 @@ public static partial class ServiceMapper
             : volume.Source ?? string.Empty
     };
 
-    public static ServiceSourceConfigManifest? ToManifest(this ServiceSourceConfig? config) => config switch
+    public static ServiceSourceConfigManifest? ToManifest(this ServiceSourceConfig? config)
     {
-        DockerConfig docker => docker.ToManifest(),
-        DockerfileConfig dockerfile => dockerfile.ToManifest(),
-        null => null,
-        _ => throw new InvalidOperationException($"Unknown source config type: {config.GetType().Name}")
-    };
+        var result = config switch
+        {
+            DockerConfig docker => docker.ToManifest(),
+            DockerfileConfig dockerfile => dockerfile.ToManifest(),
+            null => null,
+            _ => throw new InvalidOperationException($"Unknown source config type: {config.GetType().Name}")
+        };
+        
+        if (config is DockerBasedSourceConfig dockerBased)
+        {
+            result!.Ports = [.. dockerBased.Ports];
+            result.CommandArgs = [.. dockerBased.CommandArgs];
+            result.RestartPolicy = dockerBased.RestartPolicy;
+            result.MemoryLimit = dockerBased.MemoryLimit;
+            result.MemorySwap = dockerBased.MemorySwap;
+            result.MemoryReservation = dockerBased.MemoryReservation;
+            result.NanoCpus = dockerBased.NanoCpus;
+        }
 
-    public static ServiceSourceConfigManifest ToManifest(this DockerConfig docker) => new()
+        return result;
+    }
+
+    private static ServiceSourceConfigManifest ToManifest(this DockerConfig docker) => new()
     {
         Type = "docker",
         Image = docker.Image,
@@ -134,7 +150,7 @@ public static partial class ServiceMapper
         RestartPolicy = docker.RestartPolicy
     };
 
-    public static ServiceSourceConfigManifest ToManifest(this DockerfileConfig dockerfile) => new()
+    private static ServiceSourceConfigManifest ToManifest(this DockerfileConfig dockerfile) => new()
     {
         Type = "dockerfile",
         DockerfileSource = dockerfile.Source,
@@ -159,12 +175,25 @@ public static partial class ServiceMapper
             _ => null
         };
 
-        return effectiveType switch
+        ServiceSourceConfig? config = effectiveType switch
         {
             "docker" when manifest is not null => manifest.ToDockerConfig(),
             "dockerfile" when manifest is not null => manifest.ToDockerfileConfig(),
             _ => null
         };
+
+        if (config is DockerBasedSourceConfig dockerBased)
+        {
+            dockerBased.Ports = [.. manifest?.Ports ?? []];
+            dockerBased.CommandArgs = [.. manifest?.CommandArgs ?? []];
+            dockerBased.RestartPolicy = manifest?.RestartPolicy ?? RestartPolicy.UnlessStopped;
+            dockerBased.MemoryLimit = manifest?.MemoryLimit ?? 0;
+            dockerBased.MemorySwap = manifest?.MemorySwap ?? 0;
+            dockerBased.MemoryReservation = manifest?.MemoryReservation ?? 0;
+            dockerBased.NanoCpus = manifest?.NanoCpus ?? 0;
+        }
+
+        return config;
     }
 
     public static DockerConfig ToDockerConfig(this ServiceSourceConfigManifest manifest) => new()

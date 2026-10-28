@@ -11,7 +11,7 @@ public abstract class DockerBasedSourceConfig : ServiceSourceConfig
     /// <summary>
     /// Gets or sets the memory limit for the Docker container in bytes. A value of 0 indicates no limit.
     /// </summary>
-    public ulong MemoryLimit { get; set; } = 0;
+    public long MemoryLimit { get; set; } = 0;
 
     /// <summary>
     /// Gets or sets the memory swap limit for the Docker container in bytes. A value of -1 indicates that the swap limit is disabled.
@@ -21,10 +21,10 @@ public abstract class DockerBasedSourceConfig : ServiceSourceConfig
     /// <summary>
     /// Gets or sets the memory reservation for the Docker container in bytes. A value of 0 indicates no reservation.
     /// </summary>
-    public ulong MemoryReservation { get; set; } = 0;
+    public long MemoryReservation { get; set; } = 0;
     
     /// <summary>
     /// Gets or sets the CPU limit for the Docker container in nano cpus. A value of 0 indicates no limit.
     /// </summary>
-    public ulong NanoCpus { get; set; } = 0;
+    public long NanoCpus { get; set; } = 0;
 }
