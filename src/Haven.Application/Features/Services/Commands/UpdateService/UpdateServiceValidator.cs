@@ -97,6 +97,8 @@ public sealed class UpdateServiceValidator : AbstractValidator<UpdateServiceComm
 
         When(x => x.DockerConfig.HasValue && x.DockerConfig.Value is not null, () =>
         {
+            RuleFor(x => x.DockerConfig.Value!).SetValidator(new ResourceLimitsValidator());
+
             RuleForEach(x => x.DockerConfig.Value!.CommandArgs)
                 .Must(a => !string.IsNullOrWhiteSpace(a))
                 .WithMessage("Command argument cannot be empty.");
@@ -104,6 +106,8 @@ public sealed class UpdateServiceValidator : AbstractValidator<UpdateServiceComm
 
         When(x => x.DockerfileConfig.HasValue && x.DockerfileConfig.Value is not null, () =>
         {
+            RuleFor(x => x.DockerfileConfig.Value!).SetValidator(new ResourceLimitsValidator());
+
             RuleForEach(x => x.DockerfileConfig.Value!.CommandArgs)
                 .Must(a => !string.IsNullOrWhiteSpace(a))
                 .WithMessage("Command argument cannot be empty.");

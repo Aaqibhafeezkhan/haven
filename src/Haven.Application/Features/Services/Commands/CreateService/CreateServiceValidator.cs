@@ -61,6 +61,8 @@ public sealed class CreateServiceValidator : AbstractValidator<CreateServiceComm
 
             When(x => x.DockerConfig is not null, () =>
             {
+                RuleFor(x => x.DockerConfig!).SetValidator(new ResourceLimitsValidator());
+
                 When(x => x.ExposureMode == ExposureMode.Custom, () =>
                 {
                     RuleForEach(x => x.DockerConfig!.Ports)
@@ -121,6 +123,8 @@ public sealed class CreateServiceValidator : AbstractValidator<CreateServiceComm
 
             When(x => x.DockerfileConfig is not null, () =>
             {
+                RuleFor(x => x.DockerfileConfig!).SetValidator(new ResourceLimitsValidator());
+
                 When(x => x.ExposureMode == ExposureMode.Custom, () =>
                 {
                     RuleForEach(x => x.DockerfileConfig!.Ports)

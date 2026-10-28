@@ -17,6 +17,12 @@ import { useNetworks } from '@/hooks/useNetworks';
 import { useServiceTemplate } from '@/hooks/useServiceTemplates';
 import { useSetBreadcrumbs } from '@/hooks/useSetBreadcrumbs';
 import { mergeEnvFiles } from '@/lib/envFile';
+import {
+  EMPTY_RESOURCE_LIMITS_FORM,
+  hasResourceLimitErrors,
+  parseResourceLimits,
+  type ResourceLimitsForm,
+} from '@/lib/resourceLimits';
 import styles from '@/styles/components/services/CreateServicePage.module.css';
 
 import { environmentsApi } from '../../api/environments';
@@ -44,6 +50,7 @@ import { ExposureModePicker } from './ExposureModePicker';
 import type { PortMapping } from './PortMappingsEditor';
 import { PortMappingsEditor } from './PortMappingsEditor';
 import { RepositoryBindingFields } from './RepositoryBindingFields';
+import { ResourceLimitsFields } from './ResourceLimitsFields';
 import { ServiceTypePicker } from './ServiceTypePicker';
 import { TemplateInputField } from './TemplateInputField';
 import { TemplatePickerModal } from './TemplatePickerModal';
@@ -93,6 +100,11 @@ export function CreateServicePage() {
   const [portMappings, setPortMappings] = useState<PortMapping[]>([]);
   const [restartPolicy, setRestartPolicy] = useState<RestartPolicy>('UnlessStopped');
   const [commandArgs, setCommandArgs] = useState<string[]>([]);
+  const [resourceLimitsForm, setResourceLimitsForm] = useState<ResourceLimitsForm>(
+    EMPTY_RESOURCE_LIMITS_FORM
+  );
+  const { limits: resourceLimits, errors: resourceLimitErrors } =
+    parseResourceLimits(resourceLimitsForm);
 
   // Dockerfile fields
   const [dockerfileSource, setDockerfileSource] = useState<DockerfileSource>('Git');
@@ -191,6 +203,8 @@ export function CreateServicePage() {
         return !!templateInputValues[field.key]?.trim();
       });
     }
+
+    if (hasResourceLimitErrors(resourceLimitErrors)) return false;
 
     if (selectedType === 'DockerImage') {
       return !!dockerImage.trim();
@@ -508,6 +522,7 @@ export function CreateServicePage() {
           ports,
           commandArgs: filteredCommandArgs,
           restartPolicy,
+          ...resourceLimits,
         };
       } else {
         dockerfileConfig = {
@@ -517,6 +532,7 @@ export function CreateServicePage() {
           ports,
           commandArgs: filteredCommandArgs,
           restartPolicy,
+          ...resourceLimits,
         };
       }
     }
@@ -533,6 +549,7 @@ export function CreateServicePage() {
               ports,
               commandArgs: filteredCommandArgs,
               restartPolicy,
+              ...resourceLimits,
             }
           : undefined,
       dockerfileConfig,
@@ -893,6 +910,16 @@ export function CreateServicePage() {
                           <CommandArgsEditor
                             commandArgs={commandArgs}
                             onChange={setCommandArgs}
+                            disabled={isLoading}
+                          />
+                        )}
+
+                      {sourceMode === 'custom' &&
+                        (selectedType === 'DockerImage' || selectedType === 'Dockerfile') && (
+                          <ResourceLimitsFields
+                            value={resourceLimitsForm}
+                            onChange={setResourceLimitsForm}
+                            errors={resourceLimitErrors}
                             disabled={isLoading}
                           />
                         )}

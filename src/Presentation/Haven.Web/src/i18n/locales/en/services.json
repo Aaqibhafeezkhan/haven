@@ -494,5 +494,32 @@
       "body": "Body",
       "successStatusCodes": "Success status codes (comma-separated, blank = any 2xx)"
     }
+  },
+  "resourceLimits": {
+    "title": "Resource Limits",
+    "description": "Cap how much memory and CPU this service's container may use. Leave a field empty for no limit. Changes apply the next time the service is deployed.",
+    "memoryLimit": "Memory limit",
+    "memoryLimitHint": "Hard cap on the RAM the container can use, in MiB. If it exceeds this, the container is killed (out of memory) and restarted according to its restart policy. Leave empty for no limit. Minimum 6 MiB.",
+    "memorySwap": "Memory + swap limit",
+    "memorySwapHint": "Total of RAM plus swap the container can use, in MiB. Must be at least the memory limit; set it equal to the memory limit to disable swap. Use -1 for unlimited swap. Leave empty to use Docker's default (twice the memory limit). Requires a memory limit.",
+    "memoryReservation": "Memory reservation",
+    "memoryReservationHint": "Soft limit in MiB. The container can use more than this, but is pushed back toward it when the host is low on memory. Must not exceed the memory limit. Leave empty for no reservation.",
+    "cpus": "CPU limit",
+    "cpusHint": "Maximum number of CPU cores the container can use, e.g. 0.5 for half a core or 2 for two full cores. Leave empty for no limit. Minimum 0.001.",
+    "unitMib": "MiB",
+    "unitCores": "cores",
+    "placeholderUnlimited": "Unlimited",
+    "placeholderDefault": "Default",
+    "placeholderNone": "None",
+    "errors": {
+      "invalidNumber": "Enter a valid number.",
+      "negative": "Value cannot be negative.",
+      "memoryMin": "Memory limit must be at least 6 MiB.",
+      "swapInvalid": "Use -1 for unlimited swap, or a value of 0 or more.",
+      "swapRequiresLimit": "Set a memory limit before setting a swap limit.",
+      "swapBelowLimit": "Memory + swap must be at least the memory limit.",
+      "reservationAboveLimit": "Reservation cannot exceed the memory limit.",
+      "cpuMin": "CPU limit must be at least 0.001 cores."
+    }
   }
 }

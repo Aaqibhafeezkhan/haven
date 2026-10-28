@@ -80,6 +80,14 @@ export interface DockerConfig {
   ports: string[];
   commandArgs: string[];
   restartPolicy: RestartPolicy;
+  /** Hard memory limit in bytes. 0 means no limit. */
+  memoryLimit?: number;
+  /** Total memory + swap limit in bytes. 0 means Docker's default, -1 means unlimited swap. */
+  memorySwap?: number;
+  /** Soft memory limit in bytes. 0 means no reservation. */
+  memoryReservation?: number;
+  /** CPU limit in billionths of a core (1_000_000_000 = 1 core). 0 means no limit. */
+  nanoCpus?: number;
 }
 export interface DockerfileConfig {
   source: DockerfileSource;
@@ -93,6 +101,14 @@ export interface DockerfileConfig {
   ports?: string[];
   commandArgs?: string[];
   restartPolicy: RestartPolicy;
+  /** Hard memory limit in bytes. 0 means no limit. */
+  memoryLimit?: number;
+  /** Total memory + swap limit in bytes. 0 means Docker's default, -1 means unlimited swap. */
+  memorySwap?: number;
+  /** Soft memory limit in bytes. 0 means no reservation. */
+  memoryReservation?: number;
+  /** CPU limit in billionths of a core (1_000_000_000 = 1 core). 0 means no limit. */
+  nanoCpus?: number;
 }
 export interface ServiceSourceConfig {
   $type?: string;
