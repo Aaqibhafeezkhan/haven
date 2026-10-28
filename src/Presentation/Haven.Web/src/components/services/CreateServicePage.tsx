@@ -101,17 +101,25 @@ export function CreateServicePage() {
   const [portMappings, setPortMappings] = useState<PortMapping[]>([]);
   const [restartPolicy, setRestartPolicy] = useState<RestartPolicy>('UnlessStopped');
   const [commandArgs, setCommandArgs] = useState<string[]>([]);
-  const [resourceLimitsForm, setResourceLimitsForm] = useState<ResourceLimitsForm>(
+  // Template and custom services keep separate limit forms so switching between them never leaks
+  // one's values into the other.
+  const [customLimitsForm, setCustomLimitsForm] = useState<ResourceLimitsForm>(
     EMPTY_RESOURCE_LIMITS_FORM
   );
+  const [templateLimitsForm, setTemplateLimitsForm] = useState<ResourceLimitsForm>(
+    EMPTY_RESOURCE_LIMITS_FORM
+  );
+  const resourceLimitsForm = sourceMode === 'template' ? templateLimitsForm : customLimitsForm;
+  const setResourceLimitsForm =
+    sourceMode === 'template' ? setTemplateLimitsForm : setCustomLimitsForm;
   const { limits: resourceLimits, errors: resourceLimitErrors } =
     parseResourceLimits(resourceLimitsForm);
 
-  // Prefill the limits with the template's own defaults whenever a different template is loaded.
+  // Prefill the template limits with the template's own defaults whenever a different template is loaded.
   const [syncedTemplateId, setSyncedTemplateId] = useState<string | undefined>();
   if (selectedTemplate?.id !== syncedTemplateId) {
     setSyncedTemplateId(selectedTemplate?.id);
-    setResourceLimitsForm(toResourceLimitsForm(selectedTemplate?.resourceLimits ?? undefined));
+    setTemplateLimitsForm(toResourceLimitsForm(selectedTemplate?.resourceLimits ?? undefined));
   }
 
   // Dockerfile fields
