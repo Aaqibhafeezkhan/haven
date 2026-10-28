@@ -1,5 +1,6 @@
 using FluentValidation.TestHelper;
 
+using Haven.Application.Features.Services;
 using Haven.Application.Features.Sidecars.Commands.UpdateSidecar;
 using Haven.Domain.ValueObjects;
 
@@ -15,15 +16,19 @@ public sealed class UpdateSidecarValidatorTests
     [SetUp]
     public void Setup() => _sut = new UpdateSidecarValidator();
 
-    private static UpdateSidecarCommand CreateCommand(DockerConfig config) =>
-        new() { SidecarId = Guid.NewGuid(), DockerConfig = config };
+    private static UpdateSidecarCommand CreateCommand(ServiceResourceLimits limits) =>
+        new()
+        {
+            SidecarId = Guid.NewGuid(),
+            DockerConfig = new DockerConfig { Image = "traefik:v3" },
+            ResourceLimits = limits
+        };
 
     [Test]
     public void Validate_ShouldPass_WhenResourceLimitsAreValid()
     {
-        var command = CreateCommand(new DockerConfig
+        var command = CreateCommand(new ServiceResourceLimits
         {
-            Image = "traefik:v3",
             MemoryLimit = 512L * 1024 * 1024,
             MemoryReservation = 256L * 1024 * 1024,
             NanoCpus = 1_000_000_000
@@ -33,9 +38,21 @@ public sealed class UpdateSidecarValidatorTests
     }
 
     [Test]
+    public void Validate_ShouldPass_WhenResourceLimitsOmitted()
+    {
+        var command = new UpdateSidecarCommand
+        {
+            SidecarId = Guid.NewGuid(),
+            DockerConfig = new DockerConfig { Image = "traefik:v3" }
+        };
+
+        _sut.TestValidate(command).ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Test]
     public void Validate_ShouldHaveError_WhenMemoryLimitBelowDockerMinimum()
     {
-        var command = CreateCommand(new DockerConfig { Image = "traefik:v3", MemoryLimit = 1000 });
+        var command = CreateCommand(new ServiceResourceLimits { MemoryLimit = 1000 });
 
         _sut.TestValidate(command).IsValid.ShouldBeFalse();
     }
@@ -43,9 +60,8 @@ public sealed class UpdateSidecarValidatorTests
     [Test]
     public void Validate_ShouldHaveError_WhenMemoryReservationExceedsLimit()
     {
-        var command = CreateCommand(new DockerConfig
+        var command = CreateCommand(new ServiceResourceLimits
         {
-            Image = "traefik:v3",
             MemoryLimit = 64L * 1024 * 1024,
             MemoryReservation = 128L * 1024 * 1024
         });
@@ -56,7 +72,7 @@ public sealed class UpdateSidecarValidatorTests
     [Test]
     public void Validate_ShouldHaveError_WhenNanoCpusIsNegative()
     {
-        var command = CreateCommand(new DockerConfig { Image = "traefik:v3", NanoCpus = -1 });
+        var command = CreateCommand(new ServiceResourceLimits { NanoCpus = -1 });
 
         _sut.TestValidate(command).IsValid.ShouldBeFalse();
     }

@@ -27,9 +27,10 @@ public sealed class UpdateSidecarValidator : AbstractValidator<UpdateSidecarComm
             RuleForEach(x => x.DockerConfig.Value!.CommandArgs)
                 .Must(a => !string.IsNullOrWhiteSpace(a))
                 .WithMessage("Command argument cannot be empty.");
-
-            RuleFor(x => x.DockerConfig.Value!).SetValidator(new ResourceLimitsValidator());
         });
+
+        When(x => x.ResourceLimits.HasValue && x.ResourceLimits.Value is not null, () =>
+            RuleFor(x => x.ResourceLimits.Value!.ToConfig()).SetValidator(new ResourceLimitsValidator()));
     }
 
     private static bool BeAValidPortMapping(string mapping)
