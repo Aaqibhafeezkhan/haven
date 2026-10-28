@@ -2,6 +2,8 @@ using System.Net;
 
 using FluentValidation;
 
+using Haven.Application.Features.Services;
+
 namespace Haven.Application.Features.Sidecars.Commands.UpdateSidecar;
 
 public sealed class UpdateSidecarValidator : AbstractValidator<UpdateSidecarCommand>
@@ -25,6 +27,8 @@ public sealed class UpdateSidecarValidator : AbstractValidator<UpdateSidecarComm
             RuleForEach(x => x.DockerConfig.Value!.CommandArgs)
                 .Must(a => !string.IsNullOrWhiteSpace(a))
                 .WithMessage("Command argument cannot be empty.");
+
+            RuleFor(x => x.DockerConfig.Value!).SetValidator(new ResourceLimitsValidator());
         });
     }
 
