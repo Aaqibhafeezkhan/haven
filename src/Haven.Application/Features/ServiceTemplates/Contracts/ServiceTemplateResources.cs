@@ -25,8 +25,21 @@ public class ServiceTemplateResources
         // -1 means "unlimited swap" to Docker and must not be scaled to bytes.
         MemorySwap = MemorySwapMib == -1 ? -1 : ToBytes(MemorySwapMib),
         MemoryReservation = ToBytes(MemoryReservationMib),
-        NanoCpus = (long)Math.Round((Cpus ?? 0) * NanoCpusPerCore)
+        NanoCpus = Scale(Cpus, NanoCpusPerCore)
     };
 
-    private static long ToBytes(double? mib) => (long)Math.Round((mib ?? 0) * BytesPerMib);
+    private static long ToBytes(double? mib) => Scale(mib, BytesPerMib);
+
+    /// <summary>
+    /// Converts an author-facing value to its stored unit. Non-finite or out-of-range values become
+    /// <see cref="long.MinValue"/> so the limits validator rejects them, instead of wrapping to an
+    /// unrelated value that would pass validation.
+    /// </summary>
+    private static long Scale(double? value, double scale)
+    {
+        var scaled = Math.Round((value ?? 0) * scale);
+        return double.IsFinite(scaled) && scaled is >= long.MinValue and < long.MaxValue
+            ? (long)scaled
+            : long.MinValue;
+    }
 }

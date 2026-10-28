@@ -3,6 +3,8 @@ using FluentValidation.TestHelper;
 using Haven.Application.Features.Sidecars.Commands.UpdateSidecar;
 using Haven.Domain.ValueObjects;
 
+using Shouldly;
+
 namespace Haven.Application.Tests.Features.Sidecars.Commands.UpdateSidecar;
 
 [Category("Unit")]
@@ -35,7 +37,7 @@ public sealed class UpdateSidecarValidatorTests
     {
         var command = CreateCommand(new DockerConfig { Image = "traefik:v3", MemoryLimit = 1000 });
 
-        _sut.TestValidate(command).ShouldHaveAnyValidationError();
+        _sut.TestValidate(command).IsValid.ShouldBeFalse();
     }
 
     [Test]
@@ -48,7 +50,7 @@ public sealed class UpdateSidecarValidatorTests
             MemoryReservation = 128L * 1024 * 1024
         });
 
-        _sut.TestValidate(command).ShouldHaveAnyValidationError();
+        _sut.TestValidate(command).IsValid.ShouldBeFalse();
     }
 
     [Test]
@@ -56,6 +58,6 @@ public sealed class UpdateSidecarValidatorTests
     {
         var command = CreateCommand(new DockerConfig { Image = "traefik:v3", NanoCpus = -1 });
 
-        _sut.TestValidate(command).ShouldHaveAnyValidationError();
+        _sut.TestValidate(command).IsValid.ShouldBeFalse();
     }
 }

@@ -63,7 +63,7 @@ public sealed class CreateServiceFromTemplateHandler(
             // The template's own defaults are not covered by the command validator, so check the final limits.
             var limitsValidation = new ResourceLimitsValidator().Validate(dockerConfig);
             if (!limitsValidation.IsValid)
-                return Error.Validation(limitsValidation.Errors[0].ErrorMessage);
+                return Error.Validation(string.Join(" ", limitsValidation.Errors.Select(e => e.ErrorMessage).Distinct()));
         }
         var resolvedVariables = instantiator.ResolveEnvironmentVariables(service, template, resolveResult.Value);
         var seedFiles = instantiator.ResolveManagedVolumeSeedFiles(service, template, resolveResult.Value);

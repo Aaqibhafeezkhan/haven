@@ -1,3 +1,4 @@
+using Haven.Application.Features.Services;
 using Haven.Application.Features.ServiceTemplates.Contracts;
 
 using Shouldly;
@@ -45,5 +46,25 @@ public sealed class ServiceTemplateResourcesTests
         var limits = new ServiceTemplateResources { MemoryLimitMib = 512, MemorySwapMib = -1 }.ToResourceLimits();
 
         limits.MemorySwap.ShouldBe(-1);
+    }
+
+    [TestCase(1e15)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NaN)]
+    public void ToResourceLimits_ShouldProduceValuesTheValidatorRejects_WhenValueDoesNotFit(double mib)
+    {
+        var limits = new ServiceTemplateResources { MemoryLimitMib = mib, Cpus = mib }.ToResourceLimits();
+
+        limits.MemoryLimit.ShouldBeLessThan(0);
+        limits.NanoCpus.ShouldBeLessThan(0);
+        new ResourceLimitsValidator().Validate(limits.ToConfig()).IsValid.ShouldBeFalse();
+    }
+
+    [Test]
+    public void ToResourceLimits_ShouldProduceValuesTheValidatorRejects_WhenSwapIsNegativeButNotMinusOne()
+    {
+        var limits = new ServiceTemplateResources { MemoryLimitMib = 512, MemorySwapMib = -2 }.ToResourceLimits();
+
+        new ResourceLimitsValidator().Validate(limits.ToConfig()).IsValid.ShouldBeFalse();
     }
 }
