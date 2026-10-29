@@ -226,7 +226,7 @@ export function ServiceSettingsForm({
     try {
       setIsSavingConfig(true);
       setConfigError(null);
-      await servicesApi.update(projectId, environmentId, serviceId, { dockerConfig: config });
+      await servicesApi.update(projectId, environmentId, serviceId, { dockerConfig: config, resourceLimits });
       onSuccess?.();
     } catch (err) {
       setConfigError(err instanceof Error ? err.message : t('projects:error'));
@@ -268,7 +268,7 @@ export function ServiceSettingsForm({
     try {
       setIsSavingConfig(true);
       setConfigError(null);
-      await servicesApi.update(projectId, environmentId, serviceId, { dockerfileConfig: config });
+      await servicesApi.update(projectId, environmentId, serviceId, { dockerfileConfig: config, resourceLimits });
       onSuccess?.();
     } catch (err) {
       setConfigError(err instanceof Error ? err.message : t('projects:error'));
