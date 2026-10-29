@@ -7,6 +7,8 @@ public interface IDeploymentRepository : IRepository
     Task<List<Domain.Entities.Deployment>> GetAllForServiceAsync(Guid serviceId, CancellationToken ct);
     /// <summary>Status of the first non-terminal deployment per service; services without one are absent.</summary>
     Task<Dictionary<Guid, Haven.Domain.Enums.DeploymentStatus>> GetActiveStatusesAsync(IReadOnlyCollection<Guid> serviceIds, CancellationToken ct);
+    /// <summary>Services whose most recent deployment finished in a failed state.</summary>
+    Task<HashSet<Guid>> GetServicesWithLatestFailedDeploymentAsync(IReadOnlyCollection<Guid> serviceIds, CancellationToken ct);
     Task<Domain.Entities.Deployment?> FindActiveForServiceAsync(Guid serviceId, CancellationToken ct);
     Task RemoveAsync(Guid deploymentId, CancellationToken ct);
     Task<List<Domain.Entities.Deployment>> GetExcessDeploymentsAsync(int retentionCount, CancellationToken ct);

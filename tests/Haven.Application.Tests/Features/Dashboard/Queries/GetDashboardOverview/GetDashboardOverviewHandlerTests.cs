@@ -16,6 +16,7 @@ public sealed class GetDashboardOverviewHandlerTests
     private IProjectRepository _projectRepository;
     private IServiceStateReader _stateReader;
     private Dictionary<Guid, ServiceRegistryEntry> _entries;
+    private HashSet<Guid> _failedDeploymentIds;
     private GetDashboardOverviewHandler _sut;
 
     [SetUp]
@@ -24,8 +25,12 @@ public sealed class GetDashboardOverviewHandlerTests
         _projectRepository = Substitute.For<IProjectRepository>();
         _stateReader = Substitute.For<IServiceStateReader>();
         _entries = [];
+        _failedDeploymentIds = [];
         _stateReader.LoadAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult(new ServiceStateSnapshot(_entries, new Dictionary<Guid, DeploymentStatus>())));
+            .Returns(_ => Task.FromResult(new ServiceStateSnapshot(
+                _entries,
+                new Dictionary<Guid, DeploymentStatus>(),
+                _failedDeploymentIds)));
         _sut = new GetDashboardOverviewHandler(_projectRepository, _stateReader);
     }
 
@@ -55,7 +60,8 @@ public sealed class GetDashboardOverviewHandlerTests
 
         var stoppedProject = Project.Create("stopped-project");
         var stoppedEnv = stoppedProject.AddEnvironment("prod");
-        stoppedEnv.AddService("worker", ServiceType.DockerImage, ExposureMode.Internal);
+        var stoppedService = stoppedEnv.AddService("worker", ServiceType.DockerImage, ExposureMode.Internal);
+        SetRuntimeState(stoppedService.Id, ServiceRuntimeState.Stopped);
 
         var degradedProject = Project.Create("degraded-project");
         var degradedEnv = degradedProject.AddEnvironment("prod");
@@ -76,6 +82,42 @@ public sealed class GetDashboardOverviewHandlerTests
 
         result.Value.AttentionEnvironment.ShouldNotBeNull();
         result.Value.AttentionEnvironment.ProjectName.ShouldBe("degraded-project");
+        result.Value.AttentionEnvironment.Status.ShouldBe(HealthStatus.Degraded);
+        result.Value.AttentionEnvironment.AffectedServiceCount.ShouldBe(1);
+    }
+
+    [Test]
+    public async Task Handle_ShouldIgnoreIntentionallyStoppedServices()
+    {
+        var project = Project.Create("stopped-project");
+        var environment = project.AddEnvironment("prod");
+        var stoppedService = environment.AddService("migrator", ServiceType.DockerImage, ExposureMode.Internal);
+        SetRuntimeState(stoppedService.Id, ServiceRuntimeState.Stopped);
+
+        _projectRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable(project));
+
+        var result = await _sut.Handle(new GetDashboardOverviewQuery(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.AttentionEnvironment.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task Handle_ShouldFlagServicesWithFailedLatestDeployment()
+    {
+        var project = Project.Create("failed-deployment-project");
+        var environment = project.AddEnvironment("prod");
+        var service = environment.AddService("api", ServiceType.DockerImage, ExposureMode.Internal);
+        SetRunning(service.Id);
+        _failedDeploymentIds.Add(service.Id);
+
+        _projectRepository.GetAsync(Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable(project));
+
+        var result = await _sut.Handle(new GetDashboardOverviewQuery(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.AttentionEnvironment.ShouldNotBeNull();
+        result.Value.AttentionEnvironment.ProjectName.ShouldBe("failed-deployment-project");
         result.Value.AttentionEnvironment.Status.ShouldBe(HealthStatus.Degraded);
         result.Value.AttentionEnvironment.AffectedServiceCount.ShouldBe(1);
     }
@@ -123,8 +165,13 @@ public sealed class GetDashboardOverviewHandlerTests
 
     private void SetRunning(Guid serviceId, ServiceHealth health = ServiceHealth.Healthy)
     {
+        SetRuntimeState(serviceId, ServiceRuntimeState.Running, health);
+    }
+
+    private void SetRuntimeState(Guid serviceId, ServiceRuntimeState runtimeState, ServiceHealth health = ServiceHealth.Healthy)
+    {
         var entry = ServiceRegistryEntry.Create(serviceId);
-        entry.ApplyRuntimeState(ServiceRuntimeState.Running, DateTime.UtcNow);
+        entry.ApplyRuntimeState(runtimeState, DateTime.UtcNow);
         entry.ApplyHealth(health);
         _entries[serviceId] = entry;
     }

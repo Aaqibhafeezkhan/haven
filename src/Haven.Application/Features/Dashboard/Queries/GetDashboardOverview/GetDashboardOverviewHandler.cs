@@ -62,28 +62,29 @@ public sealed class GetDashboardOverviewHandler(IProjectRepository repository, I
 
                 var displayStatuses = environment.Services.Select(s => state.GetDisplayStatus(s.Id)).ToList();
                 var runningCount = displayStatuses.Count(x => x is ServiceDisplayStatus.Running or ServiceDisplayStatus.Degraded);
-                var affectedServiceCount = displayStatuses.Count(x => x != ServiceDisplayStatus.Running);
-
-                HealthStatus? status = affectedServiceCount == 0
-                    ? null
-                    : runningCount == 0
-                        ? HealthStatus.Stopped
-                        : HealthStatus.Degraded;
-
-                if (status is { } envStatus
-                    && AttentionSeverity.TryGetValue(envStatus, out var severity)
-                    && severity < attentionSeverity)
+                var affectedServiceCount = environment.Services.Count(service =>
                 {
-                    attentionSeverity = severity;
-                    attention = new AttentionEnvironmentDto
+                    var status = state.GetDisplayStatus(service.Id);
+                    return status is ServiceDisplayStatus.Degraded or ServiceDisplayStatus.Crashed
+                        || state.HasFailedDeployment(service.Id);
+                });
+
+                if (affectedServiceCount > 0)
+                {
+                    var status = runningCount == 0 ? HealthStatus.Stopped : HealthStatus.Degraded;
+                    if (AttentionSeverity.TryGetValue(status, out var severity) && severity < attentionSeverity)
                     {
-                        ProjectId = project.Id,
-                        ProjectName = project.Name,
-                        EnvironmentId = environment.Id,
-                        EnvironmentName = environment.Name,
-                        Status = envStatus,
-                        AffectedServiceCount = affectedServiceCount,
-                    };
+                        attentionSeverity = severity;
+                        attention = new AttentionEnvironmentDto
+                        {
+                            ProjectId = project.Id,
+                            ProjectName = project.Name,
+                            EnvironmentId = environment.Id,
+                            EnvironmentName = environment.Name,
+                            Status = status,
+                            AffectedServiceCount = affectedServiceCount,
+                        };
+                    }
                 }
 
                 foreach (var service in environment.Services)

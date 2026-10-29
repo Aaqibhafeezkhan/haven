@@ -43,6 +43,24 @@ public sealed class DeploymentRepository(HavenDbContext context) : IDeploymentRe
                 .First().Status);
     }
 
+    public async Task<HashSet<Guid>> GetServicesWithLatestFailedDeploymentAsync(IReadOnlyCollection<Guid> serviceIds, CancellationToken ct)
+    {
+        if (serviceIds.Count == 0) return [];
+
+        var rows = await context.Deployments
+            .AsNoTracking()
+            .Where(d => serviceIds.Contains(d.ServiceId))
+            .Select(d => new { d.ServiceId, d.Status, d.StartedAt })
+            .ToListAsync(ct);
+
+        return rows
+            .GroupBy(d => d.ServiceId)
+            .Select(g => g.OrderByDescending(d => d.StartedAt).First())
+            .Where(d => d.Status == DeploymentStatus.Failed)
+            .Select(d => d.ServiceId)
+            .ToHashSet();
+    }
+
     public async Task<Domain.Entities.Deployment?> FindActiveForServiceAsync(Guid serviceId, CancellationToken ct)
     {
         var active = await context.Deployments
