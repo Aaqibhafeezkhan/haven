@@ -19,8 +19,17 @@ public sealed class UpdateSidecarHandler(
         if (sidecar is null)
             return Error.NotFoundFor(nameof(Sidecar), request.SidecarId);
 
-        var incomingConfig = request.DockerConfig.HasValue ? request.DockerConfig.Value : null;
-        if (incomingConfig is not null)
+        ServiceSourceConfig? incomingConfig = request.DockerConfig.HasValue ? request.DockerConfig.Value : null;
+        var hasConfigUpdate = request.DockerConfig.HasValue;
+
+        // Limits sent on their own are applied to a copy of the stored config (the getter deserializes a fresh one).
+        if (!hasConfigUpdate && request.ResourceLimits.HasValue && sidecar.SourceConfig is DockerBasedSourceConfig stored)
+        {
+            (request.ResourceLimits.Value ?? new ServiceResourceLimits()).ApplyTo(stored);
+            incomingConfig = stored;
+            hasConfigUpdate = true;
+        }
+        else if (incomingConfig is DockerBasedSourceConfig incomingDocker)
         {
             // The sidecar UI edits image/ports/args only, so a replacement config carries no limits of its own.
             var limits = request.ResourceLimits.HasValue
@@ -34,10 +43,10 @@ public sealed class UpdateSidecarHandler(
                         NanoCpus = existing.NanoCpus
                     }
                     : null;
-            (limits ?? new ServiceResourceLimits()).ApplyTo(incomingConfig);
+            (limits ?? new ServiceResourceLimits()).ApplyTo(incomingDocker);
         }
 
-        Optional<ServiceSourceConfig?> sourceConfig = request.DockerConfig.HasValue
+        Optional<ServiceSourceConfig?> sourceConfig = hasConfigUpdate
             ? (Optional<ServiceSourceConfig?>)incomingConfig
             : default;
 

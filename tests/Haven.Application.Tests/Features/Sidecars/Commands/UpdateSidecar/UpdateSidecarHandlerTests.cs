@@ -125,6 +125,28 @@ public sealed class UpdateSidecarHandlerTests
     }
 
     [Test]
+    public async Task Handle_ShouldApplyResourceLimits_WhenDockerConfigOmitted()
+    {
+        var sidecar = Sidecar.Create("traefik", SidecarKind.Traefik,
+            sourceConfig: new DockerConfig { Image = "traefik:v3.0", MemoryLimit = 256L * 1024 * 1024 });
+        sidecar.Enable();
+        var command = new UpdateSidecarCommand
+        {
+            SidecarId = sidecar.Id,
+            ResourceLimits = new ServiceResourceLimits { MemoryLimit = 512L * 1024 * 1024 }
+        };
+        _sidecarRepository.GetByIdAsync(command.SidecarId, Arg.Any<CancellationToken>()).Returns(sidecar);
+
+        var result = await _sut.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        var config = (DockerConfig)sidecar.SourceConfig!;
+        config.Image.ShouldBe("traefik:v3.0");
+        config.MemoryLimit.ShouldBe(512L * 1024 * 1024);
+        _deploymentJobEnqueuer.Received(1).EnqueueSidecarDeployment(sidecar.Id);
+    }
+
+    [Test]
     public async Task Handle_ShouldClearResourceLimits_WhenAllZeroLimitsProvided()
     {
         var sidecar = Sidecar.Create("traefik", SidecarKind.Traefik,
