@@ -66,8 +66,9 @@ public sealed class GetDashboardOverviewHandlerTests
         var degradedProject = Project.Create("degraded-project");
         var degradedEnv = degradedProject.AddEnvironment("prod");
         var runningService = degradedEnv.AddService("web", ServiceType.DockerImage, ExposureMode.Internal);
-        degradedEnv.AddService("queue", ServiceType.DockerImage, ExposureMode.Internal);
+        var crashedService = degradedEnv.AddService("queue", ServiceType.DockerImage, ExposureMode.Internal);
         SetRunning(runningService.Id);
+        SetRuntimeState(crashedService.Id, ServiceRuntimeState.Crashed);
 
         _projectRepository.GetAsync(Arg.Any<CancellationToken>())
             .Returns(ToAsyncEnumerable(healthyProject, stoppedProject, degradedProject));
