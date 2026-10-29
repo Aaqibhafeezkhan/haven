@@ -14,6 +14,7 @@ public sealed class ServiceStateReader(
 
         var entries = await registryRepository.GetByOwnerIdsAsync(ids, ct);
         var active = await deploymentRepository.GetActiveStatusesAsync(ids, ct);
-        return new ServiceStateSnapshot(entries, active);
+        var failed = await deploymentRepository.GetServicesWithLatestFailedDeploymentAsync(ids, ct);
+        return new ServiceStateSnapshot(entries, active, failed);
     }
 }
