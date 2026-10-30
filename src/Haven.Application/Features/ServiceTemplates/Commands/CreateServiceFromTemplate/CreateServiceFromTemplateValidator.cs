@@ -2,6 +2,7 @@ using System.Net;
 
 using FluentValidation;
 
+using Haven.Application.Features.Services;
 using Haven.Domain.Enums;
 using Haven.Domain.ValueObjects;
 
@@ -45,6 +46,13 @@ public sealed class CreateServiceFromTemplateValidator : AbstractValidator<Creat
         RuleFor(x => x.ExposureMode)
             .IsInEnum()
             .WithMessage("Exposure mode is invalid.");
+
+        When(x => x.ResourceLimits is not null, () =>
+        {
+            RuleFor(x => x.ResourceLimits!.ToConfig())
+                .SetValidator(new ResourceLimitsValidator())
+                .OverridePropertyName(nameof(CreateServiceFromTemplateCommand.ResourceLimits));
+        });
 
         When(x => x.ExposureMode == ExposureMode.Custom, () =>
         {

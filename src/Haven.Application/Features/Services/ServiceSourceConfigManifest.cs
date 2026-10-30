@@ -11,6 +11,10 @@ public sealed class ServiceSourceConfigManifest
     public List<string> Ports { get; set; } = [];
     public List<string> CommandArgs { get; set; } = [];
     public RestartPolicy RestartPolicy { get; set; } = RestartPolicy.UnlessStopped;
+    public long MemoryLimit { get; set; } = 0;
+    public long MemorySwap { get; set; } = 0;
+    public long MemoryReservation { get; set; } = 0;
+    public long NanoCpus { get; set; } = 0;
 
     // DockerConfig fields
     public string? Image { get; set; }

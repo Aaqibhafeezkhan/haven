@@ -102,6 +102,9 @@ public sealed class UpdateServiceValidator : AbstractValidator<UpdateServiceComm
                 .WithMessage("Command argument cannot be empty.");
         });
 
+        When(x => x.ResourceLimits.HasValue && x.ResourceLimits.Value is not null, () =>
+            RuleFor(x => x.ResourceLimits.Value!.ToConfig()).SetValidator(new ResourceLimitsValidator()));
+
         When(x => x.DockerfileConfig.HasValue && x.DockerfileConfig.Value is not null, () =>
         {
             RuleForEach(x => x.DockerfileConfig.Value!.CommandArgs)

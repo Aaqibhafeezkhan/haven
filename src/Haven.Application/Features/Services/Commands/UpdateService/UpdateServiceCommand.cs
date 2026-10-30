@@ -19,6 +19,13 @@ public sealed class UpdateServiceCommand : ICommand<Guid>, IMutatesManifestState
     public Optional<DockerConfig?> DockerConfig { get; set; }
     public Optional<DockerfileConfig?> DockerfileConfig { get; set; }
 
+    /// <summary>
+    /// Memory and CPU limits for the service. The limit fields on <see cref="DockerConfig"/> and
+    /// <see cref="DockerfileConfig"/> are ignored: when this is omitted the service keeps its current limits,
+    /// so editing the image or ports does not clear them. Send an all-zero value to remove the limits.
+    /// </summary>
+    public Optional<ServiceResourceLimits?> ResourceLimits { get; set; }
+
     public Optional<ServiceSourceConfig?> ResolveSourceConfig()
     {
         if (!Type.HasValue && !DockerConfig.HasValue && !DockerfileConfig.HasValue)

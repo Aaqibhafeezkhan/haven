@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { ResourceLimits } from '@/lib/resourceLimits';
 import { DeploymentDto } from './types/deployment.types';
 import { CreateServiceInput } from './types/service.types';
 import { ServiceDto } from './types/service.types';
@@ -22,6 +23,8 @@ export interface UpdateServiceInput {
   exposureMode?: ExposureMode;
   dockerConfig?: DockerConfig;
   dockerfileConfig?: DockerfileConfig;
+  /** Omit to keep the service's current limits; send all zeros to remove them. */
+  resourceLimits?: ResourceLimits;
 }
 
 export interface ServiceLocationDto {

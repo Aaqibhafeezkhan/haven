@@ -17,6 +17,13 @@ import { useNetworks } from '@/hooks/useNetworks';
 import { useServiceTemplate } from '@/hooks/useServiceTemplates';
 import { useSetBreadcrumbs } from '@/hooks/useSetBreadcrumbs';
 import { mergeEnvFiles } from '@/lib/envFile';
+import {
+  EMPTY_RESOURCE_LIMITS_FORM,
+  hasResourceLimitErrors,
+  parseResourceLimits,
+  type ResourceLimitsForm,
+  toResourceLimitsForm,
+} from '@/lib/resourceLimits';
 import styles from '@/styles/components/services/CreateServicePage.module.css';
 
 import { environmentsApi } from '../../api/environments';
@@ -44,6 +51,7 @@ import { ExposureModePicker } from './ExposureModePicker';
 import type { PortMapping } from './PortMappingsEditor';
 import { PortMappingsEditor } from './PortMappingsEditor';
 import { RepositoryBindingFields } from './RepositoryBindingFields';
+import { ResourceLimitsFields } from './ResourceLimitsFields';
 import { ServiceTypePicker } from './ServiceTypePicker';
 import { TemplateInputField } from './TemplateInputField';
 import { TemplatePickerModal } from './TemplatePickerModal';
@@ -93,6 +101,26 @@ export function CreateServicePage() {
   const [portMappings, setPortMappings] = useState<PortMapping[]>([]);
   const [restartPolicy, setRestartPolicy] = useState<RestartPolicy>('UnlessStopped');
   const [commandArgs, setCommandArgs] = useState<string[]>([]);
+  // Template and custom services keep separate limit forms so switching between them never leaks
+  // one's values into the other.
+  const [customLimitsForm, setCustomLimitsForm] = useState<ResourceLimitsForm>(
+    EMPTY_RESOURCE_LIMITS_FORM
+  );
+  const [templateLimitsForm, setTemplateLimitsForm] = useState<ResourceLimitsForm>(
+    EMPTY_RESOURCE_LIMITS_FORM
+  );
+  const resourceLimitsForm = sourceMode === 'template' ? templateLimitsForm : customLimitsForm;
+  const setResourceLimitsForm =
+    sourceMode === 'template' ? setTemplateLimitsForm : setCustomLimitsForm;
+  const { limits: resourceLimits, errors: resourceLimitErrors } =
+    parseResourceLimits(resourceLimitsForm);
+
+  // Prefill the template limits with the template's own defaults whenever a different template is loaded.
+  const [syncedTemplateId, setSyncedTemplateId] = useState<string | undefined>();
+  if (selectedTemplate?.id !== syncedTemplateId) {
+    setSyncedTemplateId(selectedTemplate?.id);
+    setTemplateLimitsForm(toResourceLimitsForm(selectedTemplate?.resourceLimits ?? undefined));
+  }
 
   // Dockerfile fields
   const [dockerfileSource, setDockerfileSource] = useState<DockerfileSource>('Git');
@@ -186,11 +214,14 @@ export function CreateServicePage() {
 
     if (sourceMode === 'template') {
       if (!selectedTemplate) return false;
+      if (hasResourceLimitErrors(resourceLimitErrors)) return false;
       return selectedTemplate.inputs.every(field => {
         if (field.defaultValue) return true;
         return !!templateInputValues[field.key]?.trim();
       });
     }
+
+    if (hasResourceLimitErrors(resourceLimitErrors)) return false;
 
     if (selectedType === 'DockerImage') {
       return !!dockerImage.trim();
@@ -450,6 +481,7 @@ export function CreateServicePage() {
           inputValues: templateInputValues,
           exposureMode,
           ports: buildPorts(),
+          resourceLimits,
         }),
       async serviceId => {
         // The template already persisted its own resolved variables (and secrets); fetch
@@ -508,6 +540,7 @@ export function CreateServicePage() {
           ports,
           commandArgs: filteredCommandArgs,
           restartPolicy,
+          ...resourceLimits,
         };
       } else {
         dockerfileConfig = {
@@ -517,6 +550,7 @@ export function CreateServicePage() {
           ports,
           commandArgs: filteredCommandArgs,
           restartPolicy,
+          ...resourceLimits,
         };
       }
     }
@@ -533,6 +567,7 @@ export function CreateServicePage() {
               ports,
               commandArgs: filteredCommandArgs,
               restartPolicy,
+              ...resourceLimits,
             }
           : undefined,
       dockerfileConfig,
@@ -845,6 +880,14 @@ export function CreateServicePage() {
                               ))}
                             </div>
                           )}
+                          {selectedTemplate && (
+                            <ResourceLimitsFields
+                              value={resourceLimitsForm}
+                              onChange={setResourceLimitsForm}
+                              errors={resourceLimitErrors}
+                              disabled={isLoading}
+                            />
+                          )}
                           {!selectedTemplateSummary && (
                             <p className={styles.cardDescription}>
                               Choose a template above to configure its settings.
@@ -893,6 +936,16 @@ export function CreateServicePage() {
                           <CommandArgsEditor
                             commandArgs={commandArgs}
                             onChange={setCommandArgs}
+                            disabled={isLoading}
+                          />
+                        )}
+
+                      {sourceMode === 'custom' &&
+                        (selectedType === 'DockerImage' || selectedType === 'Dockerfile') && (
+                          <ResourceLimitsFields
+                            value={resourceLimitsForm}
+                            onChange={setResourceLimitsForm}
+                            errors={resourceLimitErrors}
                             disabled={isLoading}
                           />
                         )}

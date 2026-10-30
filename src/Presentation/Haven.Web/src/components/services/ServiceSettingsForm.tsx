@@ -10,6 +10,12 @@ import { DockerConfig } from '@/api/types';
 import { ServiceDashboardDto } from '@/api/types';
 import { RestartPolicy } from '@/api/types';
 import { Row, Stack } from '@/components/layout';
+import {
+  hasResourceLimitErrors,
+  parseResourceLimits,
+  type ResourceLimitsForm,
+  toResourceLimitsForm,
+} from '@/lib/resourceLimits';
 import styles from '@/styles/components/services/ServiceSettingsForm.module.css';
 
 import { servicesApi } from '../../api/services';
@@ -27,6 +33,7 @@ import { DockerImageConfigFields } from './DockerImageConfigFields';
 import { ExposureModePicker } from './ExposureModePicker';
 import type { PortMapping } from './PortMappingsEditor';
 import { PortMappingsEditor } from './PortMappingsEditor';
+import { ResourceLimitsFields } from './ResourceLimitsFields';
 
 interface ServiceSettingsFormProps {
   projectId: string;
@@ -90,12 +97,23 @@ export function ServiceSettingsForm({
     return cfg?.commandArgs ?? [];
   };
 
+  const getResourceLimitsDefaults = (): ResourceLimitsForm => {
+    const cfg = service.sourceConfig as DockerConfig | DockerfileConfig | undefined;
+    return toResourceLimitsForm(cfg);
+  };
+
   const [dockerImage, setDockerImage] = useState(getDockerImageDefaults().image);
   const [restartPolicy, setRestartPolicy] = useState<RestartPolicy>(
     getDockerImageDefaults().restartPolicy
   );
   const [portMappings, setPortMappings] = useState<PortMapping[]>(getPortMappingDefaults());
   const [commandArgs, setCommandArgs] = useState<string[]>(getCommandArgsDefaults());
+  const [resourceLimitsForm, setResourceLimitsForm] = useState<ResourceLimitsForm>(
+    getResourceLimitsDefaults()
+  );
+  const { limits: resourceLimits, errors: resourceLimitErrors } =
+    parseResourceLimits(resourceLimitsForm);
+  const hasLimitErrors = hasResourceLimitErrors(resourceLimitErrors);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
 
@@ -150,6 +168,7 @@ export function ServiceSettingsForm({
     setRestartPolicy(defaults.restartPolicy);
     setPortMappings(getPortMappingDefaults());
     setCommandArgs(getCommandArgsDefaults());
+    setResourceLimitsForm(getResourceLimitsDefaults());
     if (service.type === 'Dockerfile') {
       const cfg = service.sourceConfig as DockerfileConfig | undefined;
       setDockerfileForm({
@@ -202,11 +221,12 @@ export function ServiceSettingsForm({
       ports: toPortStrings(portMappings),
       commandArgs: commandArgs.filter(a => a.trim()),
       restartPolicy,
+      ...resourceLimits,
     };
     try {
       setIsSavingConfig(true);
       setConfigError(null);
-      await servicesApi.update(projectId, environmentId, serviceId, { dockerConfig: config });
+      await servicesApi.update(projectId, environmentId, serviceId, { dockerConfig: config, resourceLimits });
       onSuccess?.();
     } catch (err) {
       setConfigError(err instanceof Error ? err.message : t('projects:error'));
@@ -234,6 +254,7 @@ export function ServiceSettingsForm({
             ports,
             commandArgs: filteredCommandArgs,
             restartPolicy: dockerfileForm.restartPolicy,
+            ...resourceLimits,
           }
         : {
             source: 'Raw',
@@ -242,11 +263,12 @@ export function ServiceSettingsForm({
             ports,
             commandArgs: filteredCommandArgs,
             restartPolicy: dockerfileForm.restartPolicy,
+            ...resourceLimits,
           };
     try {
       setIsSavingConfig(true);
       setConfigError(null);
-      await servicesApi.update(projectId, environmentId, serviceId, { dockerfileConfig: config });
+      await servicesApi.update(projectId, environmentId, serviceId, { dockerfileConfig: config, resourceLimits });
       onSuccess?.();
     } catch (err) {
       setConfigError(err instanceof Error ? err.message : t('projects:error'));
@@ -362,13 +384,19 @@ export function ServiceSettingsForm({
                   onChange={setCommandArgs}
                   disabled={isConfigLocked}
                 />
+                <ResourceLimitsFields
+                  value={resourceLimitsForm}
+                  onChange={setResourceLimitsForm}
+                  errors={resourceLimitErrors}
+                  disabled={isConfigLocked}
+                />
                 {!isRepositoryManaged && (
                   <Row justify="flex-end">
                     <Button
                       variant="primary"
                       onClick={handleSaveDockerImage}
                       isLoading={isSavingConfig}
-                      disabled={isConfigLocked}
+                      disabled={isConfigLocked || hasLimitErrors}
                     >
                       {t('projects:save')}
                     </Button>
@@ -414,13 +442,19 @@ export function ServiceSettingsForm({
                   onChange={setCommandArgs}
                   disabled={isConfigLocked}
                 />
+                <ResourceLimitsFields
+                  value={resourceLimitsForm}
+                  onChange={setResourceLimitsForm}
+                  errors={resourceLimitErrors}
+                  disabled={isConfigLocked}
+                />
                 {!isRepositoryManaged && (
                   <Row justify="flex-end">
                     <Button
                       variant="primary"
                       onClick={handleSaveDockerfile}
                       isLoading={isSavingConfig}
-                      disabled={isConfigLocked}
+                      disabled={isConfigLocked || hasLimitErrors}
                     >
                       {t('projects:save')}
                     </Button>

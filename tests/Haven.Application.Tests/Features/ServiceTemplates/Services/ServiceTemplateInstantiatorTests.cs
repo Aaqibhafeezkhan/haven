@@ -86,6 +86,41 @@ public class ServiceTemplateInstantiatorTests
     }
 
     [Test]
+    public void Configure_ShouldApplyTemplateResourceLimits()
+    {
+        var template = new ServiceTemplate
+        {
+            Container = new ServiceTemplateContainer
+            {
+                DockerImage = "my-image",
+                Resources = new ServiceTemplateResources { MemoryLimitMib = 256, MemorySwapMib = 512, MemoryReservationMib = 128, Cpus = 0.5 }
+            }
+        };
+
+        var service = _sut.ConfigureFromTemplate(CreateServiceBase(), template, new Dictionary<string, string>());
+
+        var dockerConfig = (DockerConfig)service.SourceConfig!;
+        dockerConfig.MemoryLimit.ShouldBe(256L * 1024 * 1024);
+        dockerConfig.MemorySwap.ShouldBe(512L * 1024 * 1024);
+        dockerConfig.MemoryReservation.ShouldBe(128L * 1024 * 1024);
+        dockerConfig.NanoCpus.ShouldBe(500_000_000);
+    }
+
+    [Test]
+    public void Configure_ShouldLeaveLimitsUnset_WhenTemplateHasNoResources()
+    {
+        var template = new ServiceTemplate { Container = new ServiceTemplateContainer { DockerImage = "my-image" } };
+
+        var service = _sut.ConfigureFromTemplate(CreateServiceBase(), template, new Dictionary<string, string>());
+
+        var dockerConfig = (DockerConfig)service.SourceConfig!;
+        dockerConfig.MemoryLimit.ShouldBe(0);
+        dockerConfig.MemorySwap.ShouldBe(0);
+        dockerConfig.MemoryReservation.ShouldBe(0);
+        dockerConfig.NanoCpus.ShouldBe(0);
+    }
+
+    [Test]
     public void Configure_ShouldResolveCommandArgs()
     {
         var serviceBase = CreateServiceBase();

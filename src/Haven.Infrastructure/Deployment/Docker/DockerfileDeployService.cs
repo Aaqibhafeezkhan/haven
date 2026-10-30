@@ -203,7 +203,7 @@ public class DockerfileDeployService : IDeployService
             project.Name);
 
         var (param, environmentNetworkName) = await _containerRuntime.BuildServiceContainerParametersAsync(
-            service, imageTag, dockerfileConfig.Ports, dockerfileConfig.CommandArgs, dockerfileConfig.RestartPolicy,
+            service, imageTag, dockerfileConfig, dockerfileConfig.CommandArgs,
             ensureNamedVolumesReady: false, _networkingService, cancellationToken);
 
         Result<string> createResult;
@@ -316,7 +316,7 @@ public class DockerfileDeployService : IDeployService
             project.Name);
 
         var (param, environmentNetworkName) = await _containerRuntime.BuildServiceContainerParametersAsync(
-            service, imageTag, dockerfileConfig.Ports, dockerfileConfig.CommandArgs, dockerfileConfig.RestartPolicy,
+            service, imageTag, dockerfileConfig, dockerfileConfig.CommandArgs,
             ensureNamedVolumesReady: false, _networkingService, cancellationToken);
 
         Result<string> createResult;

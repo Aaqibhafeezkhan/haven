@@ -7,4 +7,5 @@ public class ServiceTemplateContainer
     public List<ServiceTemplateContainerVolume> Volumes { get; set; } = new();
     public List<string> CommandArgs { get; set; } = new();
     public int? Port { get; set; }
+    public ServiceTemplateResources? Resources { get; set; }
 }

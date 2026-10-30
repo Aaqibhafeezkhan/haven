@@ -37,6 +37,34 @@ public class ServiceTemplateSerializerTests
     }
 
     [Test]
+    public async Task Deserialize_ShouldDeserializeContainerResources()
+    {
+        var yaml = ServiceTemplateYamlExamples.CompletePostgres.Replace(
+            "container:\n",
+            "container:\n    resources:\n        memoryLimitMib: 512\n        memorySwapMib: 1024\n        memoryReservationMib: 256\n        cpus: 1.5\n");
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(yaml));
+
+        var template = await _sut.DeserializeAsync(stream);
+
+        var resources = template.Container.Resources;
+        resources.ShouldNotBeNull();
+        resources.MemoryLimitMib.ShouldBe(512);
+        resources.MemorySwapMib.ShouldBe(1024);
+        resources.MemoryReservationMib.ShouldBe(256);
+        resources.Cpus.ShouldBe(1.5);
+    }
+
+    [Test]
+    public async Task Deserialize_ShouldLeaveResourcesNull_WhenNotDeclared()
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(ServiceTemplateYamlExamples.CompletePostgres));
+
+        var template = await _sut.DeserializeAsync(stream);
+
+        template.Container.Resources.ShouldBeNull();
+    }
+
+    [Test]
     public async Task Deserialize_ShouldDeserializeTemplateInputs()
     {
         var yaml = ServiceTemplateYamlExamples.CompletePostgres;

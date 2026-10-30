@@ -212,7 +212,7 @@ public class DockerSidecarDeployService : IDeployService
         }
 
         var param = _containerRuntime.BuildContainerParameters(name, labels, dockerConfig.Image, envs: null,
-            exposureMode, dockerConfig.Ports, mounts, dockerConfig.RestartPolicy, effectiveCommandArgs);
+            exposureMode, dockerConfig, mounts, effectiveCommandArgs);
 
         var systemNetworkDockerId = await ResolveSystemNetworkDockerIdAsync(cancellationToken);
         if (systemNetworkDockerId is not null)

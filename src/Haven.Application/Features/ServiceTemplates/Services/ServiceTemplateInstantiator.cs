@@ -25,13 +25,15 @@ public sealed class ServiceTemplateInstantiator
     public Service ConfigureFromTemplate(Service serviceBase, ServiceTemplate template, Dictionary<string, string> inputValues)
     {
         serviceBase.Type = ServiceType.DockerImage;
-        serviceBase.SourceConfig = new DockerConfig()
+        var dockerConfig = new DockerConfig()
         {
             Image = ResolveVariables(template.Container.DockerImage, inputValues),
             CommandArgs = template.Container.CommandArgs
                 .Select(arg => ResolveVariables(arg, inputValues))
                 .ToList()
         };
+        template.Container.Resources?.ToResourceLimits().ApplyTo(dockerConfig);
+        serviceBase.SourceConfig = dockerConfig;
 
         serviceBase.Volumes =
         [

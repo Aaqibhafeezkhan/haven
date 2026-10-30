@@ -2,6 +2,7 @@ using Haven.Application.Common;
 using Haven.Application.Common.Interfaces.Deployment;
 using Haven.Application.Common.Interfaces.Repositories;
 using Haven.Application.Common.Messaging;
+using Haven.Application.Features.Services;
 using Haven.Domain;
 using Haven.Domain.Aggregates;
 using Haven.Domain.ValueObjects;
@@ -18,8 +19,35 @@ public sealed class UpdateSidecarHandler(
         if (sidecar is null)
             return Error.NotFoundFor(nameof(Sidecar), request.SidecarId);
 
-        Optional<ServiceSourceConfig?> sourceConfig = request.DockerConfig.HasValue
-            ? (Optional<ServiceSourceConfig?>)request.DockerConfig.Value
+        ServiceSourceConfig? incomingConfig = request.DockerConfig.HasValue ? request.DockerConfig.Value : null;
+        var hasConfigUpdate = request.DockerConfig.HasValue;
+
+        // Limits sent on their own are applied to a copy of the stored config (the getter deserializes a fresh one).
+        if (!hasConfigUpdate && request.ResourceLimits.HasValue && sidecar.SourceConfig is DockerBasedSourceConfig stored)
+        {
+            (request.ResourceLimits.Value ?? new ServiceResourceLimits()).ApplyTo(stored);
+            incomingConfig = stored;
+            hasConfigUpdate = true;
+        }
+        else if (incomingConfig is DockerBasedSourceConfig incomingDocker)
+        {
+            // The sidecar UI edits image/ports/args only, so a replacement config carries no limits of its own.
+            var limits = request.ResourceLimits.HasValue
+                ? request.ResourceLimits.Value
+                : sidecar.SourceConfig is DockerBasedSourceConfig existing
+                    ? new ServiceResourceLimits
+                    {
+                        MemoryLimit = existing.MemoryLimit,
+                        MemorySwap = existing.MemorySwap,
+                        MemoryReservation = existing.MemoryReservation,
+                        NanoCpus = existing.NanoCpus
+                    }
+                    : null;
+            (limits ?? new ServiceResourceLimits()).ApplyTo(incomingDocker);
+        }
+
+        Optional<ServiceSourceConfig?> sourceConfig = hasConfigUpdate
+            ? (Optional<ServiceSourceConfig?>)incomingConfig
             : default;
 
         var hasChanges = sidecar.Update(default, default, sourceConfig);

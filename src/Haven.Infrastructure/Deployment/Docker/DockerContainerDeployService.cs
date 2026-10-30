@@ -105,7 +105,7 @@ public class DockerContainerDeployService : IDeployService
             project.Name);
 
         var (param, environmentNetworkName) = await _containerRuntime.BuildServiceContainerParametersAsync(
-            service, dockerConfig.Image, dockerConfig.Ports, dockerConfig.CommandArgs, dockerConfig.RestartPolicy,
+            service, dockerConfig.Image, dockerConfig, dockerConfig.CommandArgs,
             ensureNamedVolumesReady: true, _networkingService, cancellationToken);
 
         await _logService.AppendLogAsync(depId, "Creating and starting container...", cancellationToken);
@@ -184,7 +184,7 @@ public class DockerContainerDeployService : IDeployService
             project.Name);
 
         var (param, environmentNetworkName) = await _containerRuntime.BuildServiceContainerParametersAsync(
-            service, dockerConfig.Image, dockerConfig.Ports, dockerConfig.CommandArgs, dockerConfig.RestartPolicy,
+            service, dockerConfig.Image, dockerConfig, dockerConfig.CommandArgs,
             ensureNamedVolumesReady: true, _networkingService, cancellationToken);
 
         Result<string> createResult;
